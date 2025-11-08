@@ -63,15 +63,40 @@ export function LabelPreview({ item, labelType, onLabelTypeChange }: LabelPrevie
     }
 
     try {
+      // Find the actual label element (should have label-print-area class)
+      const labelElement = labelRef.current.querySelector('.label-print-area');
+      if (!labelElement) {
+        toast.error('Label element not found');
+        return null;
+      }
+
       // Convert mm to pixels at 300 DPI (for high quality)
       // 100mm = 1181px, 50mm = 591px at 300 DPI
-      const canvas = await html2canvas(labelRef.current, {
+      const canvas = await html2canvas(labelElement as HTMLElement, {
         scale: 3, // Higher scale for better quality
         backgroundColor: '#ffffff',
         width: 378, // 100mm at 96 DPI
         height: 189, // 50mm at 96 DPI
         useCORS: true,
+        allowTaint: true,
         logging: false,
+        onclone: (clonedDoc) => {
+          // Remove any inherited styles that might contain oklch colors
+          const clonedElement = clonedDoc.querySelector('.label-print-area') as HTMLElement;
+          if (clonedElement) {
+            // Force simple colors on the cloned element
+            clonedElement.style.backgroundColor = 'white';
+            clonedElement.style.color = 'black';
+
+            // Remove any style elements that might have oklch colors
+            const styleElements = clonedDoc.querySelectorAll('style');
+            styleElements.forEach((style) => {
+              if (style.textContent?.includes('oklch')) {
+                style.remove();
+              }
+            });
+          }
+        },
       });
 
       return canvas;
