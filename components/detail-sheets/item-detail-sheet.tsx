@@ -116,7 +116,7 @@ export function ItemDetailSheet({
         parts: item.parts || '',
         copies: item.copies,
         status: item.status,
-        highlight_color: (item.highlight_color as string) || '',
+        highlight_color: (item.highlight_color || '') as '' | 'green' | 'blue' | 'yellow' | 'red',
         internal_note: item.internal_note || '',
         added_on: item.added_on.split('T')[0],
       });

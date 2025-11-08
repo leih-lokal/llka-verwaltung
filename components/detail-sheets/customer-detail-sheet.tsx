@@ -113,7 +113,7 @@ export function CustomerDetailSheet({
         heard: customer.heard || '',
         newsletter: customer.newsletter,
         remark: customer.remark || '',
-        highlight_color: (customer.highlight_color as string) || '',
+        highlight_color: (customer.highlight_color || '') as '' | 'green' | 'blue' | 'yellow' | 'red',
       });
       setIsEditMode(false);
     } else if (isNewCustomer) {
