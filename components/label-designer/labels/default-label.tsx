@@ -1,6 +1,6 @@
 /**
  * Default label design
- * 50mm x 100mm label with large QR code
+ * 100mm x 50mm label with large QR code
  */
 
 'use client';
@@ -25,8 +25,8 @@ export function DefaultLabel({ item }: DefaultLabelProps) {
     <div
       className="label-print-area"
       style={{
-        width: '50mm',
-        height: '100mm',
+        width: '100mm',
+        height: '50mm',
         backgroundColor: 'white',
         position: 'relative',
         overflow: 'hidden',
@@ -37,21 +37,21 @@ export function DefaultLabel({ item }: DefaultLabelProps) {
         width: '100%',
         height: '100%',
         display: 'flex',
-        flexDirection: 'column',
+        flexDirection: 'row',
         fontFamily: "'Univers LT Std', sans-serif",
         color: 'black',
       }}>
-        {/* QR Code Section - Left Side */}
+        {/* Left Section - QR Code */}
         <div style={{
           position: 'absolute',
           left: '4mm',
           top: '4mm',
-          width: '18mm',
-          height: '18mm',
+          width: '20mm',
+          height: '20mm',
         }}>
           <QRCodeSVG
             value={paddedId}
-            size={68} // ~18mm at 96 DPI
+            size={75}
             level="M"
             includeMargin={false}
             style={{
@@ -61,30 +61,29 @@ export function DefaultLabel({ item }: DefaultLabelProps) {
           />
         </div>
 
-        {/* Item Name - Bottom Left */}
+        {/* Item Name - Below QR */}
         <div style={{
           position: 'absolute',
           left: '4mm',
           bottom: '4mm',
-          width: '18mm',
+          width: '20mm',
           fontFamily: "'Univers LT Std', sans-serif",
           fontSize: '6pt',
           fontWeight: 400,
           lineHeight: '1.1',
           wordWrap: 'break-word',
           overflow: 'hidden',
-          maxHeight: '12mm',
+          maxHeight: '18mm',
         }}>
           {item.name}
         </div>
 
-        {/* Vertical Address Text - Center */}
+        {/* Horizontal Address Text - Center */}
         <div style={{
           position: 'absolute',
           left: '50%',
           top: '50%',
-          transform: 'translate(-50%, -50%) rotate(-90deg)',
-          transformOrigin: 'center center',
+          transform: 'translate(-50%, -50%)',
           whiteSpace: 'nowrap',
           fontFamily: "'Univers LT Std Condensed', sans-serif",
           fontSize: '7pt',
@@ -98,7 +97,7 @@ export function DefaultLabel({ item }: DefaultLabelProps) {
         {/* ID First Part - Top Right */}
         <div style={{
           position: 'absolute',
-          right: '4mm',
+          right: '26mm',
           top: '4mm',
           width: '20mm',
           height: '18mm',
@@ -122,7 +121,7 @@ export function DefaultLabel({ item }: DefaultLabelProps) {
         {/* ID Second Part - Bottom Right */}
         <div style={{
           position: 'absolute',
-          right: '4mm',
+          right: '26mm',
           bottom: '4mm',
           width: '20mm',
           height: '18mm',
@@ -141,6 +140,24 @@ export function DefaultLabel({ item }: DefaultLabelProps) {
           }}>
             {idSecondPart}
           </span>
+        </div>
+
+        {/* Logo - Far Right */}
+        <div style={{
+          position: 'absolute',
+          right: '4mm',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          width: '18mm',
+          height: '18mm',
+        }}>
+          <Image
+            src="/smile.svg"
+            alt="LeihLokal"
+            fill
+            style={{ objectFit: 'contain' }}
+            unoptimized
+          />
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 /**
  * Compact label design
- * 50mm x 100mm label with smaller QR code for more text space
+ * 100mm x 50mm label with smaller QR code for more text space
  */
 
 'use client';
@@ -20,8 +20,8 @@ export function CompactLabel({ item }: CompactLabelProps) {
     <div
       className="label-print-area"
       style={{
-        width: '50mm',
-        height: '100mm',
+        width: '100mm',
+        height: '50mm',
         backgroundColor: 'white',
         position: 'relative',
         overflow: 'hidden',
@@ -31,19 +31,18 @@ export function CompactLabel({ item }: CompactLabelProps) {
         width: '100%',
         height: '100%',
         display: 'flex',
-        flexDirection: 'column',
+        flexDirection: 'row',
         padding: '4mm',
         fontFamily: "'Univers LT Std', sans-serif",
         color: 'black',
         gap: '3mm',
       }}>
-        {/* Header with Logo and ID */}
+        {/* Left Section - Logo and QR */}
         <div style={{
           display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          borderBottom: '2px solid black',
-          paddingBottom: '2mm',
+          flexDirection: 'column',
+          gap: '2mm',
+          flexShrink: 0,
         }}>
           <div style={{
             position: 'relative',
@@ -59,43 +58,12 @@ export function CompactLabel({ item }: CompactLabelProps) {
             />
           </div>
           <div style={{
-            fontFamily: "'Univers LT Std', sans-serif",
-            fontSize: '32pt',
-            fontWeight: 900,
-            lineHeight: '1',
-          }}>
-            {paddedId}
-          </div>
-        </div>
-
-        {/* Item Name */}
-        <div style={{
-          fontFamily: "'Univers LT Std', sans-serif",
-          fontSize: '12pt',
-          fontWeight: 700,
-          lineHeight: '1.2',
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-        }}>
-          {item.name}
-        </div>
-
-        {/* QR Code and Address */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-end',
-          gap: '2mm',
-        }}>
-          <div style={{
-            width: '12mm',
-            height: '12mm',
-            flexShrink: 0,
+            width: '15mm',
+            height: '15mm',
           }}>
             <QRCodeSVG
               value={paddedId}
-              size={45}
+              size={57}
               level="M"
               includeMargin={false}
               style={{
@@ -104,16 +72,49 @@ export function CompactLabel({ item }: CompactLabelProps) {
               }}
             />
           </div>
+        </div>
+
+        {/* Center Section - Item Name and Address */}
+        <div style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+        }}>
+          <div style={{
+            fontFamily: "'Univers LT Std', sans-serif",
+            fontSize: '14pt',
+            fontWeight: 700,
+            lineHeight: '1.2',
+          }}>
+            {item.name}
+          </div>
           <div style={{
             fontFamily: "'Univers LT Std Condensed', sans-serif",
-            fontSize: '6pt',
+            fontSize: '8pt',
             fontWeight: 400,
-            lineHeight: '1.2',
-            textAlign: 'right',
+            lineHeight: '1.3',
           }}>
             <div style={{ fontWeight: 700 }}>Leih.Lokal</div>
-            <div>Gerwigstr. 41</div>
-            <div>76131 Karlsruhe</div>
+            <div>Gerwigstr. 41, 76131 Karlsruhe</div>
+          </div>
+        </div>
+
+        {/* Right Section - ID */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderLeft: '2px solid black',
+          paddingLeft: '3mm',
+        }}>
+          <div style={{
+            fontFamily: "'Univers LT Std', sans-serif",
+            fontSize: '52pt',
+            fontWeight: 900,
+            lineHeight: '1',
+          }}>
+            {paddedId}
           </div>
         </div>
       </div>

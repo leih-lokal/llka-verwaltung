@@ -1,7 +1,7 @@
 /**
  * Cord label design
- * 50mm x 100mm label optimized for wrapping around cables/cords
- * Narrow horizontal layout
+ * 100mm x 50mm label optimized for wrapping around cables/cords
+ * Vertical sections layout
  */
 
 'use client';
@@ -20,8 +20,8 @@ export function CordLabel({ item }: CordLabelProps) {
     <div
       className="label-print-area"
       style={{
-        width: '50mm',
-        height: '100mm',
+        width: '100mm',
+        height: '50mm',
         backgroundColor: 'white',
         position: 'relative',
         overflow: 'hidden',
@@ -31,34 +31,37 @@ export function CordLabel({ item }: CordLabelProps) {
         width: '100%',
         height: '100%',
         display: 'flex',
-        flexDirection: 'column',
+        flexDirection: 'row',
         fontFamily: "'Univers LT Std', sans-serif",
         color: 'black',
       }}>
-        {/* Top Section - ID and QR Code */}
+        {/* Left Section - ID and QR Code */}
         <div style={{
-          height: '25mm',
-          borderBottom: '2px solid black',
+          width: '30mm',
+          height: '100%',
+          borderRight: '2px solid black',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '2mm 4mm',
+          justifyContent: 'center',
+          padding: '2mm',
+          gap: '2mm',
         }}>
           <div style={{
             fontFamily: "'Univers LT Std', sans-serif",
-            fontSize: '42pt',
+            fontSize: '32pt',
             fontWeight: 900,
             lineHeight: '1',
           }}>
             {paddedId}
           </div>
           <div style={{
-            width: '20mm',
-            height: '20mm',
+            width: '22mm',
+            height: '22mm',
           }}>
             <QRCodeSVG
               value={paddedId}
-              size={75}
+              size={83}
               level="M"
               includeMargin={false}
               style={{
@@ -76,11 +79,11 @@ export function CordLabel({ item }: CordLabelProps) {
           alignItems: 'center',
           justifyContent: 'center',
           padding: '4mm',
-          borderBottom: '2px solid black',
+          borderRight: '2px solid black',
         }}>
           <div style={{
             fontFamily: "'Univers LT Std', sans-serif",
-            fontSize: '14pt',
+            fontSize: '16pt',
             fontWeight: 700,
             lineHeight: '1.2',
             textAlign: 'center',
@@ -89,14 +92,15 @@ export function CordLabel({ item }: CordLabelProps) {
           </div>
         </div>
 
-        {/* Bottom Section - Address */}
+        {/* Right Section - Address */}
         <div style={{
-          height: '20mm',
+          width: '25mm',
+          height: '100%',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '2mm 4mm',
+          padding: '2mm',
           backgroundColor: 'black',
           color: 'white',
         }}>
@@ -108,7 +112,15 @@ export function CordLabel({ item }: CordLabelProps) {
             textAlign: 'center',
           }}>
             <div>Leih.Lokal</div>
-            <div>Gerwigstr. 41, 76131 Karlsruhe</div>
+            <div style={{ fontSize: '7pt', fontWeight: 400, marginTop: '1mm' }}>
+              Gerwigstr. 41
+            </div>
+            <div style={{ fontSize: '7pt', fontWeight: 400 }}>
+              76131
+            </div>
+            <div style={{ fontSize: '7pt', fontWeight: 400 }}>
+              Karlsruhe
+            </div>
           </div>
         </div>
       </div>

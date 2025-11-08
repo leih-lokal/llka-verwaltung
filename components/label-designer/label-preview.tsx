@@ -126,7 +126,7 @@ export function LabelPreview({ item, labelType, onLabelTypeChange }: LabelPrevie
             width: 100%;
           }
           @page {
-            size: 50mm 100mm;
+            size: 100mm 50mm;
             margin: 0;
           }
         }
