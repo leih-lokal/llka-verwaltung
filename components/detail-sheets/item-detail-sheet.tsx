@@ -331,27 +331,31 @@ export function ItemDetailSheet({
           <SheetHeader className="border-b pb-6 mb-6 px-6 shrink-0">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 mb-3 flex-wrap">
-                  {!isNewItem && (
-                    <div className="flex items-center gap-1.5 font-mono text-3xl font-bold">
-                      <span className="inline-flex items-center justify-center bg-red-500 text-white px-2.5 py-1 rounded-md">
-                        {String(item?.iid).padStart(4, '0').substring(0, 2)}
-                      </span>
-                      <span className="text-foreground">
-                        {String(item?.iid).padStart(4, '0').substring(2, 4)}
-                      </span>
-                    </div>
-                  )}
-                  <SheetTitle className="text-2xl">
-                    {isNewItem ? 'Neuer Artikel' : item?.name}
-                  </SheetTitle>
-                </div>
-                {!isNewItem && item && (
-                  <div className="flex items-center gap-3 mb-2 flex-wrap">
-                    <div className="text-lg">
+                <div className="flex items-center justify-between gap-4 mb-3">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {!isNewItem && (
+                      <div className="flex items-center gap-1.5 font-mono text-3xl font-bold">
+                        <span className="inline-flex items-center justify-center bg-red-500 text-white px-2.5 py-1 rounded-md">
+                          {String(item?.iid).padStart(4, '0').substring(0, 2)}
+                        </span>
+                        <span className="text-foreground">
+                          {String(item?.iid).padStart(4, '0').substring(2, 4)}
+                        </span>
+                      </div>
+                    )}
+                    <SheetTitle className="text-2xl">
+                      {isNewItem ? 'Neuer Artikel' : item?.name}
+                    </SheetTitle>
+                  </div>
+                  {!isNewItem && item && (
+                    <div className="text-2xl shrink-0">
                       {getStatusBadge(item.status)}
                     </div>
-                    {item.highlight_color && getHighlightColorBadge(item.highlight_color)}
+                  )}
+                </div>
+                {!isNewItem && item && item.highlight_color && (
+                  <div className="flex items-center gap-3 mb-2">
+                    {getHighlightColorBadge(item.highlight_color)}
                   </div>
                 )}
                 {!isNewItem && item && (
