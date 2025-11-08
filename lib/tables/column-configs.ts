@@ -112,6 +112,12 @@ export const itemsColumnConfig: EntityColumnConfig = {
       sortable: true,
     },
     {
+      id: 'images',
+      label: 'Bild',
+      defaultVisible: true,
+      sortable: false, // Array field
+    },
+    {
       id: 'name',
       label: 'Name',
       defaultVisible: true,

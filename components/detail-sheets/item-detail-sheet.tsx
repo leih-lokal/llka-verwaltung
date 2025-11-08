@@ -5,12 +5,12 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { PencilIcon, SaveIcon, XIcon } from 'lucide-react';
+import { PencilIcon, SaveIcon, XIcon, ImageIcon, Trash2Icon, UploadIcon } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -31,7 +31,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { collections } from '@/lib/pocketbase/client';
+import { collections, pb } from '@/lib/pocketbase/client';
 import { formatDate, formatCurrency, calculateRentalStatus } from '@/lib/utils/formatting';
 import type { Item, ItemFormData, RentalExpanded, ItemCategory, ItemStatus, HighlightColor } from '@/types';
 
@@ -74,6 +74,12 @@ export function ItemDetailSheet({
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [rentals, setRentals] = useState<RentalExpanded[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  // Image management
+  const [existingImages, setExistingImages] = useState<string[]>([]);
+  const [newImages, setNewImages] = useState<File[]>([]);
+  const [imagesToDelete, setImagesToDelete] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isNewItem = !item?.id;
 
@@ -120,6 +126,10 @@ export function ItemDetailSheet({
         internal_note: item.internal_note || '',
         added_on: item.added_on.split('T')[0],
       });
+      // Load existing images
+      setExistingImages(item.images || []);
+      setNewImages([]);
+      setImagesToDelete([]);
       setIsEditMode(false);
     } else if (isNewItem) {
       form.reset({
@@ -139,6 +149,9 @@ export function ItemDetailSheet({
         internal_note: '',
         added_on: new Date().toISOString().split('T')[0],
       });
+      setExistingImages([]);
+      setNewImages([]);
+      setImagesToDelete([]);
       setIsEditMode(true);
     }
   }, [item, isNewItem, form]);
@@ -169,26 +182,62 @@ export function ItemDetailSheet({
     }
   };
 
+  // Image handling functions
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      setNewImages((prev) => [...prev, ...Array.from(files)]);
+    }
+  };
+
+  const handleRemoveNewImage = (index: number) => {
+    setNewImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRemoveExistingImage = (imageName: string) => {
+    setImagesToDelete((prev) => [...prev, imageName]);
+    setExistingImages((prev) => prev.filter((img) => img !== imageName));
+  };
+
   const handleSave = async (data: ItemFormValues) => {
     setIsLoading(true);
     try {
-      const formData: Partial<Item> = {
-        name: data.name,
-        brand: data.brand || undefined,
-        model: data.model || undefined,
-        description: data.description || undefined,
-        category: data.category as ItemCategory[],
-        deposit: data.deposit,
-        synonyms: data.synonyms ? data.synonyms.split(',').map(s => s.trim()).filter(Boolean) : [],
-        packaging: data.packaging || undefined,
-        manual: data.manual || undefined,
-        parts: data.parts || undefined,
-        copies: data.copies,
-        status: data.status as ItemStatus,
-        highlight_color: (data.highlight_color as HighlightColor) || undefined,
-        internal_note: data.internal_note || undefined,
-        added_on: data.added_on,
-      };
+      // Build FormData for file upload support
+      const formData = new FormData();
+
+      // Add all text fields
+      formData.append('name', data.name);
+      if (data.brand) formData.append('brand', data.brand);
+      if (data.model) formData.append('model', data.model);
+      if (data.description) formData.append('description', data.description);
+
+      // Add category array
+      data.category.forEach(cat => formData.append('category', cat));
+
+      formData.append('deposit', data.deposit.toString());
+
+      // Add synonyms array
+      const synonyms = data.synonyms ? data.synonyms.split(',').map(s => s.trim()).filter(Boolean) : [];
+      synonyms.forEach(syn => formData.append('synonyms', syn));
+
+      if (data.packaging) formData.append('packaging', data.packaging);
+      if (data.manual) formData.append('manual', data.manual);
+      if (data.parts) formData.append('parts', data.parts);
+      formData.append('copies', data.copies.toString());
+      formData.append('status', data.status);
+      if (data.highlight_color) formData.append('highlight_color', data.highlight_color);
+      if (data.internal_note) formData.append('internal_note', data.internal_note);
+      formData.append('added_on', data.added_on);
+
+      // Add new images
+      newImages.forEach((file) => {
+        formData.append('images', file);
+      });
+
+      // Mark images for deletion (PocketBase uses - prefix)
+      imagesToDelete.forEach((imageName) => {
+        formData.append('images-', imageName);
+      });
 
       let savedItem: Item;
       if (isNewItem) {
@@ -503,6 +552,100 @@ export function ItemDetailSheet({
                     <div className="mt-1">{getStatusBadge((item?.status || 'instock') as ItemStatus)}</div>
                   )}
                 </div>
+              </div>
+            </section>
+
+            {/* Images */}
+            <section className="space-y-4">
+              <div className="border-b pb-2 mb-4">
+                <h3 className="font-semibold text-lg">Bilder</h3>
+              </div>
+
+              {/* Display existing and new images */}
+              <div className="space-y-4">
+                {existingImages.length > 0 || newImages.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {/* Existing images */}
+                    {existingImages.map((imageName) => (
+                      <div key={imageName} className="relative group">
+                        <div className="aspect-square rounded-lg border border-border overflow-hidden bg-muted">
+                          <img
+                            src={pb.files.getUrl(item!, imageName, { thumb: '200x200' })}
+                            alt={item?.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        {isEditMode && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveExistingImage(imageName)}
+                            className="absolute top-2 right-2 p-1.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                            aria-label="Bild entfernen"
+                          >
+                            <Trash2Icon className="size-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* New images (preview) */}
+                    {newImages.map((file, index) => (
+                      <div key={`new-${index}`} className="relative group">
+                        <div className="aspect-square rounded-lg border border-border overflow-hidden bg-muted">
+                          <img
+                            src={URL.createObjectURL(file)}
+                            alt="New upload"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        {isEditMode && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveNewImage(index)}
+                            className="absolute top-2 right-2 p-1.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                            aria-label="Bild entfernen"
+                          >
+                            <Trash2Icon className="size-4" />
+                          </button>
+                        )}
+                        <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-primary text-primary-foreground text-xs font-medium">
+                          Neu
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 border-2 border-dashed border-border rounded-lg bg-muted/20">
+                    <ImageIcon className="size-12 text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground">Keine Bilder</p>
+                  </div>
+                )}
+
+                {/* Upload button (only in edit mode) */}
+                {isEditMode && (
+                  <div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full"
+                    >
+                      <UploadIcon className="size-4 mr-2" />
+                      Bilder hochladen
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Sie können mehrere Bilder gleichzeitig auswählen
+                    </p>
+                  </div>
+                )}
               </div>
             </section>
 

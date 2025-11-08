@@ -5,15 +5,16 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { PlusIcon } from 'lucide-react';
+import { PlusIcon, ImageIcon } from 'lucide-react';
 import { SearchBar } from '@/components/search/search-bar';
 import { FilterPopover } from '@/components/search/filter-popover';
 import { SortableHeader, type SortDirection } from '@/components/table/sortable-header';
 import { ColumnSelector } from '@/components/table/column-selector';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { ItemDetailSheet } from '@/components/detail-sheets/item-detail-sheet';
-import { collections } from '@/lib/pocketbase/client';
+import { collections, pb } from '@/lib/pocketbase/client';
 import { useFilters } from '@/hooks/use-filters';
 import { useColumnVisibility } from '@/hooks/use-column-visibility';
 import { itemsFilterConfig } from '@/lib/filters/filter-configs';
@@ -259,6 +260,11 @@ export default function ItemsPage() {
                           />
                         </th>
                       )}
+                      {columnVisibility.isColumnVisible('images') && (
+                        <th className="px-4 py-2 text-left">
+                          <span className="text-sm font-medium">Bild</span>
+                        </th>
+                      )}
                       {columnVisibility.isColumnVisible('name') && (
                         <th className="px-4 py-2 text-left">
                           <SortableHeader
@@ -401,6 +407,39 @@ export default function ItemsPage() {
                         {columnVisibility.isColumnVisible('iid') && (
                           <td className="px-4 py-3 font-mono text-sm">
                             {String(item.iid).padStart(4, '0')}
+                          </td>
+                        )}
+                        {columnVisibility.isColumnVisible('images') && (
+                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                            {item.images && item.images.length > 0 ? (
+                              <HoverCard openDelay={200}>
+                                <HoverCardTrigger asChild>
+                                  <div className="w-10 h-10 rounded overflow-hidden border border-border cursor-pointer">
+                                    <img
+                                      src={pb.files.getUrl(item, item.images[0], { thumb: '40x40' })}
+                                      alt={item.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
+                                </HoverCardTrigger>
+                                <HoverCardContent className="w-80 p-2">
+                                  <img
+                                    src={pb.files.getUrl(item, item.images[0], { thumb: '300x300' })}
+                                    alt={item.name}
+                                    className="w-full h-auto rounded"
+                                  />
+                                  {item.images.length > 1 && (
+                                    <p className="text-xs text-muted-foreground mt-2 text-center">
+                                      +{item.images.length - 1} weitere{item.images.length - 1 === 1 ? 's' : ''} Bild{item.images.length - 1 === 1 ? '' : 'er'}
+                                    </p>
+                                  )}
+                                </HoverCardContent>
+                              </HoverCard>
+                            ) : (
+                              <div className="w-10 h-10 rounded border border-dashed border-border flex items-center justify-center bg-muted/20">
+                                <ImageIcon className="size-4 text-muted-foreground" />
+                              </div>
+                            )}
                           </td>
                         )}
                         {columnVisibility.isColumnVisible('name') && (
