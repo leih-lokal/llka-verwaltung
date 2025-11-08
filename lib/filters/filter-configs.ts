@@ -47,7 +47,7 @@ export interface EntityFilterConfig {
 // ============================================================================
 
 export const customersFilterConfig: EntityFilterConfig = {
-  searchFields: ['firstname', 'lastname', 'email', 'phone'],
+  searchFields: ['firstname', 'lastname', 'email', 'phone', 'iid'],
 
   dateFilters: [
     {
@@ -150,7 +150,7 @@ export const itemsFilterConfig: EntityFilterConfig = {
 // ============================================================================
 
 export const rentalsFilterConfig: EntityFilterConfig = {
-  searchFields: ['customer.firstname', 'customer.lastname'],
+  searchFields: ['customer.firstname', 'customer.lastname', 'customer.iid'],
 
   statusFilters: [
     {
@@ -207,7 +207,7 @@ export const rentalsFilterConfig: EntityFilterConfig = {
 // ============================================================================
 
 export const reservationsFilterConfig: EntityFilterConfig = {
-  searchFields: ['customer_name', 'customer_phone'],
+  searchFields: ['customer_name', 'customer_phone', 'customer_iid'],
 
   statusFilters: [
     {
