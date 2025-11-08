@@ -406,10 +406,11 @@ export default function CustomersPage() {
                           <div className="flex items-center gap-2">
                             {customer.highlight_color && (
                               customer.highlight_color === 'green' ? (
-                                <HeartIcon
-                                  className="size-4 fill-green-500 text-green-500 shrink-0"
-                                  title="Teil des Teams"
-                                />
+                                <span title="Teil des Teams">
+                                  <HeartIcon
+                                    className="size-4 fill-green-500 text-green-500 shrink-0"
+                                  />
+                                </span>
                               ) : (
                                 <div
                                   className={`size-3 rounded-full shrink-0 ${
