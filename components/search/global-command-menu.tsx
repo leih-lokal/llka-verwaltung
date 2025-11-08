@@ -82,13 +82,26 @@ export function GlobalCommandMenu() {
       try {
         const searchTerm = query.toLowerCase();
 
+        // Check if search term is numeric (for IID search with leading zeros)
+        const isNumeric = /^\d+$/.test(searchTerm);
+        const numericIID = isNumeric ? parseInt(searchTerm, 10) : null;
+
+        // Build filter strings
+        const customerFilter = isNumeric
+          ? `firstname ~ "${searchTerm}" || lastname ~ "${searchTerm}" || email ~ "${searchTerm}" || phone ~ "${searchTerm}" || iid = ${numericIID}`
+          : `firstname ~ "${searchTerm}" || lastname ~ "${searchTerm}" || email ~ "${searchTerm}" || phone ~ "${searchTerm}"`;
+
+        const itemFilter = isNumeric
+          ? `name ~ "${searchTerm}" || brand ~ "${searchTerm}" || iid = ${numericIID}`
+          : `name ~ "${searchTerm}" || brand ~ "${searchTerm}"`;
+
         // Search in parallel
         const [customers, items, reservations, rentals] = await Promise.all([
           // Customers: search by name, email, phone, iid
           collections
             .customers()
             .getList<Customer>(1, 5, {
-              filter: `firstname ~ "${searchTerm}" || lastname ~ "${searchTerm}" || email ~ "${searchTerm}" || phone ~ "${searchTerm}" || iid ~ "${searchTerm}"`,
+              filter: customerFilter,
               sort: '-created',
             })
             .then((res) => res.items)
@@ -98,7 +111,7 @@ export function GlobalCommandMenu() {
           collections
             .items()
             .getList<Item>(1, 5, {
-              filter: `name ~ "${searchTerm}" || brand ~ "${searchTerm}" || iid ~ "${searchTerm}"`,
+              filter: itemFilter,
               sort: '-created',
             })
             .then((res) => res.items)
