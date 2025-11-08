@@ -19,7 +19,7 @@ import { jsPDF } from 'jspdf';
 import { toast } from 'sonner';
 
 interface LabelPreviewProps {
-  item: Item;
+  items: Item[];
   labelType: LabelType;
   onLabelTypeChange: (type: LabelType) => void;
 }
@@ -42,7 +42,7 @@ const labelTypeOptions: { value: LabelType; label: string; description: string }
   },
 ];
 
-export function LabelPreview({ item, labelType, onLabelTypeChange }: LabelPreviewProps) {
+export function LabelPreview({ items, labelType, onLabelTypeChange }: LabelPreviewProps) {
   const [isPrinting, setIsPrinting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const labelRef = useRef<HTMLDivElement>(null);
@@ -56,19 +56,22 @@ export function LabelPreview({ item, labelType, onLabelTypeChange }: LabelPrevie
     }, 100);
   };
 
-  const getLabelElement = () => {
+  const getLabelElements = () => {
     if (!labelRef.current) {
       toast.error('Etikett konnte nicht gefunden werden');
       return null;
     }
 
-    const labelElement = labelRef.current.querySelector('.label-print-area') as HTMLElement;
-    if (!labelElement) {
-      toast.error('Label element not found');
+    const labelElements = Array.from(
+      labelRef.current.querySelectorAll('.label-print-area')
+    ) as HTMLElement[];
+
+    if (labelElements.length === 0) {
+      toast.error('Label elements not found');
       return null;
     }
 
-    return labelElement;
+    return labelElements;
   };
 
   const waitForFontsToLoad = async () => {
@@ -83,26 +86,37 @@ export function LabelPreview({ item, labelType, onLabelTypeChange }: LabelPrevie
   const handleDownloadPNG = async () => {
     setIsDownloading(true);
     try {
-      const labelElement = getLabelElement();
-      if (!labelElement) return;
+      const labelElements = getLabelElements();
+      if (!labelElements) return;
 
       // Wait for fonts to load before capturing
       await waitForFontsToLoad();
 
-      const dataUrl = await toPng(labelElement, {
-        cacheBust: true,
-        backgroundColor: '#ffffff',
-        pixelRatio: 3, // Higher quality
-      });
+      for (let i = 0; i < labelElements.length; i++) {
+        const labelElement = labelElements[i];
+        const item = items[i];
 
-      const link = document.createElement('a');
-      link.href = dataUrl;
-      link.download = `label-${String(item.iid).padStart(4, '0')}-${labelType}.png`;
-      link.click();
-      toast.success('PNG heruntergeladen');
+        const dataUrl = await toPng(labelElement, {
+          cacheBust: true,
+          backgroundColor: '#ffffff',
+          pixelRatio: 3, // Higher quality
+        });
+
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = `label-${String(item.iid).padStart(4, '0')}-${labelType}.png`;
+        link.click();
+
+        // Small delay between downloads to avoid browser blocking
+        if (i < labelElements.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+
+      toast.success(`${labelElements.length} PNG-Dateien heruntergeladen`);
     } catch (error) {
       console.error('Error downloading PNG:', error);
-      toast.error('Fehler beim Herunterladen der PNG-Datei');
+      toast.error('Fehler beim Herunterladen der PNG-Dateien');
     } finally {
       setIsDownloading(false);
     }
@@ -111,27 +125,38 @@ export function LabelPreview({ item, labelType, onLabelTypeChange }: LabelPrevie
   const handleDownloadJPG = async () => {
     setIsDownloading(true);
     try {
-      const labelElement = getLabelElement();
-      if (!labelElement) return;
+      const labelElements = getLabelElements();
+      if (!labelElements) return;
 
       // Wait for fonts to load before capturing
       await waitForFontsToLoad();
 
-      const dataUrl = await toJpeg(labelElement, {
-        cacheBust: true,
-        backgroundColor: '#ffffff',
-        quality: 0.95,
-        pixelRatio: 3,
-      });
+      for (let i = 0; i < labelElements.length; i++) {
+        const labelElement = labelElements[i];
+        const item = items[i];
 
-      const link = document.createElement('a');
-      link.href = dataUrl;
-      link.download = `label-${String(item.iid).padStart(4, '0')}-${labelType}.jpg`;
-      link.click();
-      toast.success('JPG heruntergeladen');
+        const dataUrl = await toJpeg(labelElement, {
+          cacheBust: true,
+          backgroundColor: '#ffffff',
+          quality: 0.95,
+          pixelRatio: 3,
+        });
+
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = `label-${String(item.iid).padStart(4, '0')}-${labelType}.jpg`;
+        link.click();
+
+        // Small delay between downloads to avoid browser blocking
+        if (i < labelElements.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+
+      toast.success(`${labelElements.length} JPG-Dateien heruntergeladen`);
     } catch (error) {
       console.error('Error downloading JPG:', error);
-      toast.error('Fehler beim Herunterladen der JPG-Datei');
+      toast.error('Fehler beim Herunterladen der JPG-Dateien');
     } finally {
       setIsDownloading(false);
     }
@@ -140,17 +165,11 @@ export function LabelPreview({ item, labelType, onLabelTypeChange }: LabelPrevie
   const handleDownloadPDF = async () => {
     setIsDownloading(true);
     try {
-      const labelElement = getLabelElement();
-      if (!labelElement) return;
+      const labelElements = getLabelElements();
+      if (!labelElements) return;
 
       // Wait for fonts to load before capturing
       await waitForFontsToLoad();
-
-      const dataUrl = await toPng(labelElement, {
-        cacheBust: true,
-        backgroundColor: '#ffffff',
-        pixelRatio: 3,
-      });
 
       // Create PDF with 100mm x 50mm dimensions
       const pdf = new jsPDF({
@@ -159,9 +178,30 @@ export function LabelPreview({ item, labelType, onLabelTypeChange }: LabelPrevie
         format: [100, 50],
       });
 
-      pdf.addImage(dataUrl, 'PNG', 0, 0, 100, 50);
-      pdf.save(`label-${String(item.iid).padStart(4, '0')}-${labelType}.pdf`);
-      toast.success('PDF heruntergeladen');
+      for (let i = 0; i < labelElements.length; i++) {
+        const labelElement = labelElements[i];
+
+        const dataUrl = await toPng(labelElement, {
+          cacheBust: true,
+          backgroundColor: '#ffffff',
+          pixelRatio: 3,
+        });
+
+        // Add new page for all labels except the first one
+        if (i > 0) {
+          pdf.addPage([100, 50], 'landscape');
+        }
+
+        pdf.addImage(dataUrl, 'PNG', 0, 0, 100, 50);
+      }
+
+      // Generate filename based on range or single item
+      const filename = items.length === 1
+        ? `label-${String(items[0].iid).padStart(4, '0')}-${labelType}.pdf`
+        : `labels-${String(items[0].iid).padStart(4, '0')}-to-${String(items[items.length - 1].iid).padStart(4, '0')}-${labelType}.pdf`;
+
+      pdf.save(filename);
+      toast.success(`PDF mit ${labelElements.length} Etiketten heruntergeladen`);
     } catch (error) {
       console.error('Error downloading PDF:', error);
       toast.error('Fehler beim Herunterladen der PDF-Datei');
@@ -170,7 +210,7 @@ export function LabelPreview({ item, labelType, onLabelTypeChange }: LabelPrevie
     }
   };
 
-  const renderLabel = () => {
+  const renderLabel = (item: Item) => {
     switch (labelType) {
       case 'default':
         return <DefaultLabel item={item} />;
@@ -212,10 +252,14 @@ export function LabelPreview({ item, labelType, onLabelTypeChange }: LabelPrevie
 
       {/* Preview */}
       <div className="space-y-3">
-        <UILabel>Vorschau</UILabel>
-        <div className="border-2 border-dashed border-border p-8 bg-muted/20 flex items-center justify-center overflow-auto">
-          <div ref={labelRef} className="border-1 border scale-100 origin-center">
-            {renderLabel()}
+        <UILabel>Vorschau {items.length > 1 && `(${items.length} Etiketten)`}</UILabel>
+        <div className="border-2 border-dashed border-border p-8 bg-muted/20 overflow-auto max-h-[600px]">
+          <div ref={labelRef} className="space-y-8">
+            {items.map((item, index) => (
+              <div key={`${item.id}-${index}`} className="border-1 border">
+                {renderLabel(item)}
+              </div>
+            ))}
           </div>
         </div>
       </div>
