@@ -10,7 +10,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { SaveIcon, XIcon } from 'lucide-react';
+import { SaveIcon, XIcon, CheckIcon, ChevronsUpDownIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -26,6 +26,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,6 +46,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { collections } from '@/lib/pocketbase/client';
 import { formatDate, formatCurrency } from '@/lib/utils/formatting';
+import { cn } from '@/lib/utils';
 import type { Reservation, ReservationExpanded, Customer, Item } from '@/types';
 
 // Validation schema
@@ -68,6 +82,8 @@ export function ReservationDetailSheet({
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
+  const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
+  const [itemSearchOpen, setItemSearchOpen] = useState(false);
 
   const isNewReservation = !reservation?.id;
 
@@ -86,9 +102,10 @@ export function ReservationDetailSheet({
     },
   });
 
-  const { formState: { isDirty }, watch } = form;
+  const { formState: { isDirty }, watch, setValue } = form;
   const isNewCustomer = watch('is_new_customer');
   const selectedCustomerIid = watch('customer_iid');
+  const selectedItemIds = watch('item_ids');
 
   // Load customers and items for dropdowns
   useEffect(() => {
@@ -211,6 +228,20 @@ export function ReservationDetailSheet({
     onOpenChange(false);
   };
 
+  const selectedCustomer = customers.find((c) => c.iid === selectedCustomerIid);
+  const selectedItems = items.filter((i) => selectedItemIds.includes(i.id));
+
+  const handleAddItem = (itemId: string) => {
+    if (!selectedItemIds.includes(itemId)) {
+      setValue('item_ids', [...selectedItemIds, itemId], { shouldDirty: true });
+    }
+    setItemSearchOpen(false);
+  };
+
+  const handleRemoveItem = (itemId: string) => {
+    setValue('item_ids', selectedItemIds.filter((id) => id !== itemId), { shouldDirty: true });
+  };
+
   return (
     <>
       <Sheet open={open} onOpenChange={(open) => {
@@ -221,144 +252,277 @@ export function ReservationDetailSheet({
         }
       }}>
         <SheetContent className="w-full sm:max-w-4xl overflow-y-auto">
-          <SheetHeader className="border-b pb-4">
-            <div className="flex items-center justify-between">
-              <SheetTitle>
-                {isNewReservation ? 'Neue Reservierung' : 'Reservierung bearbeiten'}
-              </SheetTitle>
+          <SheetHeader className="border-b pb-6 mb-6 px-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="mb-2">
+                  <SheetTitle className="text-2xl">
+                    {isNewReservation ? 'Neue Reservierung' : 'Reservierung'}
+                  </SheetTitle>
+                </div>
+                {!isNewReservation && reservation && (
+                  <div className="flex gap-2 text-sm text-muted-foreground">
+                    <span>Abholung: {formatDate(reservation.pickup)}</span>
+                  </div>
+                )}
+              </div>
               {reservation && (
-                <Badge variant={reservation.done ? 'secondary' : 'default'}>
+                <Badge variant={reservation.done ? 'secondary' : 'default'} className="shrink-0">
                   {reservation.done ? 'Erledigt' : 'Offen'}
                 </Badge>
               )}
             </div>
           </SheetHeader>
 
-          <form onSubmit={form.handleSubmit(handleSave)} className="space-y-6 py-6">
+          <form onSubmit={form.handleSubmit(handleSave)} className="space-y-8 px-6">
             {/* Customer Information */}
-            <section>
-              <h3 className="font-semibold text-lg mb-4">Kundeninformationen</h3>
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <input
-                    id="is_new_customer"
-                    type="checkbox"
-                    {...form.register('is_new_customer')}
-                  />
-                  <Label htmlFor="is_new_customer" className="cursor-pointer">
-                    Neuer Kunde (noch nicht registriert)
-                  </Label>
-                </div>
+            <section className="space-y-4">
+              <div className="border-b pb-2 mb-4">
+                <h3 className="font-semibold text-lg">Kundeninformationen</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  id="is_new_customer"
+                  type="checkbox"
+                  {...form.register('is_new_customer')}
+                />
+                <Label htmlFor="is_new_customer" className="cursor-pointer">
+                  Neuer Kunde (noch nicht registriert)
+                </Label>
+              </div>
 
-                {!isNewCustomer && (
-                  <div>
-                    <Label htmlFor="customer_iid">Bestehender Kunde</Label>
-                    <select
-                      id="customer_iid"
-                      {...form.register('customer_iid', { valueAsNumber: true })}
-                      className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      disabled={isLoadingData}
-                    >
-                      <option value="">Kunde auswählen...</option>
-                      {customers.map((customer) => (
-                        <option key={customer.id} value={customer.iid}>
-                          #{String(customer.iid).padStart(4, '0')} - {customer.firstname} {customer.lastname}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
+              {!isNewCustomer && (
                 <div>
-                  <Label htmlFor="customer_name">Name *</Label>
+                  <Label>Bestehenden Kunden auswählen</Label>
+                  <Popover open={customerSearchOpen} onOpenChange={setCustomerSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={customerSearchOpen}
+                        className="w-full justify-between mt-1"
+                        disabled={isLoadingData}
+                      >
+                        {selectedCustomer
+                          ? `#${String(selectedCustomer.iid).padStart(4, '0')} - ${selectedCustomer.firstname} ${selectedCustomer.lastname}`
+                          : "Kunde auswählen..."}
+                        <ChevronsUpDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Kunde suchen..." />
+                        <CommandList>
+                          <CommandEmpty>Kein Kunde gefunden.</CommandEmpty>
+                          <CommandGroup>
+                            {customers.map((customer) => (
+                              <CommandItem
+                                key={customer.id}
+                                value={`${customer.iid} ${customer.firstname} ${customer.lastname} ${customer.email || ''}`}
+                                onSelect={() => {
+                                  setValue('customer_iid', customer.iid, { shouldDirty: true });
+                                  setCustomerSearchOpen(false);
+                                }}
+                              >
+                                <CheckIcon
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedCustomerIid === customer.iid ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <span className="font-mono text-primary font-semibold mr-2">
+                                  #{String(customer.iid).padStart(4, '0')}
+                                </span>
+                                <span>{customer.firstname} {customer.lastname}</span>
+                                {customer.email && (
+                                  <span className="ml-2 text-muted-foreground text-xs">
+                                    {customer.email}
+                                  </span>
+                                )}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )}
+
+              {/* Selected Customer Display */}
+              {selectedCustomer && !isNewCustomer && (
+                <div className="border rounded-lg p-4 bg-muted/50">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-baseline gap-2 mb-1">
+                        <span className="font-mono text-primary font-semibold text-lg">
+                          #{String(selectedCustomer.iid).padStart(4, '0')}
+                        </span>
+                        <span className="font-semibold text-lg">
+                          {selectedCustomer.firstname} {selectedCustomer.lastname}
+                        </span>
+                      </div>
+                      <div className="space-y-1 text-sm text-muted-foreground">
+                        {selectedCustomer.email && <p>{selectedCustomer.email}</p>}
+                        {selectedCustomer.phone && <p>{selectedCustomer.phone}</p>}
+                        {selectedCustomer.street && (
+                          <p>{selectedCustomer.street}, {selectedCustomer.postal_code} {selectedCustomer.city}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <Label htmlFor="customer_name">Name *</Label>
+                <Input
+                  id="customer_name"
+                  {...form.register('customer_name')}
+                  className="mt-1"
+                  readOnly={!isNewCustomer && !!selectedCustomerIid}
+                />
+                {form.formState.errors.customer_name && (
+                  <p className="text-sm text-destructive mt-1">
+                    {form.formState.errors.customer_name.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="customer_phone">Telefon</Label>
                   <Input
-                    id="customer_name"
-                    {...form.register('customer_name')}
+                    id="customer_phone"
+                    {...form.register('customer_phone')}
                     className="mt-1"
                     readOnly={!isNewCustomer && !!selectedCustomerIid}
                   />
-                  {form.formState.errors.customer_name && (
-                    <p className="text-sm text-destructive mt-1">
-                      {form.formState.errors.customer_name.message}
-                    </p>
-                  )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="customer_phone">Telefon</Label>
-                    <Input
-                      id="customer_phone"
-                      {...form.register('customer_phone')}
-                      className="mt-1"
-                      readOnly={!isNewCustomer && !!selectedCustomerIid}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="customer_email">E-Mail</Label>
-                    <Input
-                      id="customer_email"
-                      type="email"
-                      {...form.register('customer_email')}
-                      className="mt-1"
-                      readOnly={!isNewCustomer && !!selectedCustomerIid}
-                    />
-                    {form.formState.errors.customer_email && (
-                      <p className="text-sm text-destructive mt-1">
-                        {form.formState.errors.customer_email.message}
-                      </p>
-                    )}
-                  </div>
+                <div>
+                  <Label htmlFor="customer_email">E-Mail</Label>
+                  <Input
+                    id="customer_email"
+                    type="email"
+                    {...form.register('customer_email')}
+                    className="mt-1"
+                    readOnly={!isNewCustomer && !!selectedCustomerIid}
+                  />
+                  {form.formState.errors.customer_email && (
+                    <p className="text-sm text-destructive mt-1">
+                      {form.formState.errors.customer_email.message}
+                    </p>
+                  )}
                 </div>
               </div>
             </section>
 
-            {/* Items */}
-            <section>
-              <h3 className="font-semibold text-lg mb-4">Artikel</h3>
+            {/* Items Selection */}
+            <section className="space-y-4">
+              <div className="border-b pb-2 mb-4">
+                <h3 className="font-semibold text-lg">Artikel</h3>
+              </div>
               <div>
-                <Label htmlFor="item_ids">Artikel *</Label>
-                <select
-                  id="item_ids"
-                  {...form.register('item_ids')}
-                  multiple
-                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[150px]"
-                  disabled={isLoadingData}
-                >
-                  {items.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      #{String(item.iid).padStart(4, '0')} - {item.name} ({formatCurrency(item.deposit)})
-                    </option>
-                  ))}
-                </select>
+                <Label>Artikel hinzufügen *</Label>
+                <Popover open={itemSearchOpen} onOpenChange={setItemSearchOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={itemSearchOpen}
+                      className="w-full justify-between mt-1"
+                      disabled={isLoadingData}
+                    >
+                      <span className="flex items-center gap-2">
+                        <PlusIcon className="h-4 w-4" />
+                        Artikel hinzufügen...
+                      </span>
+                      <ChevronsUpDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Artikel suchen..." />
+                      <CommandList>
+                        <CommandEmpty>Kein Artikel gefunden.</CommandEmpty>
+                        <CommandGroup>
+                          {items.map((item) => (
+                            <CommandItem
+                              key={item.id}
+                              value={`${item.iid} ${item.name} ${item.brand || ''} ${item.model || ''}`}
+                              onSelect={() => handleAddItem(item.id)}
+                              disabled={selectedItemIds.includes(item.id)}
+                            >
+                              <CheckIcon
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedItemIds.includes(item.id) ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <span className="font-mono text-primary font-semibold mr-2">
+                                #{String(item.iid).padStart(4, '0')}
+                              </span>
+                              <span className="flex-1">{item.name}</span>
+                              <span className="text-muted-foreground text-xs ml-2">
+                                {formatCurrency(item.deposit)}
+                              </span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
                 {form.formState.errors.item_ids && (
                   <p className="text-sm text-destructive mt-1">
                     {form.formState.errors.item_ids.message}
                   </p>
                 )}
-                <p className="text-xs text-muted-foreground mt-1">
-                  Halten Sie Strg/Cmd für Mehrfachauswahl
-                </p>
-                {/* Show expanded item details if editing */}
-                {reservation?.expand?.items && reservation.expand.items.length > 0 && (
-                  <div className="mt-2 space-y-2">
-                    {reservation.expand.items.map((item) => (
-                      <div key={item.id} className="p-3 bg-muted rounded-md text-sm">
-                        <p className="font-medium">{item.name}</p>
-                        <p className="text-muted-foreground">
-                          Kaution: {formatCurrency(item.deposit)}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
+
+              {/* Selected Items Display */}
+              {selectedItems.length > 0 && (
+                <div className="space-y-2">
+                  {selectedItems.map((item) => (
+                    <div key={item.id} className="border rounded-lg p-4 bg-muted/50">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-baseline gap-2 mb-1">
+                            <span className="font-mono text-primary font-semibold text-lg">
+                              #{String(item.iid).padStart(4, '0')}
+                            </span>
+                            <span className="font-semibold text-lg">{item.name}</span>
+                          </div>
+                          <div className="space-y-1 text-sm text-muted-foreground">
+                            {item.brand && <p>Marke: {item.brand}</p>}
+                            {item.model && <p>Modell: {item.model}</p>}
+                            <p className="font-medium text-foreground">
+                              Kaution: {formatCurrency(item.deposit)}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveItem(item.id)}
+                          className="shrink-0"
+                        >
+                          <Trash2Icon className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
 
             {/* Reservation Details */}
-            <section>
-              <h3 className="font-semibold text-lg mb-4">Reservierungsdetails</h3>
+            <section className="space-y-4">
+              <div className="border-b pb-2 mb-4">
+                <h3 className="font-semibold text-lg">Reservierungsdetails</h3>
+              </div>
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="pickup">Abholung (Datum & Zeit) *</Label>
@@ -399,7 +563,7 @@ export function ReservationDetailSheet({
             </section>
           </form>
 
-          <SheetFooter className="border-t pt-4">
+          <SheetFooter className="border-t pt-4 px-6">
             <Button
               type="button"
               variant="outline"

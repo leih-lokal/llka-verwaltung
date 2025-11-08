@@ -10,7 +10,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { SaveIcon, XIcon } from 'lucide-react';
+import { SaveIcon, XIcon, CheckIcon, ChevronsUpDownIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -26,6 +26,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,6 +46,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { collections } from '@/lib/pocketbase/client';
 import { formatDate, formatCurrency, calculateRentalStatus } from '@/lib/utils/formatting';
+import { cn } from '@/lib/utils';
 import type { Rental, RentalExpanded, Customer, Item } from '@/types';
 
 // Validation schema
@@ -70,6 +84,8 @@ export function RentalDetailSheet({
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
+  const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
+  const [itemSearchOpen, setItemSearchOpen] = useState(false);
 
   const isNewRental = !rental?.id;
 
@@ -90,7 +106,9 @@ export function RentalDetailSheet({
     },
   });
 
-  const { formState: { isDirty } } = form;
+  const { formState: { isDirty }, watch, setValue } = form;
+  const selectedCustomerId = watch('customer_id');
+  const selectedItemIds = watch('item_ids');
 
   // Load customers and items for dropdowns
   useEffect(() => {
@@ -228,6 +246,20 @@ export function RentalDetailSheet({
     return <Badge variant={variant}>{label}</Badge>;
   };
 
+  const selectedCustomer = customers.find((c) => c.id === selectedCustomerId);
+  const selectedItems = items.filter((i) => selectedItemIds.includes(i.id));
+
+  const handleAddItem = (itemId: string) => {
+    if (!selectedItemIds.includes(itemId)) {
+      setValue('item_ids', [...selectedItemIds, itemId], { shouldDirty: true });
+    }
+    setItemSearchOpen(false);
+  };
+
+  const handleRemoveItem = (itemId: string) => {
+    setValue('item_ids', selectedItemIds.filter((id) => id !== itemId), { shouldDirty: true });
+  };
+
   return (
     <>
       <Sheet open={open} onOpenChange={(open) => {
@@ -238,101 +270,226 @@ export function RentalDetailSheet({
         }
       }}>
         <SheetContent className="w-full sm:max-w-4xl overflow-y-auto">
-          <SheetHeader className="border-b pb-4">
-            <div className="flex items-center justify-between">
-              <SheetTitle>
-                {isNewRental ? 'Neuer Leihvorgang' : 'Leihvorgang bearbeiten'}
-              </SheetTitle>
+          <SheetHeader className="border-b pb-6 mb-6 px-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="mb-2">
+                  <SheetTitle className="text-2xl">
+                    {isNewRental ? 'Neuer Leihvorgang' : 'Leihvorgang'}
+                  </SheetTitle>
+                </div>
+                {!isNewRental && rental && (
+                  <div className="flex gap-2 text-sm text-muted-foreground">
+                    <span>Ausgeliehen: {formatDate(rental.rented_on)}</span>
+                    <span>•</span>
+                    <span>Erwartet: {formatDate(rental.expected_on)}</span>
+                  </div>
+                )}
+              </div>
               {rentalStatus && (
-                <div>{getStatusBadge(rentalStatus)}</div>
+                <div className="shrink-0">{getStatusBadge(rentalStatus)}</div>
               )}
             </div>
           </SheetHeader>
 
-          <form onSubmit={form.handleSubmit(handleSave)} className="space-y-6 py-6">
-            {/* Customer and Items */}
-            <section>
-              <h3 className="font-semibold text-lg mb-4">Kunde & Artikel</h3>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="customer_id">Kunde *</Label>
-                  <select
-                    id="customer_id"
-                    {...form.register('customer_id')}
-                    className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    disabled={isLoadingData}
-                  >
-                    <option value="">Kunde auswählen...</option>
-                    {customers.map((customer) => (
-                      <option key={customer.id} value={customer.id}>
-                        #{String(customer.iid).padStart(4, '0')} - {customer.firstname} {customer.lastname}
-                      </option>
-                    ))}
-                  </select>
-                  {form.formState.errors.customer_id && (
-                    <p className="text-sm text-destructive mt-1">
-                      {form.formState.errors.customer_id.message}
-                    </p>
-                  )}
-                  {/* Show expanded customer details if editing */}
-                  {rental?.expand?.customer && (
-                    <div className="mt-2 p-3 bg-muted rounded-md text-sm">
-                      <p className="font-medium">
-                        {rental.expand.customer.firstname} {rental.expand.customer.lastname}
-                      </p>
-                      {rental.expand.customer.email && (
-                        <p className="text-muted-foreground">{rental.expand.customer.email}</p>
-                      )}
-                      {rental.expand.customer.phone && (
-                        <p className="text-muted-foreground">{rental.expand.customer.phone}</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="item_ids">Artikel *</Label>
-                  <select
-                    id="item_ids"
-                    {...form.register('item_ids')}
-                    multiple
-                    className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[150px]"
-                    disabled={isLoadingData}
-                  >
-                    {items.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        #{String(item.iid).padStart(4, '0')} - {item.name} ({formatCurrency(item.deposit)})
-                      </option>
-                    ))}
-                  </select>
-                  {form.formState.errors.item_ids && (
-                    <p className="text-sm text-destructive mt-1">
-                      {form.formState.errors.item_ids.message}
-                    </p>
-                  )}
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Halten Sie Strg/Cmd für Mehrfachauswahl
-                  </p>
-                  {/* Show expanded item details if editing */}
-                  {rental?.expand?.items && rental.expand.items.length > 0 && (
-                    <div className="mt-2 space-y-2">
-                      {rental.expand.items.map((item) => (
-                        <div key={item.id} className="p-3 bg-muted rounded-md text-sm">
-                          <p className="font-medium">{item.name}</p>
-                          <p className="text-muted-foreground">
-                            Kaution: {formatCurrency(item.deposit)}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+          <form onSubmit={form.handleSubmit(handleSave)} className="space-y-8 px-6">
+            {/* Customer Selection */}
+            <section className="space-y-4">
+              <div className="border-b pb-2 mb-4">
+                <h3 className="font-semibold text-lg">Kunde</h3>
               </div>
+              <div>
+                <Label htmlFor="customer">Kunde auswählen *</Label>
+                <Popover open={customerSearchOpen} onOpenChange={setCustomerSearchOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={customerSearchOpen}
+                      className="w-full justify-between mt-1"
+                      disabled={isLoadingData}
+                    >
+                      {selectedCustomer
+                        ? `#${String(selectedCustomer.iid).padStart(4, '0')} - ${selectedCustomer.firstname} ${selectedCustomer.lastname}`
+                        : "Kunde auswählen..."}
+                      <ChevronsUpDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Kunde suchen..." />
+                      <CommandList>
+                        <CommandEmpty>Kein Kunde gefunden.</CommandEmpty>
+                        <CommandGroup>
+                          {customers.map((customer) => (
+                            <CommandItem
+                              key={customer.id}
+                              value={`${customer.iid} ${customer.firstname} ${customer.lastname} ${customer.email || ''}`}
+                              onSelect={() => {
+                                setValue('customer_id', customer.id, { shouldDirty: true });
+                                setCustomerSearchOpen(false);
+                              }}
+                            >
+                              <CheckIcon
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedCustomerId === customer.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <span className="font-mono text-primary font-semibold mr-2">
+                                #{String(customer.iid).padStart(4, '0')}
+                              </span>
+                              <span>{customer.firstname} {customer.lastname}</span>
+                              {customer.email && (
+                                <span className="ml-2 text-muted-foreground text-xs">
+                                  {customer.email}
+                                </span>
+                              )}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {form.formState.errors.customer_id && (
+                  <p className="text-sm text-destructive mt-1">
+                    {form.formState.errors.customer_id.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Selected Customer Display */}
+              {selectedCustomer && (
+                <div className="border rounded-lg p-4 bg-muted/50">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-baseline gap-2 mb-1">
+                        <span className="font-mono text-primary font-semibold text-lg">
+                          #{String(selectedCustomer.iid).padStart(4, '0')}
+                        </span>
+                        <span className="font-semibold text-lg">
+                          {selectedCustomer.firstname} {selectedCustomer.lastname}
+                        </span>
+                      </div>
+                      <div className="space-y-1 text-sm text-muted-foreground">
+                        {selectedCustomer.email && <p>{selectedCustomer.email}</p>}
+                        {selectedCustomer.phone && <p>{selectedCustomer.phone}</p>}
+                        {selectedCustomer.street && (
+                          <p>{selectedCustomer.street}, {selectedCustomer.postal_code} {selectedCustomer.city}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* Items Selection */}
+            <section className="space-y-4">
+              <div className="border-b pb-2 mb-4">
+                <h3 className="font-semibold text-lg">Artikel</h3>
+              </div>
+              <div>
+                <Label>Artikel hinzufügen *</Label>
+                <Popover open={itemSearchOpen} onOpenChange={setItemSearchOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={itemSearchOpen}
+                      className="w-full justify-between mt-1"
+                      disabled={isLoadingData}
+                    >
+                      <span className="flex items-center gap-2">
+                        <PlusIcon className="h-4 w-4" />
+                        Artikel hinzufügen...
+                      </span>
+                      <ChevronsUpDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Artikel suchen..." />
+                      <CommandList>
+                        <CommandEmpty>Kein Artikel gefunden.</CommandEmpty>
+                        <CommandGroup>
+                          {items.map((item) => (
+                            <CommandItem
+                              key={item.id}
+                              value={`${item.iid} ${item.name} ${item.brand || ''} ${item.model || ''}`}
+                              onSelect={() => handleAddItem(item.id)}
+                              disabled={selectedItemIds.includes(item.id)}
+                            >
+                              <CheckIcon
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedItemIds.includes(item.id) ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <span className="font-mono text-primary font-semibold mr-2">
+                                #{String(item.iid).padStart(4, '0')}
+                              </span>
+                              <span className="flex-1">{item.name}</span>
+                              <span className="text-muted-foreground text-xs ml-2">
+                                {formatCurrency(item.deposit)}
+                              </span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {form.formState.errors.item_ids && (
+                  <p className="text-sm text-destructive mt-1">
+                    {form.formState.errors.item_ids.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Selected Items Display */}
+              {selectedItems.length > 0 && (
+                <div className="space-y-2">
+                  {selectedItems.map((item) => (
+                    <div key={item.id} className="border rounded-lg p-4 bg-muted/50">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-baseline gap-2 mb-1">
+                            <span className="font-mono text-primary font-semibold text-lg">
+                              #{String(item.iid).padStart(4, '0')}
+                            </span>
+                            <span className="font-semibold text-lg">{item.name}</span>
+                          </div>
+                          <div className="space-y-1 text-sm text-muted-foreground">
+                            {item.brand && <p>Marke: {item.brand}</p>}
+                            {item.model && <p>Modell: {item.model}</p>}
+                            <p className="font-medium text-foreground">
+                              Kaution: {formatCurrency(item.deposit)}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveItem(item.id)}
+                          className="shrink-0"
+                        >
+                          <Trash2Icon className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
 
             {/* Dates */}
-            <section>
-              <h3 className="font-semibold text-lg mb-4">Zeitraum</h3>
+            <section className="space-y-4">
+              <div className="border-b pb-2 mb-4">
+                <h3 className="font-semibold text-lg">Zeitraum</h3>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="rented_on">Ausgeliehen am *</Label>
@@ -387,8 +544,10 @@ export function RentalDetailSheet({
             </section>
 
             {/* Financial */}
-            <section>
-              <h3 className="font-semibold text-lg mb-4">Kaution</h3>
+            <section className="space-y-4">
+              <div className="border-b pb-2 mb-4">
+                <h3 className="font-semibold text-lg">Kaution</h3>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="deposit">Kaution gegeben (€) *</Label>
@@ -425,8 +584,10 @@ export function RentalDetailSheet({
             </section>
 
             {/* Additional Information */}
-            <section>
-              <h3 className="font-semibold text-lg mb-4">Zusätzliche Informationen</h3>
+            <section className="space-y-4">
+              <div className="border-b pb-2 mb-4">
+                <h3 className="font-semibold text-lg">Zusätzliche Informationen</h3>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="employee">Mitarbeiter (Ausgabe)</Label>
@@ -459,7 +620,7 @@ export function RentalDetailSheet({
             </section>
           </form>
 
-          <SheetFooter className="border-t pt-4">
+          <SheetFooter className="border-t pt-4 px-6">
             <Button
               type="button"
               variant="outline"
