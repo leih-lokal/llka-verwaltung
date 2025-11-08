@@ -91,10 +91,12 @@ export function TodaysReservationsSection({
 
   function ReservationItem({ reservation }: { reservation: ReservationExpanded }) {
     const itemCount = reservation.items?.length || 0;
-    const itemNames = reservation.expand?.items
-      ?.slice(0, 2)
-      .map((item) => item.name)
-      .join(', ');
+
+    // Get first item info
+    const firstItem = reservation.expand?.items?.[0];
+    const itemsText = firstItem
+      ? `${String(firstItem.iid).padStart(4, '0')} ${firstItem.name}${itemCount > 1 ? ` +${itemCount - 1}` : ''}`
+      : `${itemCount} ${itemCount === 1 ? 'Gegenstand' : 'Gegenstände'}`;
 
     return (
       <div className="p-3 rounded-lg border bg-muted/50">
@@ -113,10 +115,8 @@ export function TodaysReservationsSection({
             <p className="text-xs text-muted-foreground mb-1">
               Abholung: {formatDateTime(reservation.pickup)}
             </p>
-            <p className="text-xs text-muted-foreground">
-              {itemCount} {itemCount === 1 ? 'Gegenstand' : 'Gegenstände'}
-              {itemNames && `: ${itemNames}`}
-              {(reservation.expand?.items?.length || 0) > 2 && ' ...'}
+            <p className="text-xs text-muted-foreground truncate">
+              {itemsText}
             </p>
             {reservation.comments && (
               <p className="text-xs text-muted-foreground mt-1 italic">

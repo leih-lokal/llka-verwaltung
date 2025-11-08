@@ -79,6 +79,12 @@ export function ActiveRentalsSection({ onRentalReturned }: ActiveRentalsSectionP
     const itemCount = rental.items?.length || 0;
     const dueDate = rental.extended_on || rental.expected_on;
 
+    // Get first item info
+    const firstItem = rental.expand?.items?.[0];
+    const itemsText = firstItem
+      ? `${String(firstItem.iid).padStart(4, '0')} ${firstItem.name}${itemCount > 1 ? ` +${itemCount - 1}` : ''}`
+      : `${itemCount} ${itemCount === 1 ? 'Gegenstand' : 'Gegenstände'}`;
+
     return (
       <div
         className={`p-3 rounded-lg border ${
@@ -106,9 +112,8 @@ export function ActiveRentalsSection({ onRentalReturned }: ActiveRentalsSectionP
                 </Badge>
               )}
             </div>
-            <p className="text-xs text-muted-foreground">
-              {itemCount} {itemCount === 1 ? 'Gegenstand' : 'Gegenstände'} •
-              Rückgabe: {formatDate(dueDate)}
+            <p className="text-xs text-muted-foreground truncate">
+              {itemsText} • Rückgabe: {formatDate(dueDate)}
             </p>
           </div>
           <Button size="sm" variant="ghost" asChild className="shrink-0">
