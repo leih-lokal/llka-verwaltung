@@ -177,14 +177,14 @@ export function ItemDetailSheet({
         brand: data.brand || undefined,
         model: data.model || undefined,
         description: data.description || undefined,
-        category: data.category,
+        category: data.category as ItemCategory[],
         deposit: data.deposit,
         synonyms: data.synonyms ? data.synonyms.split(',').map(s => s.trim()).filter(Boolean) : [],
         packaging: data.packaging || undefined,
         manual: data.manual || undefined,
         parts: data.parts || undefined,
         copies: data.copies,
-        status: data.status,
+        status: data.status as ItemStatus,
         highlight_color: (data.highlight_color as HighlightColor) || undefined,
         internal_note: data.internal_note || undefined,
         added_on: data.added_on,
@@ -457,7 +457,7 @@ export function ItemDetailSheet({
                       <option value="deleted">Gelöscht</option>
                     </select>
                   ) : (
-                    <div className="mt-1">{getStatusBadge(item?.status || 'instock')}</div>
+                    <div className="mt-1">{getStatusBadge((item?.status || 'instock') as ItemStatus)}</div>
                   )}
                 </div>
               </div>
