@@ -44,7 +44,7 @@ const navigationItems = [
   {
     href: '/customers',
     icon: Users,
-    label: 'Kund:innen',
+    label: 'Nutzer:innen',
   },
   {
     href: '/items',

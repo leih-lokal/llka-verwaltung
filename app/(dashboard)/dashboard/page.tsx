@@ -149,7 +149,7 @@ export default function DashboardPage() {
                 <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               </CardHeader>
               <CardContent className="px-3 pb-2 flex-1 flex flex-col justify-center">
-                <div className="text-xl font-bold text-blue-700 dark:text-blue-300 leading-none">
+                <div className="text-4xl font-bold text-blue-700 dark:text-blue-300 leading-none">
                   {loading ? '...' : stats.totalCustomers}
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1 leading-tight">Gesamt registriert</p>
@@ -162,7 +162,7 @@ export default function DashboardPage() {
                 <Package className="h-4 w-4 text-purple-600 dark:text-purple-400" />
               </CardHeader>
               <CardContent className="px-3 pb-2 flex-1 flex flex-col justify-center">
-                <div className="text-xl font-bold text-purple-700 dark:text-purple-300 leading-none">
+                <div className="text-4xl font-bold text-purple-700 dark:text-purple-300 leading-none">
                   {loading ? '...' : stats.totalItems}
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1 leading-tight">Im Inventar</p>
@@ -175,7 +175,7 @@ export default function DashboardPage() {
                 <Clock className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
               </CardHeader>
               <CardContent className="px-3 pb-2 flex-1 flex flex-col justify-center">
-                <div className="text-xl font-bold text-yellow-700 dark:text-yellow-300 leading-none">
+                <div className="text-4xl font-bold text-yellow-700 dark:text-yellow-300 leading-none">
                   {loading ? '...' : stats.dueTodayRentals}
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1 leading-tight">Rückgabe heute</p>
@@ -188,7 +188,7 @@ export default function DashboardPage() {
                 <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
               </CardHeader>
               <CardContent className="px-3 pb-2 flex-1 flex flex-col justify-center">
-                <div className="text-xl font-bold text-red-700 dark:text-red-300 leading-none">
+                <div className="text-4xl font-bold text-red-700 dark:text-red-300 leading-none">
                   {loading ? '...' : stats.overdueRentals}
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1 leading-tight">Rückgabe überfällig</p>
