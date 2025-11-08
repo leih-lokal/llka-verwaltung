@@ -122,7 +122,7 @@ export function ItemDetailSheet({
         brand: item.brand || '',
         model: item.model || '',
         description: item.description || '',
-        category: item.category as ItemCategory[],
+        category: item.category as any, // Database stores German strings, not enum values
         deposit: item.deposit,
         synonyms: Array.isArray(item.synonyms) ? item.synonyms.join(', ') : '',
         packaging: item.packaging || '',
