@@ -197,36 +197,57 @@ export function RentalDetailSheet({
       }
 
       // Set form values
+      const rentedOnValue = rental.rented_on ? rental.rented_on.split('T')[0] : new Date().toISOString().split('T')[0];
+      const returnedOnValue = rental.returned_on ? rental.returned_on.split('T')[0] : '';
+      const expectedOnValue = rental.expected_on ? rental.expected_on.split('T')[0] : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const extendedOnValue = rental.extended_on ? rental.extended_on.split('T')[0] : '';
+
       form.reset({
         customer_iid: rental.expand?.customer?.iid ?? 0,
         item_iid: rental.expand?.items?.[0]?.iid ?? 0,
         deposit: rental.deposit ?? 0,
         deposit_back: rental.deposit_back ?? 0,
-        rented_on: rental.rented_on ? rental.rented_on.split('T')[0] : new Date().toISOString().split('T')[0],
-        returned_on: rental.returned_on ? rental.returned_on.split('T')[0] : '',
-        expected_on: rental.expected_on ? rental.expected_on.split('T')[0] : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        extended_on: rental.extended_on ? rental.extended_on.split('T')[0] : '',
+        rented_on: rentedOnValue,
+        returned_on: returnedOnValue,
+        expected_on: expectedOnValue,
+        extended_on: extendedOnValue,
         remark: rental.remark || '',
         employee: rental.employee || '',
         employee_back: rental.employee_back || '',
       });
+
+      // Update display values immediately
+      setRentedOnDisplay(formatDateDisplay(stringToDate(rentedOnValue)));
+      setReturnedOnDisplay(formatDateDisplay(stringToDate(returnedOnValue)));
+      setExpectedOnDisplay(formatDateDisplay(stringToDate(expectedOnValue)));
+      setExtendedOnDisplay(formatDateDisplay(stringToDate(extendedOnValue)));
     } else if (isNewRental && open) {
       // Reset for new rental
       setSelectedCustomer(null);
       setSelectedItem(null);
+
+      const defaultRentedOn = new Date().toISOString().split('T')[0];
+      const defaultExpectedOn = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
       form.reset({
         customer_iid: 0,
         item_iid: 0,
         deposit: 0,
         deposit_back: 0,
-        rented_on: new Date().toISOString().split('T')[0],
+        rented_on: defaultRentedOn,
         returned_on: '',
-        expected_on: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        expected_on: defaultExpectedOn,
         extended_on: '',
         remark: '',
         employee: '',
         employee_back: '',
       });
+
+      // Update display values immediately
+      setRentedOnDisplay(formatDateDisplay(stringToDate(defaultRentedOn)));
+      setReturnedOnDisplay('');
+      setExpectedOnDisplay(formatDateDisplay(stringToDate(defaultExpectedOn)));
+      setExtendedOnDisplay('');
     }
   }, [rental, isNewRental, form, open, setValue]);
 
@@ -557,8 +578,8 @@ export function RentalDetailSheet({
           onOpenChange(open);
         }
       }}>
-        <SheetContent className="w-full sm:max-w-4xl overflow-y-auto">
-          <SheetHeader className="border-b pb-6 mb-6 px-6">
+        <SheetContent className="w-full sm:max-w-4xl flex flex-col overflow-hidden">
+          <SheetHeader className="border-b pb-6 mb-6 px-6 shrink-0">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <div className="mb-2">
@@ -580,7 +601,7 @@ export function RentalDetailSheet({
             </div>
           </SheetHeader>
 
-          <form onSubmit={form.handleSubmit(handleSave)} className="space-y-8 px-6">
+          <form onSubmit={form.handleSubmit(handleSave)} className="space-y-8 px-6 overflow-y-auto flex-1">
             {/* Customer Selection */}
             <section className="space-y-4">
               <div className="border-b pb-2 mb-4">
@@ -1118,16 +1139,18 @@ export function RentalDetailSheet({
             </section>
           </form>
 
-          <SheetFooter className="border-t pt-4 px-6 mt-8">
-            <div className="flex justify-between w-full">
-              <div className="flex gap-2">
+          <SheetFooter className="border-t pt-6 pb-6 px-6 shrink-0 bg-background">
+            <div className="flex justify-between w-full gap-4">
+              <div className="flex gap-3">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={handleCancel}
                   disabled={isLoading}
+                  size="lg"
+                  className="min-w-[120px]"
                 >
-                  <XIcon className="size-4 mr-2" />
+                  <XIcon className="size-5 mr-2" />
                   Abbrechen
                 </Button>
                 {!isNewRental && (
@@ -1136,22 +1159,25 @@ export function RentalDetailSheet({
                     variant="destructive"
                     onClick={() => setShowDeleteDialog(true)}
                     disabled={isLoading}
+                    size="lg"
+                    className="min-w-[120px]"
                   >
-                    <TrashIcon className="size-4 mr-2" />
+                    <TrashIcon className="size-5 mr-2" />
                     Löschen
                   </Button>
                 )}
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-3">
                 {!isNewRental && !returnedOn && (
                   <Button
                     type="button"
                     variant="default"
-                    className="bg-green-600 hover:bg-green-700"
+                    className="bg-green-600 hover:bg-green-700 min-w-[140px]"
                     onClick={handleReturn}
                     disabled={isLoading}
+                    size="lg"
                   >
-                    <CheckIcon className="size-4 mr-2" />
+                    <CheckIcon className="size-5 mr-2" />
                     Zurückgeben
                   </Button>
                 )}
@@ -1159,8 +1185,10 @@ export function RentalDetailSheet({
                   type="submit"
                   onClick={form.handleSubmit(handleSave)}
                   disabled={isLoading}
+                  size="lg"
+                  className="min-w-[120px]"
                 >
-                  <SaveIcon className="size-4 mr-2" />
+                  <SaveIcon className="size-5 mr-2" />
                   {isLoading ? 'Speichern...' : 'Speichern'}
                 </Button>
               </div>
