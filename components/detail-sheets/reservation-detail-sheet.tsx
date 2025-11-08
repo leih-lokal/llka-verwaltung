@@ -257,8 +257,8 @@ export function ReservationDetailSheet({
           onOpenChange(open);
         }
       }}>
-        <SheetContent className="w-full sm:max-w-4xl overflow-y-auto">
-          <SheetHeader className="border-b pb-6 mb-6 px-6">
+        <SheetContent className="w-full sm:max-w-4xl flex flex-col overflow-hidden">
+          <SheetHeader className="border-b pb-6 mb-6 px-6 shrink-0">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <div className="mb-2">
@@ -280,7 +280,8 @@ export function ReservationDetailSheet({
             </div>
           </SheetHeader>
 
-          <form onSubmit={form.handleSubmit(handleSave)} className="space-y-8 px-6">
+          <div className="flex-1 overflow-y-auto">
+            <form onSubmit={form.handleSubmit(handleSave)} className="space-y-8 px-6">
             {/* Customer Information */}
             <section className="space-y-4">
               <div className="border-b pb-2 mb-4">
@@ -568,8 +569,9 @@ export function ReservationDetailSheet({
               </div>
             </section>
           </form>
+          </div>
 
-          <SheetFooter className="border-t pt-4 px-6">
+          <SheetFooter className="border-t pt-4 px-6 shrink-0 bg-background">
             <div className="flex justify-between w-full gap-2">
               <Button
                 type="button"
