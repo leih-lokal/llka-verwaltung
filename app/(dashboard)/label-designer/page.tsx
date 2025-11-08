@@ -5,7 +5,8 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Tag } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -22,6 +23,7 @@ export type LabelType = 'default' | 'compact' | 'cord';
 type SelectionMode = 'single' | 'multi';
 
 export default function LabelDesignerPage() {
+  const searchParams = useSearchParams();
   const [mode, setMode] = useState<SelectionMode>('single');
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [selectedItems, setSelectedItems] = useState<Item[]>([]);
@@ -29,6 +31,24 @@ export default function LabelDesignerPage() {
   const [startId, setStartId] = useState<string>('');
   const [endId, setEndId] = useState<string>('');
   const [isLoadingRange, setIsLoadingRange] = useState(false);
+
+  // Load item from URL parameter
+  useEffect(() => {
+    const itemId = searchParams.get('itemId');
+    if (itemId) {
+      const fetchItem = async () => {
+        try {
+          const item = await pb.collection('item').getOne<Item>(itemId);
+          setSelectedItem(item);
+          setMode('single');
+        } catch (error) {
+          console.error('Error loading item:', error);
+          toast.error('Fehler beim Laden des Artikels');
+        }
+      };
+      fetchItem();
+    }
+  }, [searchParams]);
 
   const handleFetchRange = async () => {
     if (!startId || !endId) {
