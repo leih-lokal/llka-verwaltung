@@ -109,6 +109,10 @@ export function RentalDetailSheet({
   const { formState: { isDirty }, watch, setValue } = form;
   const selectedCustomerId = watch('customer_id');
   const selectedItemIds = watch('item_ids');
+  const rentedOn = watch('rented_on');
+  const expectedOn = watch('expected_on');
+  const extendedOn = watch('extended_on');
+  const returnedOn = watch('returned_on');
 
   // Load customers and items for dropdowns
   useEffect(() => {
@@ -258,6 +262,21 @@ export function RentalDetailSheet({
 
   const handleRemoveItem = (itemId: string) => {
     setValue('item_ids', selectedItemIds.filter((id) => id !== itemId), { shouldDirty: true });
+  };
+
+  // Date quick-action helpers
+  const setRentedOnToday = () => {
+    setValue('rented_on', new Date().toISOString().split('T')[0], { shouldDirty: true });
+  };
+
+  const setExpectedOn = (weeks: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() + weeks * 7);
+    setValue('expected_on', date.toISOString().split('T')[0], { shouldDirty: true });
+  };
+
+  const setReturnedOnToday = () => {
+    setValue('returned_on', new Date().toISOString().split('T')[0], { shouldDirty: true });
   };
 
   return (
@@ -493,12 +512,25 @@ export function RentalDetailSheet({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="rented_on">Ausgeliehen am *</Label>
-                  <Input
-                    id="rented_on"
-                    type="date"
-                    {...form.register('rented_on')}
-                    className="mt-1"
-                  />
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      id="rented_on"
+                      type="date"
+                      value={rentedOn}
+                      onChange={(e) => setValue('rented_on', e.target.value, { shouldDirty: true })}
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={setRentedOnToday}
+                      className="shrink-0"
+                      title="Heute"
+                    >
+                      Heute
+                    </Button>
+                  </div>
                   {form.formState.errors.rented_on && (
                     <p className="text-sm text-destructive mt-1">
                       {form.formState.errors.rented_on.message}
@@ -508,12 +540,44 @@ export function RentalDetailSheet({
 
                 <div>
                   <Label htmlFor="expected_on">Erwartet am *</Label>
-                  <Input
-                    id="expected_on"
-                    type="date"
-                    {...form.register('expected_on')}
-                    className="mt-1"
-                  />
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      id="expected_on"
+                      type="date"
+                      value={expectedOn}
+                      onChange={(e) => setValue('expected_on', e.target.value, { shouldDirty: true })}
+                      className="flex-1"
+                    />
+                    <div className="flex gap-1 shrink-0">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setExpectedOn(1)}
+                        title="1 Woche"
+                      >
+                        1W
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setExpectedOn(2)}
+                        title="2 Wochen"
+                      >
+                        2W
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setExpectedOn(3)}
+                        title="3 Wochen"
+                      >
+                        3W
+                      </Button>
+                    </div>
+                  </div>
                   {form.formState.errors.expected_on && (
                     <p className="text-sm text-destructive mt-1">
                       {form.formState.errors.expected_on.message}
@@ -526,19 +590,33 @@ export function RentalDetailSheet({
                   <Input
                     id="extended_on"
                     type="date"
-                    {...form.register('extended_on')}
+                    value={extendedOn}
+                    onChange={(e) => setValue('extended_on', e.target.value, { shouldDirty: true })}
                     className="mt-1"
                   />
                 </div>
 
                 <div>
                   <Label htmlFor="returned_on">Zurückgegeben am</Label>
-                  <Input
-                    id="returned_on"
-                    type="date"
-                    {...form.register('returned_on')}
-                    className="mt-1"
-                  />
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      id="returned_on"
+                      type="date"
+                      value={returnedOn}
+                      onChange={(e) => setValue('returned_on', e.target.value, { shouldDirty: true })}
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={setReturnedOnToday}
+                      className="shrink-0"
+                      title="Heute zurückgegeben"
+                    >
+                      Heute
+                    </Button>
+                  </div>
                 </div>
               </div>
             </section>
