@@ -524,7 +524,7 @@ export function ItemDetailSheet({
                   ) : (
                     <p className="mt-1 text-sm">
                       {item?.synonyms && item.synonyms.length > 0
-                        ? item.synonyms.join(', ')
+                        ? (Array.isArray(item.synonyms) ? item.synonyms.join(', ') : item.synonyms)
                         : '—'}
                     </p>
                   )}
