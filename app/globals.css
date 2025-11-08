@@ -144,4 +144,75 @@
   .animate-caret-blink {
     animation: caret-blink 1.25s ease-out infinite;
   }
+
+  /* Univers LT Std font family for labels */
+  @font-face {
+    font-family: 'Univers LT Std';
+    src: url('/type/UniversLTStd.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+  }
+
+  @font-face {
+    font-family: 'Univers LT Std';
+    src: url('/type/UniversLTStd-Obl.woff2') format('woff2');
+    font-weight: 400;
+    font-style: italic;
+  }
+
+  @font-face {
+    font-family: 'Univers LT Std';
+    src: url('/type/UniversLTStd-Bold.woff2') format('woff2');
+    font-weight: 700;
+    font-style: normal;
+  }
+
+  @font-face {
+    font-family: 'Univers LT Std';
+    src: url('/type/UniversLTStd-BoldObl.woff2') format('woff2');
+    font-weight: 700;
+    font-style: italic;
+  }
+
+  @font-face {
+    font-family: 'Univers LT Std';
+    src: url('/type/UniversLTStd-Black.woff2') format('woff2');
+    font-weight: 900;
+    font-style: normal;
+  }
+
+  @font-face {
+    font-family: 'Univers LT Std';
+    src: url('/type/UniversLTStd-BlackObl.woff2') format('woff2');
+    font-weight: 900;
+    font-style: italic;
+  }
+
+  @font-face {
+    font-family: 'Univers LT Std Condensed';
+    src: url('/type/UniversLTStd-Cn.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+  }
+
+  @font-face {
+    font-family: 'Univers LT Std Condensed';
+    src: url('/type/UniversLTStd-CnObl.woff2') format('woff2');
+    font-weight: 400;
+    font-style: italic;
+  }
+
+  @font-face {
+    font-family: 'Univers LT Std Condensed';
+    src: url('/type/UniversLTStd-BoldCn.woff2') format('woff2');
+    font-weight: 700;
+    font-style: normal;
+  }
+
+  @font-face {
+    font-family: 'Univers LT Std Condensed';
+    src: url('/type/UniversLTStd-BoldCnObl.woff2') format('woff2');
+    font-weight: 700;
+    font-style: italic;
+  }
 }

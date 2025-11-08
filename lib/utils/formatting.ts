@@ -77,15 +77,14 @@ export function calculateRentalStatus(
     return RentalStatus.Returned;
   }
 
-  // Use extended date if available, otherwise expected date
-  const dueDateString = extended_on || expected_on;
-
-  // If no expected date, treat as active
-  if (!dueDateString) {
+  // Use expected_on as the due date
+  // Note: extended_on now represents when the extension was made, not the new deadline
+  // The new deadline is stored in expected_on (which gets updated when extending)
+  if (!expected_on) {
     return RentalStatus.Active;
   }
 
-  const dueDate = parseISO(dueDateString);
+  const dueDate = parseISO(expected_on);
   dueDate.setHours(0, 0, 0, 0);
 
   const daysUntilDue = differenceInDays(dueDate, today);
@@ -117,7 +116,8 @@ export function calculateDaysOverdue(
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const dueDate = parseISO(extended_on || expected_on);
+  // Use expected_on as the due date (extended_on is now just a timestamp)
+  const dueDate = parseISO(expected_on);
   dueDate.setHours(0, 0, 0, 0);
 
   return differenceInDays(today, dueDate);

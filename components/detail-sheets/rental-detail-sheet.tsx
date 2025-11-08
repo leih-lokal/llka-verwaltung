@@ -986,7 +986,7 @@ export function RentalDetailSheet({
                 {/* Extended On */}
                 {!isNewRental && (
                   <div>
-                    <Label htmlFor="extended_on">Verlängert bis</Label>
+                    <Label htmlFor="extended_on">Verlängert am</Label>
                     <div className="flex gap-2 mt-1">
                       <div className="relative flex-1">
                         <Input

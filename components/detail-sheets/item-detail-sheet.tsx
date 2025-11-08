@@ -10,7 +10,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { PencilIcon, SaveIcon, XIcon, ImageIcon, Trash2Icon, UploadIcon, PlusCircleIcon } from 'lucide-react';
+import { PencilIcon, SaveIcon, XIcon, ImageIcon, Trash2Icon, UploadIcon, PlusCircleIcon, Tag } from 'lucide-react';
+import Link from 'next/link';
 import {
   Sheet,
   SheetContent,
@@ -1096,6 +1097,15 @@ export function ItemDetailSheet({
                   Schließen
                 </Button>
                 <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    asChild
+                  >
+                    <Link href={`/label-designer?itemId=${item?.id}`}>
+                      <Tag className="size-4 mr-2" />
+                      Etikett drucken
+                    </Link>
+                  </Button>
                   <Button
                     variant="default"
                     onClick={() => setIsRentalSheetOpen(true)}

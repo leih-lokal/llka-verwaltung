@@ -453,7 +453,7 @@ export default function RentalsPage() {
                           )}
                           {columnVisibility.isColumnVisible('expected_on') && (
                             <td className="px-4 py-3 text-sm text-muted-foreground">
-                              {formatDate(rental.extended_on || rental.expected_on)}
+                              {formatDate(rental.expected_on)}
                             </td>
                           )}
                           {columnVisibility.isColumnVisible('returned_on') && (

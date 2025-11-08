@@ -268,7 +268,7 @@ export const rentalsColumnConfig: EntityColumnConfig = {
     },
     {
       id: 'extended_on',
-      label: 'Verlängert',
+      label: 'Verlängert am',
       defaultVisible: false,
       sortable: true,
     },
