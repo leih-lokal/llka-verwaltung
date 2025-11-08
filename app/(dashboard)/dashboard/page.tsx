@@ -15,6 +15,7 @@ import {
   Calendar,
   ClipboardList,
   StickyNote,
+  Clock,
 } from 'lucide-react';
 import { collections } from '@/lib/pocketbase/client';
 import { calculateRentalStatus, formatDate, formatFullName } from '@/lib/utils/formatting';
@@ -30,6 +31,7 @@ interface DashboardStats {
   totalCustomers: number;
   totalItems: number;
   activeRentals: number;
+  dueTodayRentals: number;
   overdueRentals: number;
 }
 
@@ -38,6 +40,7 @@ export default function DashboardPage() {
     totalCustomers: 0,
     totalItems: 0,
     activeRentals: 0,
+    dueTodayRentals: 0,
     overdueRentals: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -64,6 +67,15 @@ export default function DashboardPage() {
 
       // Calculate rental stats
       const activeRentals = rentalsResult.filter((r) => !r.returned_on);
+      const dueTodayRentals = activeRentals.filter((r) => {
+        const status = calculateRentalStatus(
+          r.rented_on,
+          r.returned_on,
+          r.expected_on,
+          r.extended_on
+        );
+        return status === RentalStatus.DueToday;
+      });
       const overdueRentals = activeRentals.filter((r) => {
         const status = calculateRentalStatus(
           r.rented_on,
@@ -78,6 +90,7 @@ export default function DashboardPage() {
         totalCustomers: customersResult.totalItems,
         totalItems: itemsResult.totalItems,
         activeRentals: activeRentals.length,
+        dueTodayRentals: dueTodayRentals.length,
         overdueRentals: overdueRentals.length,
       });
     } catch (error) {
@@ -89,28 +102,28 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Quick Actions */}
-      <div className="flex flex-wrap gap-2">
-        <Button asChild>
+    <div className="container mx-auto p-6 space-y-8">
+      {/* Quick Actions Bar */}
+      <div className="flex flex-wrap gap-3">
+        <Button asChild size="lg" className="shadow-md hover:shadow-lg transition-shadow">
           <Link href="/rentals?action=new">
             <Plus className="mr-2 h-4 w-4" />
             Neue Ausleihe
           </Link>
         </Button>
-        <Button variant="outline" asChild>
+        <Button variant="outline" asChild size="lg" className="shadow-sm hover:shadow-md transition-shadow">
           <Link href="/reservations?action=new">
             <Calendar className="mr-2 h-4 w-4" />
             Neue Reservierung
           </Link>
         </Button>
-        <Button variant="outline" asChild>
+        <Button variant="outline" asChild size="lg" className="shadow-sm hover:shadow-md transition-shadow">
           <Link href="/customers?action=new">
             <Users className="mr-2 h-4 w-4" />
             Neue:r Nutzer:in
           </Link>
         </Button>
-        <Button variant="outline" asChild>
+        <Button variant="outline" asChild size="lg" className="shadow-sm hover:shadow-md transition-shadow">
           <Link href="/items?action=new">
             <Package className="mr-2 h-4 w-4" />
             Neuer Gegenstand
@@ -118,76 +131,72 @@ export default function DashboardPage() {
         </Button>
       </div>
 
-      {/* Stats Overview */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Nutzer:innen</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {loading ? '...' : stats.totalCustomers}
-            </div>
-            <p className="text-xs text-muted-foreground">Gesamt registriert</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Gegenstände</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {loading ? '...' : stats.totalItems}
-            </div>
-            <p className="text-xs text-muted-foreground">Im Inventar</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Aktive Ausleihen</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {loading ? '...' : stats.activeRentals}
-            </div>
-            <p className="text-xs text-muted-foreground">Aktuell ausgeliehen</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Überfällig</CardTitle>
-            <AlertCircle className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">
-              {loading ? '...' : stats.overdueRentals}
-            </div>
-            <p className="text-xs text-muted-foreground">Rückgabe überfällig</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Main Content - 2 Columns */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Left Column */}
+      {/* 2 Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left Column: Rentals & Reservations */}
         <div className="space-y-6">
-          {/* Notes Section */}
-          <DashboardNotes />
-
-          {/* Active Rentals */}
           <ActiveRentalsSection onRentalReturned={loadStats} />
+          <TodaysReservationsSection onReservationCompleted={loadStats} />
         </div>
 
-        {/* Right Column */}
+        {/* Right Column: Stats & Notes */}
         <div className="space-y-6">
-          {/* Today's Reservations */}
-          <TodaysReservationsSection onReservationCompleted={loadStats} />
+          {/* Stats (2x2 grid) */}
+          <div className="grid grid-cols-2 gap-3">
+            <Card className="shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/20 dark:to-background flex flex-col">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 px-3">
+                <CardTitle className="text-xs font-medium">Nutzer:innen</CardTitle>
+                <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              </CardHeader>
+              <CardContent className="px-3 pb-2 flex-1 flex flex-col justify-center">
+                <div className="text-xl font-bold text-blue-700 dark:text-blue-300 leading-none">
+                  {loading ? '...' : stats.totalCustomers}
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1 leading-tight">Gesamt registriert</p>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br from-purple-50 to-white dark:from-purple-950/20 dark:to-background flex flex-col">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 px-3">
+                <CardTitle className="text-xs font-medium">Gegenstände</CardTitle>
+                <Package className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              </CardHeader>
+              <CardContent className="px-3 pb-2 flex-1 flex flex-col justify-center">
+                <div className="text-xl font-bold text-purple-700 dark:text-purple-300 leading-none">
+                  {loading ? '...' : stats.totalItems}
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1 leading-tight">Im Inventar</p>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br from-yellow-50 to-white dark:from-yellow-950/20 dark:to-background flex flex-col">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 px-3">
+                <CardTitle className="text-xs font-medium">Heute fällig</CardTitle>
+                <Clock className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+              </CardHeader>
+              <CardContent className="px-3 pb-2 flex-1 flex flex-col justify-center">
+                <div className="text-xl font-bold text-yellow-700 dark:text-yellow-300 leading-none">
+                  {loading ? '...' : stats.dueTodayRentals}
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1 leading-tight">Rückgabe heute</p>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br from-red-50 to-white dark:from-red-950/20 dark:to-background flex flex-col">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 px-3">
+                <CardTitle className="text-xs font-medium">Überfällig</CardTitle>
+                <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+              </CardHeader>
+              <CardContent className="px-3 pb-2 flex-1 flex flex-col justify-center">
+                <div className="text-xl font-bold text-red-700 dark:text-red-300 leading-none">
+                  {loading ? '...' : stats.overdueRentals}
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1 leading-tight">Rückgabe überfällig</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <DashboardNotes />
         </div>
       </div>
     </div>

@@ -5,6 +5,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { PlusIcon, BadgeCheckIcon, CoinsIcon, WalletIcon } from 'lucide-react';
 import { SearchBar } from '@/components/search/search-bar';
 import { FilterPopover } from '@/components/search/filter-popover';
@@ -23,6 +24,8 @@ import { formatDate, calculateRentalStatus } from '@/lib/utils/formatting';
 import { getRentalStatusLabel, RENTAL_STATUS_COLORS } from '@/lib/constants/statuses';
 
 export default function RentalsPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [rentals, setRentals] = useState<RentalExpanded[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -52,6 +55,32 @@ export default function RentalsPage() {
     entity: 'rentals',
     config: rentalsColumnConfig,
   });
+
+  // Handle URL query parameters (action=new or view=id)
+  useEffect(() => {
+    const action = searchParams.get('action');
+    const viewId = searchParams.get('view');
+
+    if (action === 'new') {
+      setSelectedRental(null);
+      setIsSheetOpen(true);
+      // Clear the URL parameter
+      router.replace('/rentals');
+    } else if (viewId) {
+      // Fetch the rental by ID and open it
+      collections.rentals().getOne<RentalExpanded>(viewId, {
+        expand: 'customer,items',
+      }).then((rental) => {
+        setSelectedRental(rental);
+        setIsSheetOpen(true);
+        // Clear the URL parameter
+        router.replace('/rentals');
+      }).catch((err) => {
+        console.error('Failed to load rental:', err);
+        router.replace('/rentals');
+      });
+    }
+  }, [searchParams, router]);
 
   // Debounce search input
   useEffect(() => {

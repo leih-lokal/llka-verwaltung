@@ -69,42 +69,43 @@ function SortableNote({ note, onEdit, onDelete }: SortableNoteProps) {
     <div
       ref={setNodeRef}
       style={style}
-      className="group relative rounded-lg p-4 shadow-sm border"
       {...attributes}
     >
       <div
-        className="absolute top-2 left-2 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
-        {...listeners}
-      >
-        <GripVertical className="h-4 w-4 text-muted-foreground" />
-      </div>
-      <div
-        className="pl-6 pr-16 min-h-[80px]"
+        className="group relative rounded-lg p-4 shadow-md hover:shadow-lg transition-all"
         style={{ backgroundColor: note.background_color }}
       >
-        <div className="prose prose-sm max-w-none">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {note.content || '*(Leere Notiz)*'}
-          </ReactMarkdown>
+        <div
+          className="absolute top-2 left-2 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
+          {...listeners}
+        >
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
         </div>
-      </div>
-      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={() => onEdit(note)}
-          className="h-7 w-7"
-        >
-          <Pencil className="h-3 w-3" />
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={() => onDelete(note.id)}
-          className="h-7 w-7"
-        >
-          <Trash2 className="h-3 w-3" />
-        </Button>
+        <div className="pl-6 pr-16 min-h-[60px]">
+          <div className="prose prose-sm max-w-none">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {note.content || '*(Leere Notiz)*'}
+            </ReactMarkdown>
+          </div>
+        </div>
+        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => onEdit(note)}
+            className="h-7 w-7 hover:bg-black/10"
+          >
+            <Pencil className="h-3 w-3" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => onDelete(note.id)}
+            className="h-7 w-7 hover:bg-black/10"
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -5,6 +5,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { PlusIcon, HeartIcon, CalendarCheckIcon, PackageIcon, HistoryIcon } from 'lucide-react';
 import { SearchBar } from '@/components/search/search-bar';
 import { FilterPopover } from '@/components/search/filter-popover';
@@ -20,6 +21,8 @@ import { customersColumnConfig } from '@/lib/tables/column-configs';
 import type { Customer } from '@/types';
 
 export default function CustomersPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -49,6 +52,30 @@ export default function CustomersPage() {
     entity: 'customers',
     config: customersColumnConfig,
   });
+
+  // Handle URL query parameters (action=new or view=id)
+  useEffect(() => {
+    const action = searchParams.get('action');
+    const viewId = searchParams.get('view');
+
+    if (action === 'new') {
+      setSelectedCustomer(null);
+      setIsSheetOpen(true);
+      // Clear the URL parameter
+      router.replace('/customers');
+    } else if (viewId) {
+      // Fetch the customer by ID and open it
+      collections.customers().getOne<Customer>(viewId).then((customer) => {
+        setSelectedCustomer(customer);
+        setIsSheetOpen(true);
+        // Clear the URL parameter
+        router.replace('/customers');
+      }).catch((err) => {
+        console.error('Failed to load customer:', err);
+        router.replace('/customers');
+      });
+    }
+  }, [searchParams, router]);
 
   // Debounce search input
   useEffect(() => {

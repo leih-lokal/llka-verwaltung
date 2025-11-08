@@ -5,6 +5,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { PlusIcon, CheckCircle2Icon } from 'lucide-react';
 import { SearchBar } from '@/components/search/search-bar';
 import { FilterPopover } from '@/components/search/filter-popover';
@@ -23,6 +24,8 @@ import type { ReservationExpanded, RentalExpanded, Customer } from '@/types';
 import { formatDateTime } from '@/lib/utils/formatting';
 
 export default function ReservationsPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [reservations, setReservations] = useState<ReservationExpanded[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -55,6 +58,32 @@ export default function ReservationsPage() {
     const todayStr = today.toISOString().split('T')[0];
     return { start: todayStr, end: todayStr };
   }, []);
+
+  // Handle URL query parameters (action=new or view=id)
+  useEffect(() => {
+    const action = searchParams.get('action');
+    const viewId = searchParams.get('view');
+
+    if (action === 'new') {
+      setSelectedReservation(null);
+      setIsSheetOpen(true);
+      // Clear the URL parameter
+      router.replace('/reservations');
+    } else if (viewId) {
+      // Fetch the reservation by ID and open it
+      collections.reservations().getOne<ReservationExpanded>(viewId, {
+        expand: 'customer,items',
+      }).then((reservation) => {
+        setSelectedReservation(reservation);
+        setIsSheetOpen(true);
+        // Clear the URL parameter
+        router.replace('/reservations');
+      }).catch((err) => {
+        console.error('Failed to load reservation:', err);
+        router.replace('/reservations');
+      });
+    }
+  }, [searchParams, router]);
 
   // Initialize "today" filter on first load if no filters exist
   useEffect(() => {

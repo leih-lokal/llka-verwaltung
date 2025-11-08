@@ -5,6 +5,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { PlusIcon, ImageIcon, CoinsIcon, WrenchIcon, CopyIcon, HistoryIcon, HeartIcon } from 'lucide-react';
 import { SearchBar } from '@/components/search/search-bar';
 import { FilterPopover } from '@/components/search/filter-popover';
@@ -24,6 +25,8 @@ import { getItemStatusLabel, ITEM_STATUS_COLORS } from '@/lib/constants/statuses
 import { getCategoryLabel } from '@/lib/constants/categories';
 
 export default function ItemsPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [items, setItems] = useState<Item[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -53,6 +56,30 @@ export default function ItemsPage() {
     entity: 'items',
     config: itemsColumnConfig,
   });
+
+  // Handle URL query parameters (action=new or view=id)
+  useEffect(() => {
+    const action = searchParams.get('action');
+    const viewId = searchParams.get('view');
+
+    if (action === 'new') {
+      setSelectedItem(null);
+      setIsSheetOpen(true);
+      // Clear the URL parameter
+      router.replace('/items');
+    } else if (viewId) {
+      // Fetch the item by ID and open it
+      collections.items().getOne<Item>(viewId).then((item) => {
+        setSelectedItem(item);
+        setIsSheetOpen(true);
+        // Clear the URL parameter
+        router.replace('/items');
+      }).catch((err) => {
+        console.error('Failed to load item:', err);
+        router.replace('/items');
+      });
+    }
+  }, [searchParams, router]);
 
   // Debounce search input
   useEffect(() => {
