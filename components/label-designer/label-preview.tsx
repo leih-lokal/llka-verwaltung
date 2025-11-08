@@ -14,7 +14,7 @@ import { type LabelType } from '@/app/(dashboard)/label-designer/page';
 import { DefaultLabel } from './labels/default-label';
 import { CompactLabel } from './labels/compact-label';
 import { CordLabel } from './labels/cord-label';
-import html2canvas from 'html2canvas';
+import { toPng, toJpeg, toBlob } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 import { toast } from 'sonner';
 
@@ -56,73 +56,38 @@ export function LabelPreview({ item, labelType, onLabelTypeChange }: LabelPrevie
     }, 100);
   };
 
-  const generateCanvas = async () => {
+  const getLabelElement = () => {
     if (!labelRef.current) {
       toast.error('Etikett konnte nicht gefunden werden');
       return null;
     }
 
-    try {
-      // Find the actual label element (should have label-print-area class)
-      const labelElement = labelRef.current.querySelector('.label-print-area');
-      if (!labelElement) {
-        toast.error('Label element not found');
-        return null;
-      }
-
-      // Convert mm to pixels at 300 DPI (for high quality)
-      // 100mm = 1181px, 50mm = 591px at 300 DPI
-      const canvas = await html2canvas(labelElement as HTMLElement, {
-        scale: 3, // Higher scale for better quality
-        backgroundColor: '#ffffff',
-        width: 378, // 100mm at 96 DPI
-        height: 189, // 50mm at 96 DPI
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        onclone: (clonedDoc) => {
-          // Remove ALL style tags and link tags to avoid unsupported color functions
-          // The labels have all their styles inline, so this is safe
-          const styleElements = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
-          styleElements.forEach((el) => el.remove());
-
-          // Force simple colors on the cloned element
-          const clonedElement = clonedDoc.querySelector('.label-print-area') as HTMLElement;
-          if (clonedElement) {
-            clonedElement.style.backgroundColor = 'white';
-            clonedElement.style.color = 'black';
-          }
-        },
-      });
-
-      return canvas;
-    } catch (error) {
-      console.error('Error generating canvas:', error);
-      toast.error('Fehler beim Erstellen des Etiketts');
+    const labelElement = labelRef.current.querySelector('.label-print-area') as HTMLElement;
+    if (!labelElement) {
+      toast.error('Label element not found');
       return null;
     }
+
+    return labelElement;
   };
 
   const handleDownloadPNG = async () => {
     setIsDownloading(true);
     try {
-      const canvas = await generateCanvas();
-      if (!canvas) return;
+      const labelElement = getLabelElement();
+      if (!labelElement) return;
 
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          toast.error('Fehler beim Erstellen der PNG-Datei');
-          return;
-        }
+      const dataUrl = await toPng(labelElement, {
+        cacheBust: true,
+        backgroundColor: '#ffffff',
+        pixelRatio: 3, // Higher quality
+      });
 
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `label-${String(item.iid).padStart(4, '0')}-${labelType}.png`;
-        link.click();
-        URL.revokeObjectURL(url);
-        toast.success('PNG heruntergeladen');
-      }, 'image/png');
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `label-${String(item.iid).padStart(4, '0')}-${labelType}.png`;
+      link.click();
+      toast.success('PNG heruntergeladen');
     } catch (error) {
       console.error('Error downloading PNG:', error);
       toast.error('Fehler beim Herunterladen der PNG-Datei');
@@ -134,23 +99,21 @@ export function LabelPreview({ item, labelType, onLabelTypeChange }: LabelPrevie
   const handleDownloadJPG = async () => {
     setIsDownloading(true);
     try {
-      const canvas = await generateCanvas();
-      if (!canvas) return;
+      const labelElement = getLabelElement();
+      if (!labelElement) return;
 
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          toast.error('Fehler beim Erstellen der JPG-Datei');
-          return;
-        }
+      const dataUrl = await toJpeg(labelElement, {
+        cacheBust: true,
+        backgroundColor: '#ffffff',
+        quality: 0.95,
+        pixelRatio: 3,
+      });
 
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `label-${String(item.iid).padStart(4, '0')}-${labelType}.jpg`;
-        link.click();
-        URL.revokeObjectURL(url);
-        toast.success('JPG heruntergeladen');
-      }, 'image/jpeg', 0.95);
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `label-${String(item.iid).padStart(4, '0')}-${labelType}.jpg`;
+      link.click();
+      toast.success('JPG heruntergeladen');
     } catch (error) {
       console.error('Error downloading JPG:', error);
       toast.error('Fehler beim Herunterladen der JPG-Datei');
@@ -162,8 +125,14 @@ export function LabelPreview({ item, labelType, onLabelTypeChange }: LabelPrevie
   const handleDownloadPDF = async () => {
     setIsDownloading(true);
     try {
-      const canvas = await generateCanvas();
-      if (!canvas) return;
+      const labelElement = getLabelElement();
+      if (!labelElement) return;
+
+      const dataUrl = await toPng(labelElement, {
+        cacheBust: true,
+        backgroundColor: '#ffffff',
+        pixelRatio: 3,
+      });
 
       // Create PDF with 100mm x 50mm dimensions
       const pdf = new jsPDF({
@@ -172,8 +141,7 @@ export function LabelPreview({ item, labelType, onLabelTypeChange }: LabelPrevie
         format: [100, 50],
       });
 
-      const imgData = canvas.toDataURL('image/png');
-      pdf.addImage(imgData, 'PNG', 0, 0, 100, 50);
+      pdf.addImage(dataUrl, 'PNG', 0, 0, 100, 50);
       pdf.save(`label-${String(item.iid).padStart(4, '0')}-${labelType}.pdf`);
       toast.success('PDF heruntergeladen');
     } catch (error) {
