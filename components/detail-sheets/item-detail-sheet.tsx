@@ -143,7 +143,7 @@ export function ItemDetailSheet({
       // Fetch next available IID for new items
       const fetchNextIid = async () => {
         try {
-          const lastItem = await collections.items().getFirstListItem('', { sort: '-iid' });
+          const lastItem = await collections.items().getFirstListItem<Item>('', { sort: '-iid' });
           const nextIid = (lastItem?.iid || 0) + 1;
           form.reset({
             iid: nextIid,

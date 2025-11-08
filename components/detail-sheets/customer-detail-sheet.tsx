@@ -125,7 +125,7 @@ export function CustomerDetailSheet({
       // Fetch next available IID for new customers
       const fetchNextIid = async () => {
         try {
-          const lastCustomer = await collections.customers().getFirstListItem('', { sort: '-iid' });
+          const lastCustomer = await collections.customers().getFirstListItem<Customer>('', { sort: '-iid' });
           const nextIid = (lastCustomer?.iid || 0) + 1;
           form.reset({
             iid: nextIid,
