@@ -97,13 +97,34 @@ export function useFilters({ entity, config, persist = true }: UseFiltersOptions
       // Replace __SEARCH__ placeholder with actual search fields
       if (searchQuery && searchQuery.trim()) {
         const searchTerm = searchQuery.toLowerCase();
-        const searchConditions = config.searchFields
-          .map((field) => `${field} ~ "${searchTerm}"`)
-          .join(' || ');
+        const searchConditions: string[] = [];
+
+        // Check if search term is numeric (with possible leading zeros)
+        const numericMatch = searchTerm.match(/^0*(\d+)$/);
+
+        if (numericMatch) {
+          // For numeric searches, add special handling for iid fields
+          const numericValue = numericMatch[1]; // Stripped of leading zeros
+
+          config.searchFields.forEach((field) => {
+            if (field === 'iid' || field.endsWith('.iid')) {
+              // For iid fields, search by numeric value
+              searchConditions.push(`${field} = ${numericValue}`);
+            } else {
+              // For text fields, still do text search with original term
+              searchConditions.push(`${field} ~ "${searchTerm}"`);
+            }
+          });
+        } else {
+          // Non-numeric search: use text search for all fields
+          config.searchFields.forEach((field) => {
+            searchConditions.push(`${field} ~ "${searchTerm}"`);
+          });
+        }
 
         filterString = filterString.replace(
           `__SEARCH__:"${searchTerm}"`,
-          `(${searchConditions})`
+          `(${searchConditions.join(' || ')})`
         );
       }
 
