@@ -5,7 +5,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { PlusIcon, ImageIcon, CoinsIcon, WrenchIcon, CopyIcon, HistoryIcon } from 'lucide-react';
+import { PlusIcon, ImageIcon, CoinsIcon, WrenchIcon, CopyIcon, HistoryIcon, HeartIcon } from 'lucide-react';
 import { SearchBar } from '@/components/search/search-bar';
 import { FilterPopover } from '@/components/search/filter-popover';
 import { SortableHeader, type SortDirection } from '@/components/table/sortable-header';
@@ -459,7 +459,22 @@ export default function ItemsPage() {
                           </td>
                         )}
                         {columnVisibility.isColumnVisible('name') && (
-                          <td className="px-4 py-3 font-medium">{item.name}</td>
+                          <td className="px-4 py-3 font-medium">
+                            <div className="flex items-center gap-2">
+                              {item.highlight_color && (
+                                item.highlight_color === 'green' ? (
+                                  <HeartIcon className="size-4 fill-green-500 text-green-500" />
+                                ) : (
+                                  <div className={`size-3 rounded-full ${
+                                    item.highlight_color === 'red' ? 'bg-red-500' :
+                                    item.highlight_color === 'yellow' ? 'bg-yellow-500' :
+                                    'bg-blue-500'
+                                  }`} />
+                                )
+                              )}
+                              <span>{item.name}</span>
+                            </div>
+                          </td>
                         )}
                         {columnVisibility.isColumnVisible('brand') && (
                           <td className="px-4 py-3 text-sm text-muted-foreground">
