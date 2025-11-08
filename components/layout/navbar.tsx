@@ -20,6 +20,7 @@ import {
   User,
   Command,
   Zap,
+  Tag,
 } from 'lucide-react';
 import { NavLink } from './nav-link';
 import { Button } from '@/components/ui/button';
@@ -167,6 +168,12 @@ export function Navbar() {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>Mehr</DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/label-designer" className="flex items-center cursor-pointer">
+                  <Tag className="mr-2 h-4 w-4" />
+                  <span>Label Designer</span>
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href="/logs" className="flex items-center cursor-pointer">
                   <FileText className="mr-2 h-4 w-4" />
