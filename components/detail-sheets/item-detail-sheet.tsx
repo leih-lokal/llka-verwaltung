@@ -10,7 +10,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { PencilIcon, SaveIcon, XIcon, ImageIcon, Trash2Icon, UploadIcon } from 'lucide-react';
+import { PencilIcon, SaveIcon, XIcon, ImageIcon, Trash2Icon, UploadIcon, PlusCircleIcon } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -35,6 +35,7 @@ import { collections, pb } from '@/lib/pocketbase/client';
 import { formatDate, formatCurrency, calculateRentalStatus } from '@/lib/utils/formatting';
 import type { Item, ItemFormData, RentalExpanded, ItemCategory, ItemStatus, HighlightColor } from '@/types';
 import { CATEGORY_OPTIONS, GERMAN_CATEGORY_VALUES } from '@/lib/constants/categories';
+import { RentalDetailSheet } from './rental-detail-sheet';
 
 // Validation schema (using German category names as they are stored in PocketBase)
 const itemSchema = z.object({
@@ -75,6 +76,9 @@ export function ItemDetailSheet({
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [rentals, setRentals] = useState<RentalExpanded[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  // Rental sheet state
+  const [isRentalSheetOpen, setIsRentalSheetOpen] = useState(false);
 
   // Image management
   const [existingImages, setExistingImages] = useState<string[]>([]);
@@ -327,7 +331,7 @@ export function ItemDetailSheet({
           <SheetHeader className="border-b pb-6 mb-6 px-6">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
-                <div className="flex items-baseline gap-3 mb-2">
+                <div className="flex items-baseline gap-3 mb-2 flex-wrap">
                   <SheetTitle className="text-2xl">
                     {isNewItem ? 'Neuer Artikel' : item?.name}
                   </SheetTitle>
@@ -336,6 +340,8 @@ export function ItemDetailSheet({
                       #{String(item?.iid).padStart(4, '0')}
                     </span>
                   )}
+                  {!isNewItem && item && getStatusBadge(item.status)}
+                  {!isNewItem && item && item.highlight_color && getHighlightColorBadge(item.highlight_color)}
                 </div>
                 {!isNewItem && item && (
                   <div className="flex gap-4 text-sm text-muted-foreground">
@@ -346,15 +352,26 @@ export function ItemDetailSheet({
                 )}
               </div>
               {!isNewItem && !isEditMode && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsEditMode(true)}
-                  className="shrink-0"
-                >
-                  <PencilIcon className="size-4 mr-2" />
-                  Bearbeiten
-                </Button>
+                <div className="flex gap-2 shrink-0">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => setIsRentalSheetOpen(true)}
+                    disabled={item?.status !== 'instock'}
+                    title={item?.status !== 'instock' ? 'Artikel ist nicht verfügbar' : 'Ausleihen'}
+                  >
+                    <PlusCircleIcon className="size-4 mr-2" />
+                    Ausleihen
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditMode(true)}
+                  >
+                    <PencilIcon className="size-4 mr-2" />
+                    Bearbeiten
+                  </Button>
+                </div>
               )}
             </div>
           </SheetHeader>
@@ -880,6 +897,21 @@ export function ItemDetailSheet({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Rental Detail Sheet for creating new rental with this item */}
+      {!isNewItem && item && (
+        <RentalDetailSheet
+          rental={null}
+          open={isRentalSheetOpen}
+          onOpenChange={setIsRentalSheetOpen}
+          preloadedItems={[item]}
+          onSave={(newRental) => {
+            setIsRentalSheetOpen(false);
+            // Optionally refresh rental history
+            toast.success('Ausleihe erfolgreich erstellt');
+          }}
+        />
+      )}
     </>
   );
 }

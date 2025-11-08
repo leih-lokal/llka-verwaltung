@@ -99,6 +99,7 @@ interface RentalDetailSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave?: (rental: Rental) => void;
+  preloadedItems?: Item[];
 }
 
 export function RentalDetailSheet({
@@ -106,6 +107,7 @@ export function RentalDetailSheet({
   open,
   onOpenChange,
   onSave,
+  preloadedItems = [],
 }: RentalDetailSheetProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -198,15 +200,21 @@ export function RentalDetailSheet({
     } else if (isNewRental && open) {
       // Reset for new rental
       setSelectedCustomer(null);
-      setSelectedItems([]);
+
+      // Use preloaded items if provided
+      const itemsToUse = preloadedItems.length > 0 ? preloadedItems : [];
+      setSelectedItems(itemsToUse);
+
+      // Calculate total deposit from preloaded items
+      const totalDeposit = itemsToUse.reduce((sum, item) => sum + (item.deposit || 0), 0);
 
       const defaultRentedOn = new Date().toISOString().split('T')[0];
       const defaultExpectedOn = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
       form.reset({
         customer_iid: 0,
-        item_iids: [],
-        deposit: 0,
+        item_iids: itemsToUse.map(item => item.iid),
+        deposit: totalDeposit,
         deposit_back: 0,
         rented_on: defaultRentedOn,
         returned_on: '',
@@ -217,7 +225,7 @@ export function RentalDetailSheet({
         employee_back: '',
       });
     }
-  }, [rental, isNewRental, form, open, setValue]);
+  }, [rental, isNewRental, form, open, setValue, preloadedItems]);
 
   // Search customers
   useEffect(() => {
