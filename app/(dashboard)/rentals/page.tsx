@@ -300,8 +300,8 @@ export default function RentalsPage() {
                         </th>
                       )}
                       {columnVisibility.isColumnVisible('status') && (
-                        <th className="px-4 py-2 text-left">
-                          <BadgeCheckIcon className="size-4" title="Status" />
+                        <th className="px-4 py-2 text-left" title="Status">
+                          <BadgeCheckIcon className="size-4" />
                         </th>
                       )}
                       {columnVisibility.isColumnVisible('extended_on') && (

@@ -285,18 +285,18 @@ export default function CustomersPage() {
                       </th>
                     )}
                     {columnVisibility.isColumnVisible('active_reservations') && (
-                      <th className="px-4 py-2 text-left">
-                        <CalendarCheckIcon className="size-4" title="Aktive Reservierungen" />
+                      <th className="px-4 py-2 text-left" title="Aktive Reservierungen">
+                        <CalendarCheckIcon className="size-4" />
                       </th>
                     )}
                     {columnVisibility.isColumnVisible('active_rentals') && (
-                      <th className="px-4 py-2 text-left">
-                        <PackageIcon className="size-4" title="Aktive Ausleihen" />
+                      <th className="px-4 py-2 text-left" title="Aktive Ausleihen">
+                        <PackageIcon className="size-4" />
                       </th>
                     )}
                     {columnVisibility.isColumnVisible('total_rentals') && (
-                      <th className="px-4 py-2 text-left">
-                        <HistoryIcon className="size-4" title="Gesamt Ausleihen" />
+                      <th className="px-4 py-2 text-left" title="Gesamt Ausleihen">
+                        <HistoryIcon className="size-4" />
                       </th>
                     )}
                     {columnVisibility.isColumnVisible('street') && (
