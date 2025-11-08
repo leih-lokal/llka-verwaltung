@@ -1015,7 +1015,12 @@ export function ItemDetailSheet({
                       </thead>
                       <tbody className="divide-y">
                         {rentals.slice(0, 5).map((rental) => {
-                          const status = calculateRentalStatus(rental);
+                          const status = calculateRentalStatus(
+                            rental.rented_on,
+                            rental.returned_on,
+                            rental.expected_on,
+                            rental.extended_on
+                          );
                           return (
                             <tr key={rental.id} className="hover:bg-muted/30">
                               <td className="px-4 py-3 text-sm">
