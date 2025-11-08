@@ -427,103 +427,80 @@ export function ItemDetailSheet({
             </div>
           )}
 
-          <form onSubmit={form.handleSubmit(handleSave)} className="space-y-8 px-6">
-            {/* Basic Information */}
-            <section className="space-y-4">
-              <div className="border-b pb-2 mb-4">
-                <h3 className="font-semibold text-lg">Basisdaten</h3>
-              </div>
-              <div className="space-y-4">
-                {/* ID on its own line */}
-                <div>
-                  <Label htmlFor="iid">ID *</Label>
-                  {isEditMode ? (
+          {isEditMode ? (
+            /* Edit Mode - Traditional Form */
+            <form onSubmit={form.handleSubmit(handleSave)} className="space-y-8 px-6">
+              {/* Basic Information */}
+              <section className="space-y-4">
+                <div className="border-b pb-2 mb-4">
+                  <h3 className="font-semibold text-lg">Basisdaten</h3>
+                </div>
+                <div className="space-y-4">
+                  {/* ID on its own line */}
+                  <div>
+                    <Label htmlFor="iid">ID *</Label>
                     <Input
                       id="iid"
                       type="number"
                       {...form.register('iid', { valueAsNumber: true })}
                       className="mt-1"
                     />
-                  ) : (
-                    <p className="mt-1 text-sm font-mono font-semibold">
-                      #{String(item?.iid).padStart(4, '0')}
-                    </p>
-                  )}
-                  {form.formState.errors.iid && (
-                    <p className="text-sm text-destructive mt-1">
-                      {form.formState.errors.iid.message}
-                    </p>
-                  )}
-                </div>
+                    {form.formState.errors.iid && (
+                      <p className="text-sm text-destructive mt-1">
+                        {form.formState.errors.iid.message}
+                      </p>
+                    )}
+                  </div>
 
-                {/* Name on its own line */}
-                <div>
-                  <Label htmlFor="name">Name *</Label>
-                  {isEditMode ? (
+                  {/* Name on its own line */}
+                  <div>
+                    <Label htmlFor="name">Name *</Label>
                     <Input
                       id="name"
                       {...form.register('name')}
                       className="mt-1"
                     />
-                  ) : (
-                    <p className="mt-1 text-sm font-medium">{item?.name || '—'}</p>
-                  )}
-                  {form.formState.errors.name && (
-                    <p className="text-sm text-destructive mt-1">
-                      {form.formState.errors.name.message}
-                    </p>
-                  )}
-                </div>
+                    {form.formState.errors.name && (
+                      <p className="text-sm text-destructive mt-1">
+                        {form.formState.errors.name.message}
+                      </p>
+                    )}
+                  </div>
 
-                {/* Brand and Model together */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="brand">Marke</Label>
-                    {isEditMode ? (
+                  {/* Brand and Model together */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="brand">Marke</Label>
                       <Input
                         id="brand"
                         {...form.register('brand')}
                         className="mt-1"
                       />
-                    ) : (
-                      <p className="mt-1 text-sm">{item?.brand || '—'}</p>
-                    )}
-                  </div>
+                    </div>
 
-                  <div>
-                    <Label htmlFor="model">Modell</Label>
-                    {isEditMode ? (
+                    <div>
+                      <Label htmlFor="model">Modell</Label>
                       <Input
                         id="model"
                         {...form.register('model')}
                         className="mt-1"
                       />
-                    ) : (
-                      <p className="mt-1 text-sm">{item?.model || '—'}</p>
-                    )}
+                    </div>
                   </div>
-                </div>
 
-                {/* Description on its own line */}
-                <div>
-                  <Label htmlFor="description">Beschreibung</Label>
-                  {isEditMode ? (
+                  {/* Description on its own line */}
+                  <div>
+                    <Label htmlFor="description">Beschreibung</Label>
                     <Textarea
                       id="description"
                       {...form.register('description')}
                       className="mt-1"
                       rows={3}
                     />
-                  ) : (
-                    <p className="mt-1 text-sm whitespace-pre-wrap">
-                      {item?.description || '—'}
-                    </p>
-                  )}
-                </div>
+                  </div>
 
-                <div>
-                  <Label htmlFor="category">Kategorien *</Label>
-                  {isEditMode ? (
+                  <div>
+                    <Label htmlFor="category">Kategorien *</Label>
                     <select
                       id="category"
                       {...form.register('category')}
@@ -536,27 +513,13 @@ export function ItemDetailSheet({
                         </option>
                       ))}
                     </select>
-                  ) : (
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {item?.category && item.category.length > 0 ? (
-                        item.category.map((cat) => (
-                          <Badge key={cat} variant="secondary">
-                            {cat}
-                          </Badge>
-                        ))
-                      ) : (
-                        <span className="text-sm">—</span>
-                      )}
-                    </div>
-                  )}
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {isEditMode && 'Halten Sie Strg/Cmd für Mehrfachauswahl'}
-                  </p>
-                </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Halten Sie Strg/Cmd für Mehrfachauswahl
+                    </p>
+                  </div>
 
-                <div>
-                  <Label htmlFor="deposit">Kaution (€) *</Label>
-                  {isEditMode ? (
+                  <div>
+                    <Label htmlFor="deposit">Kaution (€) *</Label>
                     <Input
                       id="deposit"
                       type="number"
@@ -564,38 +527,30 @@ export function ItemDetailSheet({
                       {...form.register('deposit', { valueAsNumber: true })}
                       className="mt-1"
                     />
-                  ) : (
-                    <p className="mt-1 text-sm">{formatCurrency(item?.deposit || 0)}</p>
-                  )}
-                  {form.formState.errors.deposit && (
-                    <p className="text-sm text-destructive mt-1">
-                      {form.formState.errors.deposit.message}
-                    </p>
-                  )}
-                </div>
+                    {form.formState.errors.deposit && (
+                      <p className="text-sm text-destructive mt-1">
+                        {form.formState.errors.deposit.message}
+                      </p>
+                    )}
+                  </div>
 
-                <div>
-                  <Label htmlFor="copies">Anzahl *</Label>
-                  {isEditMode ? (
+                  <div>
+                    <Label htmlFor="copies">Anzahl *</Label>
                     <Input
                       id="copies"
                       type="number"
                       {...form.register('copies', { valueAsNumber: true })}
                       className="mt-1"
                     />
-                  ) : (
-                    <p className="mt-1 text-sm">{item?.copies || 0}</p>
-                  )}
-                  {form.formState.errors.copies && (
-                    <p className="text-sm text-destructive mt-1">
-                      {form.formState.errors.copies.message}
-                    </p>
-                  )}
-                </div>
+                    {form.formState.errors.copies && (
+                      <p className="text-sm text-destructive mt-1">
+                        {form.formState.errors.copies.message}
+                      </p>
+                    )}
+                  </div>
 
-                <div>
-                  <Label htmlFor="status">Status *</Label>
-                  {isEditMode ? (
+                  <div>
+                    <Label htmlFor="status">Status *</Label>
                     <select
                       id="status"
                       {...form.register('status')}
@@ -610,12 +565,9 @@ export function ItemDetailSheet({
                       <option value="forsale">Zu verkaufen</option>
                       <option value="deleted">Gelöscht</option>
                     </select>
-                  ) : (
-                    <div className="mt-1">{getStatusBadge((item?.status || 'instock') as ItemStatus)}</div>
-                  )}
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
 
             {/* Images */}
             <section className="space-y-4">
@@ -907,6 +859,205 @@ export function ItemDetailSheet({
               </section>
             )}
           </form>
+          ) : (
+            /* View Mode - Card-Based Layout */
+            <div className="space-y-6 px-6">
+              {/* Description Card */}
+              {item?.description && (
+                <section>
+                  <div className="border rounded-lg p-4 bg-muted/30">
+                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                      Beschreibung
+                    </div>
+                    <p className="text-base whitespace-pre-wrap">{item.description}</p>
+                  </div>
+                </section>
+              )}
+
+              {/* Key Details Grid */}
+              <section className="grid grid-cols-2 gap-4">
+                {/* Categories */}
+                <div className="border rounded-lg p-4 bg-muted/30">
+                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                    Kategorien
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {item?.category && item.category.length > 0 ? (
+                      item.category.map((cat) => (
+                        <Badge key={cat} variant="secondary" className="text-sm">
+                          {cat}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-base text-muted-foreground">Keine</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Copies */}
+                <div className="border rounded-lg p-4 bg-muted/30">
+                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                    Anzahl Exemplare
+                  </div>
+                  <p className="text-2xl font-bold">{item?.copies || 0}</p>
+                </div>
+
+                {/* Added Date */}
+                <div className="border rounded-lg p-4 bg-muted/30">
+                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                    Hinzugefügt am
+                  </div>
+                  <p className="text-base font-semibold">
+                    {item ? formatDate(item.added_on) : '—'}
+                  </p>
+                </div>
+
+                {/* Synonyms */}
+                {item?.synonyms && item.synonyms.length > 0 && (
+                  <div className="border rounded-lg p-4 bg-muted/30">
+                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                      Synonyme
+                    </div>
+                    <p className="text-base">
+                      {Array.isArray(item.synonyms) ? item.synonyms.join(', ') : item.synonyms}
+                    </p>
+                  </div>
+                )}
+              </section>
+
+              {/* Additional Details */}
+              {(item?.packaging || item?.manual || item?.parts || item?.internal_note) && (
+                <section>
+                  <div className="border rounded-lg p-4 bg-muted/30 space-y-4">
+                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Weitere Details
+                    </div>
+
+                    {item?.packaging && (
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground mb-1">
+                          Verpackung
+                        </div>
+                        <p className="text-base whitespace-pre-wrap">{item.packaging}</p>
+                      </div>
+                    )}
+
+                    {item?.manual && (
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground mb-1">
+                          Anleitung
+                        </div>
+                        <p className="text-base whitespace-pre-wrap">{item.manual}</p>
+                      </div>
+                    )}
+
+                    {item?.parts && (
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground mb-1">
+                          Teile
+                        </div>
+                        <p className="text-base whitespace-pre-wrap">{item.parts}</p>
+                      </div>
+                    )}
+
+                    {item?.internal_note && (
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground mb-1">
+                          Interne Notiz
+                        </div>
+                        <p className="text-base whitespace-pre-wrap">{item.internal_note}</p>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {/* Images */}
+              {existingImages.length > 0 && (
+                <section>
+                  <div className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                    Bilder
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {existingImages.map((imageName) => (
+                      <div key={imageName} className="aspect-square rounded-lg border border-border overflow-hidden bg-muted">
+                        <img
+                          src={pb.files.getUrl(item!, imageName, { thumb: '200x200' })}
+                          alt={item?.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Rental History */}
+              {!isLoadingHistory && rentals.length > 0 && (
+                <section>
+                  <div className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                    Ausleihhistorie
+                  </div>
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wide px-4 py-3">
+                            Kunde
+                          </th>
+                          <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wide px-4 py-3">
+                            Ausgeliehen
+                          </th>
+                          <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wide px-4 py-3">
+                            Status
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {rentals.slice(0, 5).map((rental) => {
+                          const status = calculateRentalStatus(rental);
+                          return (
+                            <tr key={rental.id} className="hover:bg-muted/30">
+                              <td className="px-4 py-3 text-sm">
+                                {rental.expand?.customer
+                                  ? `${rental.expand.customer.firstname} ${rental.expand.customer.lastname}`
+                                  : '—'}
+                              </td>
+                              <td className="px-4 py-3 text-sm">
+                                {rental.rented_on ? formatDate(rental.rented_on) : '—'}
+                              </td>
+                              <td className="px-4 py-3">
+                                <Badge
+                                  variant={
+                                    status === 'returned' || status === 'returned_today'
+                                      ? 'secondary'
+                                      : status === 'overdue'
+                                      ? 'destructive'
+                                      : 'default'
+                                  }
+                                >
+                                  {status === 'active' && 'Aktiv'}
+                                  {status === 'returned' && 'Zurückgegeben'}
+                                  {status === 'overdue' && 'Überfällig'}
+                                  {status === 'due_today' && 'Heute fällig'}
+                                  {status === 'returned_today' && 'Heute zurück'}
+                                </Badge>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {rentals.length > 5 && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Zeige 5 von {rentals.length} Ausleihungen
+                    </p>
+                  )}
+                </section>
+              )}
+            </div>
+          )}
           </div>
 
           {isEditMode ? (
