@@ -37,6 +37,7 @@ import type { Customer, CustomerFormData, Rental, RentalExpanded, Reservation, R
 
 // Validation schema
 const customerSchema = z.object({
+  iid: z.number().int().min(1, 'ID muss mindestens 1 sein'),
   firstname: z.string().min(1, 'Vorname ist erforderlich'),
   lastname: z.string().min(1, 'Nachname ist erforderlich'),
   email: z.string().email('Ungültige E-Mail-Adresse').optional().or(z.literal('')),
@@ -81,6 +82,7 @@ export function CustomerDetailSheet({
   const form = useForm<CustomerFormValues>({
     resolver: zodResolver(customerSchema),
     defaultValues: {
+      iid: 1,
       firstname: '',
       lastname: '',
       email: '',
@@ -103,6 +105,7 @@ export function CustomerDetailSheet({
   useEffect(() => {
     if (customer) {
       form.reset({
+        iid: customer.iid,
         firstname: customer.firstname,
         lastname: customer.lastname,
         email: customer.email || '',
@@ -119,21 +122,48 @@ export function CustomerDetailSheet({
       });
       setIsEditMode(false);
     } else if (isNewCustomer) {
-      form.reset({
-        firstname: '',
-        lastname: '',
-        email: '',
-        phone: '',
-        street: '',
-        postal_code: '',
-        city: '',
-        registered_on: new Date().toISOString().split('T')[0],
-        renewed_on: '',
-        heard: '',
-        newsletter: false,
-        remark: '',
-        highlight_color: '',
-      });
+      // Fetch next available IID for new customers
+      const fetchNextIid = async () => {
+        try {
+          const lastCustomer = await collections.customers().getFirstListItem('', { sort: '-iid' });
+          const nextIid = (lastCustomer?.iid || 0) + 1;
+          form.reset({
+            iid: nextIid,
+            firstname: '',
+            lastname: '',
+            email: '',
+            phone: '',
+            street: '',
+            postal_code: '',
+            city: '',
+            registered_on: new Date().toISOString().split('T')[0],
+            renewed_on: '',
+            heard: '',
+            newsletter: false,
+            remark: '',
+            highlight_color: '',
+          });
+        } catch (err) {
+          // If no customers exist yet, start with 1
+          form.reset({
+            iid: 1,
+            firstname: '',
+            lastname: '',
+            email: '',
+            phone: '',
+            street: '',
+            postal_code: '',
+            city: '',
+            registered_on: new Date().toISOString().split('T')[0],
+            renewed_on: '',
+            heard: '',
+            newsletter: false,
+            remark: '',
+            highlight_color: '',
+          });
+        }
+      };
+      fetchNextIid();
       setIsEditMode(true);
     }
   }, [customer, isNewCustomer, form]);
@@ -176,6 +206,7 @@ export function CustomerDetailSheet({
     setIsLoading(true);
     try {
       const formData: Partial<Customer> = {
+        iid: data.iid,
         firstname: data.firstname,
         lastname: data.lastname,
         email: data.email || undefined,
@@ -259,8 +290,8 @@ export function CustomerDetailSheet({
           onOpenChange(open);
         }
       }}>
-        <SheetContent className="w-full sm:max-w-4xl overflow-y-auto">
-          <SheetHeader className="border-b pb-6 mb-6 px-6">
+        <SheetContent className="w-full sm:max-w-4xl flex flex-col overflow-hidden">
+          <SheetHeader className="border-b pb-6 mb-6 px-6 shrink-0">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-3 mb-2">
@@ -284,22 +315,12 @@ export function CustomerDetailSheet({
                   </div>
                 )}
               </div>
-              {!isNewCustomer && !isEditMode && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsEditMode(true)}
-                  className="shrink-0"
-                >
-                  <PencilIcon className="size-4 mr-2" />
-                  Bearbeiten
-                </Button>
-              )}
             </div>
           </SheetHeader>
 
-          {/* Quick Stats */}
-          {!isNewCustomer && !isEditMode && (
+          <div className="flex-1 overflow-y-auto">
+            {/* Quick Stats */}
+            {!isNewCustomer && !isEditMode && (
             <div className="grid grid-cols-3 gap-4 mb-6 px-6">
               <div className="border rounded-lg p-4 bg-muted/50">
                 <div className="text-sm font-medium text-muted-foreground mb-1">Aktive Leihvorgänge</div>
@@ -362,57 +383,79 @@ export function CustomerDetailSheet({
                   <div className="border-b pb-1 mb-2">
                     <h3 className="font-semibold text-base">Basisdaten</h3>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-3">
+                    {/* ID on its own line */}
                     <div>
-                      <Label htmlFor="firstname">Vorname *</Label>
+                      <Label htmlFor="iid">ID *</Label>
                       <Input
-                        id="firstname"
-                        {...form.register('firstname')}
+                        id="iid"
+                        type="number"
+                        {...form.register('iid', { valueAsNumber: true })}
                         className="mt-1"
                       />
-                      {form.formState.errors.firstname && (
+                      {form.formState.errors.iid && (
                         <p className="text-sm text-destructive mt-1">
-                          {form.formState.errors.firstname.message}
+                          {form.formState.errors.iid.message}
                         </p>
                       )}
                     </div>
 
-                    <div>
-                      <Label htmlFor="lastname">Nachname *</Label>
-                      <Input
-                        id="lastname"
-                        {...form.register('lastname')}
-                        className="mt-1"
-                      />
-                      {form.formState.errors.lastname && (
-                        <p className="text-sm text-destructive mt-1">
-                          {form.formState.errors.lastname.message}
-                        </p>
-                      )}
+                    {/* Firstname and Lastname together */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="firstname">Vorname *</Label>
+                        <Input
+                          id="firstname"
+                          {...form.register('firstname')}
+                          className="mt-1"
+                        />
+                        {form.formState.errors.firstname && (
+                          <p className="text-sm text-destructive mt-1">
+                            {form.formState.errors.firstname.message}
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <Label htmlFor="lastname">Nachname *</Label>
+                        <Input
+                          id="lastname"
+                          {...form.register('lastname')}
+                          className="mt-1"
+                        />
+                        {form.formState.errors.lastname && (
+                          <p className="text-sm text-destructive mt-1">
+                            {form.formState.errors.lastname.message}
+                          </p>
+                        )}
+                      </div>
                     </div>
 
-                    <div>
-                      <Label htmlFor="email">E-Mail</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        {...form.register('email')}
-                        className="mt-1"
-                      />
-                      {form.formState.errors.email && (
-                        <p className="text-sm text-destructive mt-1">
-                          {form.formState.errors.email.message}
-                        </p>
-                      )}
-                    </div>
+                    {/* Email and Phone together */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="email">E-Mail</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          {...form.register('email')}
+                          className="mt-1"
+                        />
+                        {form.formState.errors.email && (
+                          <p className="text-sm text-destructive mt-1">
+                            {form.formState.errors.email.message}
+                          </p>
+                        )}
+                      </div>
 
-                    <div>
-                      <Label htmlFor="phone">Telefon</Label>
-                      <Input
-                        id="phone"
-                        {...form.register('phone')}
-                        className="mt-1"
-                      />
+                      <div>
+                        <Label htmlFor="phone">Telefon</Label>
+                        <Input
+                          id="phone"
+                          {...form.register('phone')}
+                          className="mt-1"
+                        />
+                      </div>
                     </div>
                   </div>
                 </section>
@@ -730,9 +773,10 @@ export function CustomerDetailSheet({
               </section>
             )}
           </form>
+          </div>
 
-          {isEditMode && (
-            <SheetFooter className="border-t pt-4 px-6">
+          {isEditMode ? (
+            <SheetFooter className="border-t pt-4 px-6 shrink-0 bg-background">
               <Button
                 type="button"
                 variant="outline"
@@ -750,6 +794,25 @@ export function CustomerDetailSheet({
                 <SaveIcon className="size-4 mr-2" />
                 {isLoading ? 'Speichern...' : 'Speichern'}
               </Button>
+            </SheetFooter>
+          ) : !isNewCustomer && (
+            <SheetFooter className="border-t pt-4 px-6 shrink-0 bg-background">
+              <div className="flex justify-between w-full gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                >
+                  <XIcon className="size-4 mr-2" />
+                  Schließen
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditMode(true)}
+                >
+                  <PencilIcon className="size-4 mr-2" />
+                  Bearbeiten
+                </Button>
+              </div>
             </SheetFooter>
           )}
         </SheetContent>

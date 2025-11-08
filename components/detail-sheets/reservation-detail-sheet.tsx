@@ -10,7 +10,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { SaveIcon, XIcon, CheckIcon, ChevronsUpDownIcon, PlusIcon, Trash2Icon } from 'lucide-react';
+import { SaveIcon, XIcon, CheckIcon, ChevronsUpDownIcon, PlusIcon, Trash2Icon, ArrowRightIcon } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -69,6 +69,7 @@ interface ReservationDetailSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave?: (reservation: Reservation) => void;
+  onConvertToRental?: (reservation: ReservationExpanded) => void;
 }
 
 export function ReservationDetailSheet({
@@ -76,6 +77,7 @@ export function ReservationDetailSheet({
   open,
   onOpenChange,
   onSave,
+  onConvertToRental,
 }: ReservationDetailSheetProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -181,6 +183,10 @@ export function ReservationDetailSheet({
   const handleSave = async (data: ReservationFormValues) => {
     setIsLoading(true);
     try {
+      // Convert datetime-local format (YYYY-MM-DDTHH:MM) to ISO 8601 with seconds
+      const pickupDate = new Date(data.pickup);
+      const pickupISO = pickupDate.toISOString();
+
       const formData: Partial<Reservation> = {
         customer_iid: data.is_new_customer ? undefined : data.customer_iid,
         customer_name: data.customer_name,
@@ -188,7 +194,7 @@ export function ReservationDetailSheet({
         customer_email: data.customer_email || undefined,
         is_new_customer: data.is_new_customer,
         items: data.item_ids,
-        pickup: data.pickup,
+        pickup: pickupISO,
         comments: data.comments || undefined,
         done: data.done,
       };
@@ -251,8 +257,8 @@ export function ReservationDetailSheet({
           onOpenChange(open);
         }
       }}>
-        <SheetContent className="w-full sm:max-w-4xl overflow-y-auto">
-          <SheetHeader className="border-b pb-6 mb-6 px-6">
+        <SheetContent className="w-full sm:max-w-4xl flex flex-col overflow-hidden">
+          <SheetHeader className="border-b pb-6 mb-6 px-6 shrink-0">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <div className="mb-2">
@@ -274,7 +280,8 @@ export function ReservationDetailSheet({
             </div>
           </SheetHeader>
 
-          <form onSubmit={form.handleSubmit(handleSave)} className="space-y-8 px-6">
+          <div className="flex-1 overflow-y-auto">
+            <form onSubmit={form.handleSubmit(handleSave)} className="space-y-8 px-6">
             {/* Customer Information */}
             <section className="space-y-4">
               <div className="border-b pb-2 mb-4">
@@ -562,25 +569,41 @@ export function ReservationDetailSheet({
               </div>
             </section>
           </form>
+          </div>
 
-          <SheetFooter className="border-t pt-4 px-6">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCancel}
-              disabled={isLoading}
-            >
-              <XIcon className="size-4 mr-2" />
-              Abbrechen
-            </Button>
-            <Button
-              type="submit"
-              onClick={form.handleSubmit(handleSave)}
-              disabled={isLoading || isLoadingData}
-            >
-              <SaveIcon className="size-4 mr-2" />
-              {isLoading ? 'Speichern...' : 'Speichern'}
-            </Button>
+          <SheetFooter className="border-t pt-4 px-6 shrink-0 bg-background">
+            <div className="flex justify-between w-full gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancel}
+                disabled={isLoading}
+              >
+                <XIcon className="size-4 mr-2" />
+                Abbrechen
+              </Button>
+              <div className="flex gap-2">
+                {!isNewReservation && reservation && onConvertToRental && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => onConvertToRental(reservation)}
+                    disabled={isLoading || isLoadingData}
+                  >
+                    <ArrowRightIcon className="size-4 mr-2" />
+                    In Ausleihe umwandeln
+                  </Button>
+                )}
+                <Button
+                  type="submit"
+                  onClick={form.handleSubmit(handleSave)}
+                  disabled={isLoading || isLoadingData}
+                >
+                  <SaveIcon className="size-4 mr-2" />
+                  {isLoading ? 'Speichern...' : 'Speichern'}
+                </Button>
+              </div>
+            </div>
           </SheetFooter>
         </SheetContent>
       </Sheet>

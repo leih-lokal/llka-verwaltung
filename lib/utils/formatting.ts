@@ -78,7 +78,14 @@ export function calculateRentalStatus(
   }
 
   // Use extended date if available, otherwise expected date
-  const dueDate = parseISO(extended_on || expected_on);
+  const dueDateString = extended_on || expected_on;
+
+  // If no expected date, treat as active
+  if (!dueDateString) {
+    return RentalStatus.Active;
+  }
+
+  const dueDate = parseISO(dueDateString);
   dueDate.setHours(0, 0, 0, 0);
 
   const daysUntilDue = differenceInDays(dueDate, today);

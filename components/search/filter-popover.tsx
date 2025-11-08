@@ -20,6 +20,62 @@ import type { FilterConfig } from '@/lib/filters/filter-configs';
 import type { ActiveFilter } from '@/lib/filters/filter-utils';
 import { Calendar } from 'lucide-react';
 
+/**
+ * Get date range for quick filters
+ */
+function getQuickDateRange(range: 'today' | 'yesterday' | 'this_week' | 'last_week'): { start: string; end: string } {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  switch (range) {
+    case 'today': {
+      const start = new Date(today);
+      const end = new Date(today);
+      end.setHours(23, 59, 59, 999);
+      return {
+        start: start.toISOString().split('T')[0],
+        end: end.toISOString().split('T')[0],
+      };
+    }
+    case 'yesterday': {
+      const start = new Date(today);
+      start.setDate(start.getDate() - 1);
+      const end = new Date(start);
+      end.setHours(23, 59, 59, 999);
+      return {
+        start: start.toISOString().split('T')[0],
+        end: end.toISOString().split('T')[0],
+      };
+    }
+    case 'this_week': {
+      const start = new Date(today);
+      const day = start.getDay();
+      const diff = start.getDate() - day + (day === 0 ? -6 : 1); // Monday
+      start.setDate(diff);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6); // Sunday
+      end.setHours(23, 59, 59, 999);
+      return {
+        start: start.toISOString().split('T')[0],
+        end: end.toISOString().split('T')[0],
+      };
+    }
+    case 'last_week': {
+      const start = new Date(today);
+      const day = start.getDay();
+      const diff = start.getDate() - day + (day === 0 ? -6 : 1) - 7; // Last Monday
+      start.setDate(diff);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6); // Last Sunday
+      end.setHours(23, 59, 59, 999);
+      return {
+        start: start.toISOString().split('T')[0],
+        end: end.toISOString().split('T')[0],
+      };
+    }
+  }
+}
+
 export interface FilterPopoverProps {
   /** The trigger element (usually a button) */
   children: React.ReactNode;
@@ -145,6 +201,18 @@ export function FilterPopover({
     }
   };
 
+  // Handle quick date filter
+  const handleQuickDateFilter = (config: FilterConfig, rangeType: 'today' | 'yesterday' | 'this_week' | 'last_week', label: string) => {
+    const range = getQuickDateRange(rangeType);
+    onAddFilter({
+      type: 'date',
+      field: config.field,
+      operator: '>=',
+      value: [range.start, range.end],
+      label: `${config.label}: ${label}`,
+    });
+  };
+
   // Handle numeric range filter
   const handleApplyNumericRange = (config: FilterConfig) => {
     const range = numericRanges[config.id];
@@ -265,6 +333,47 @@ export function FilterPopover({
                 {dateFilters.map((config) => (
                   <div key={config.id} className="space-y-2">
                     <Label className="text-xs font-medium">{config.label}</Label>
+
+                    {/* Quick filter buttons */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs"
+                        onClick={() => handleQuickDateFilter(config, 'today', 'Heute')}
+                      >
+                        Heute
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs"
+                        onClick={() => handleQuickDateFilter(config, 'yesterday', 'Gestern')}
+                      >
+                        Gestern
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs"
+                        onClick={() => handleQuickDateFilter(config, 'this_week', 'Diese Woche')}
+                      >
+                        Diese Woche
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs"
+                        onClick={() => handleQuickDateFilter(config, 'last_week', 'Letzte Woche')}
+                      >
+                        Letzte Woche
+                      </Button>
+                    </div>
+
+                    <Separator className="my-2" />
+
+                    {/* Manual date inputs */}
+                    <Label className="text-xs text-muted-foreground">Eigener Zeitraum</Label>
                     <div className="grid grid-cols-2 gap-2">
                       <Input
                         type="date"

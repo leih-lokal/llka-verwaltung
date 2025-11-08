@@ -319,16 +319,16 @@ export const reservationsColumnConfig: EntityColumnConfig = {
       sortable: true,
     },
     {
-      id: 'customer_phone',
-      label: 'Telefon',
-      defaultVisible: true,
-      sortable: true,
-    },
-    {
       id: 'items',
       label: 'Gegenstände',
       defaultVisible: true,
       sortable: false, // Array field
+    },
+    {
+      id: 'customer_phone',
+      label: 'Telefon',
+      defaultVisible: true,
+      sortable: true,
     },
     {
       id: 'pickup',

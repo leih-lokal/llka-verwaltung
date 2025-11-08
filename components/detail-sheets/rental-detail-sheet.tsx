@@ -602,11 +602,18 @@ export function RentalDetailSheet({
                   </SheetTitle>
                 </div>
                 {!isNewRental && rental && (
-                  <div className="flex gap-2 text-sm text-muted-foreground">
-                    <span>Ausgeliehen: {formatDate(rental.rented_on)}</span>
-                    <span>•</span>
-                    <span>Erwartet: {formatDate(rental.expected_on)}</span>
-                  </div>
+                  <>
+                    <div className="flex gap-2 text-sm text-muted-foreground">
+                      <span>Ausgeliehen: {formatDate(rental.rented_on)}</span>
+                      <span>•</span>
+                      <span>Erwartet: {formatDate(rental.expected_on)}</span>
+                    </div>
+                    <div className="mt-2">
+                      <span className="text-xs font-mono text-muted-foreground/70">
+                        ID: {rental.id}
+                      </span>
+                    </div>
+                  </>
                 )}
               </div>
               {rentalStatus && (

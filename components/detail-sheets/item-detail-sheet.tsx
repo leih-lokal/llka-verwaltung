@@ -39,6 +39,7 @@ import { RentalDetailSheet } from './rental-detail-sheet';
 
 // Validation schema (using German category names as they are stored in PocketBase)
 const itemSchema = z.object({
+  iid: z.number().int().min(1, 'ID muss mindestens 1 sein'),
   name: z.string().min(1, 'Name ist erforderlich'),
   brand: z.string().optional(),
   model: z.string().optional(),
@@ -91,6 +92,7 @@ export function ItemDetailSheet({
   const form = useForm<ItemFormValues>({
     resolver: zodResolver(itemSchema),
     defaultValues: {
+      iid: 1,
       name: '',
       brand: '',
       model: '',
@@ -115,6 +117,7 @@ export function ItemDetailSheet({
   useEffect(() => {
     if (item) {
       form.reset({
+        iid: item.iid,
         name: item.name,
         brand: item.brand || '',
         model: item.model || '',
@@ -137,23 +140,52 @@ export function ItemDetailSheet({
       setImagesToDelete([]);
       setIsEditMode(false);
     } else if (isNewItem) {
-      form.reset({
-        name: '',
-        brand: '',
-        model: '',
-        description: '',
-        category: [],
-        deposit: 0,
-        synonyms: '',
-        packaging: '',
-        manual: '',
-        parts: '',
-        copies: 1,
-        status: 'instock',
-        highlight_color: '',
-        internal_note: '',
-        added_on: new Date().toISOString().split('T')[0],
-      });
+      // Fetch next available IID for new items
+      const fetchNextIid = async () => {
+        try {
+          const lastItem = await collections.items().getFirstListItem('', { sort: '-iid' });
+          const nextIid = (lastItem?.iid || 0) + 1;
+          form.reset({
+            iid: nextIid,
+            name: '',
+            brand: '',
+            model: '',
+            description: '',
+            category: [],
+            deposit: 0,
+            synonyms: '',
+            packaging: '',
+            manual: '',
+            parts: '',
+            copies: 1,
+            status: 'instock',
+            highlight_color: '',
+            internal_note: '',
+            added_on: new Date().toISOString().split('T')[0],
+          });
+        } catch (err) {
+          // If no items exist yet, start with 1
+          form.reset({
+            iid: 1,
+            name: '',
+            brand: '',
+            model: '',
+            description: '',
+            category: [],
+            deposit: 0,
+            synonyms: '',
+            packaging: '',
+            manual: '',
+            parts: '',
+            copies: 1,
+            status: 'instock',
+            highlight_color: '',
+            internal_note: '',
+            added_on: new Date().toISOString().split('T')[0],
+          });
+        }
+      };
+      fetchNextIid();
       setExistingImages([]);
       setNewImages([]);
       setImagesToDelete([]);
@@ -211,6 +243,7 @@ export function ItemDetailSheet({
       const formData = new FormData();
 
       // Add all text fields
+      formData.append('iid', data.iid.toString());
       formData.append('name', data.name);
       if (data.brand) formData.append('brand', data.brand);
       if (data.model) formData.append('model', data.model);
@@ -327,22 +360,37 @@ export function ItemDetailSheet({
           onOpenChange(open);
         }
       }}>
-        <SheetContent className="w-full sm:max-w-4xl overflow-y-auto">
-          <SheetHeader className="border-b pb-6 mb-6 px-6">
+        <SheetContent className="w-full sm:max-w-4xl flex flex-col overflow-hidden">
+          <SheetHeader className="border-b pb-6 mb-6 px-6 shrink-0">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
-                <div className="flex items-baseline gap-3 mb-2 flex-wrap">
-                  <SheetTitle className="text-2xl">
-                    {isNewItem ? 'Neuer Artikel' : item?.name}
-                  </SheetTitle>
-                  {!isNewItem && (
-                    <span className="font-mono text-lg text-primary font-semibold">
-                      #{String(item?.iid).padStart(4, '0')}
-                    </span>
+                <div className="flex items-center justify-between gap-4 mb-3">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {!isNewItem && (
+                      <div className="flex items-center gap-1.5 font-mono text-3xl font-bold">
+                        <span className="inline-flex items-center justify-center bg-red-500 text-white px-2.5 py-1 rounded-md">
+                          {String(item?.iid).padStart(4, '0').substring(0, 2)}
+                        </span>
+                        <span className="text-foreground">
+                          {String(item?.iid).padStart(4, '0').substring(2, 4)}
+                        </span>
+                      </div>
+                    )}
+                    <SheetTitle className="text-2xl">
+                      {isNewItem ? 'Neuer Artikel' : item?.name}
+                    </SheetTitle>
+                  </div>
+                  {!isNewItem && item && (
+                    <div className="text-2xl shrink-0">
+                      {getStatusBadge(item.status)}
+                    </div>
                   )}
-                  {!isNewItem && item && getStatusBadge(item.status)}
-                  {!isNewItem && item && item.highlight_color && getHighlightColorBadge(item.highlight_color)}
                 </div>
+                {!isNewItem && item && item.highlight_color && (
+                  <div className="flex items-center gap-3 mb-2">
+                    {getHighlightColorBadge(item.highlight_color)}
+                  </div>
+                )}
                 {!isNewItem && item && (
                   <div className="flex gap-4 text-sm text-muted-foreground">
                     {item.brand && <span>{item.brand}</span>}
@@ -351,33 +399,12 @@ export function ItemDetailSheet({
                   </div>
                 )}
               </div>
-              {!isNewItem && !isEditMode && (
-                <div className="flex gap-2 shrink-0">
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={() => setIsRentalSheetOpen(true)}
-                    disabled={item?.status !== 'instock'}
-                    title={item?.status !== 'instock' ? 'Artikel ist nicht verfügbar' : 'Ausleihen'}
-                  >
-                    <PlusCircleIcon className="size-4 mr-2" />
-                    Ausleihen
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsEditMode(true)}
-                  >
-                    <PencilIcon className="size-4 mr-2" />
-                    Bearbeiten
-                  </Button>
-                </div>
-              )}
             </div>
           </SheetHeader>
 
-          {/* Quick Stats */}
-          {!isNewItem && !isEditMode && (
+          <div className="flex-1 overflow-y-auto">
+            {/* Quick Stats */}
+            {!isNewItem && !isEditMode && (
             <div className="grid grid-cols-3 gap-4 mb-6 px-6">
               <div className="border rounded-lg p-4 bg-muted/50">
                 <div className="text-sm font-medium text-muted-foreground mb-1">Ausleihungen</div>
@@ -400,76 +427,80 @@ export function ItemDetailSheet({
             </div>
           )}
 
-          <form onSubmit={form.handleSubmit(handleSave)} className="space-y-8 px-6">
-            {/* Basic Information */}
-            <section className="space-y-4">
-              <div className="border-b pb-2 mb-4">
-                <h3 className="font-semibold text-lg">Basisdaten</h3>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <Label htmlFor="name">Name *</Label>
-                  {isEditMode ? (
+          {isEditMode ? (
+            /* Edit Mode - Traditional Form */
+            <form onSubmit={form.handleSubmit(handleSave)} className="space-y-8 px-6">
+              {/* Basic Information */}
+              <section className="space-y-4">
+                <div className="border-b pb-2 mb-4">
+                  <h3 className="font-semibold text-lg">Basisdaten</h3>
+                </div>
+                <div className="space-y-4">
+                  {/* ID on its own line */}
+                  <div>
+                    <Label htmlFor="iid">ID *</Label>
+                    <Input
+                      id="iid"
+                      type="number"
+                      {...form.register('iid', { valueAsNumber: true })}
+                      className="mt-1"
+                    />
+                    {form.formState.errors.iid && (
+                      <p className="text-sm text-destructive mt-1">
+                        {form.formState.errors.iid.message}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Name on its own line */}
+                  <div>
+                    <Label htmlFor="name">Name *</Label>
                     <Input
                       id="name"
                       {...form.register('name')}
                       className="mt-1"
                     />
-                  ) : (
-                    <p className="mt-1 text-sm font-medium">{item?.name || '—'}</p>
-                  )}
-                  {form.formState.errors.name && (
-                    <p className="text-sm text-destructive mt-1">
-                      {form.formState.errors.name.message}
-                    </p>
-                  )}
-                </div>
+                    {form.formState.errors.name && (
+                      <p className="text-sm text-destructive mt-1">
+                        {form.formState.errors.name.message}
+                      </p>
+                    )}
+                  </div>
 
-                <div>
-                  <Label htmlFor="brand">Marke</Label>
-                  {isEditMode ? (
-                    <Input
-                      id="brand"
-                      {...form.register('brand')}
-                      className="mt-1"
-                    />
-                  ) : (
-                    <p className="mt-1 text-sm">{item?.brand || '—'}</p>
-                  )}
-                </div>
+                  {/* Brand and Model together */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="brand">Marke</Label>
+                      <Input
+                        id="brand"
+                        {...form.register('brand')}
+                        className="mt-1"
+                      />
+                    </div>
 
-                <div>
-                  <Label htmlFor="model">Modell</Label>
-                  {isEditMode ? (
-                    <Input
-                      id="model"
-                      {...form.register('model')}
-                      className="mt-1"
-                    />
-                  ) : (
-                    <p className="mt-1 text-sm">{item?.model || '—'}</p>
-                  )}
-                </div>
+                    <div>
+                      <Label htmlFor="model">Modell</Label>
+                      <Input
+                        id="model"
+                        {...form.register('model')}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
 
-                <div className="col-span-2">
-                  <Label htmlFor="description">Beschreibung</Label>
-                  {isEditMode ? (
+                  {/* Description on its own line */}
+                  <div>
+                    <Label htmlFor="description">Beschreibung</Label>
                     <Textarea
                       id="description"
                       {...form.register('description')}
                       className="mt-1"
                       rows={3}
                     />
-                  ) : (
-                    <p className="mt-1 text-sm whitespace-pre-wrap">
-                      {item?.description || '—'}
-                    </p>
-                  )}
-                </div>
+                  </div>
 
-                <div>
-                  <Label htmlFor="category">Kategorien *</Label>
-                  {isEditMode ? (
+                  <div>
+                    <Label htmlFor="category">Kategorien *</Label>
                     <select
                       id="category"
                       {...form.register('category')}
@@ -482,27 +513,13 @@ export function ItemDetailSheet({
                         </option>
                       ))}
                     </select>
-                  ) : (
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {item?.category && item.category.length > 0 ? (
-                        item.category.map((cat) => (
-                          <Badge key={cat} variant="secondary">
-                            {cat}
-                          </Badge>
-                        ))
-                      ) : (
-                        <span className="text-sm">—</span>
-                      )}
-                    </div>
-                  )}
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {isEditMode && 'Halten Sie Strg/Cmd für Mehrfachauswahl'}
-                  </p>
-                </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Halten Sie Strg/Cmd für Mehrfachauswahl
+                    </p>
+                  </div>
 
-                <div>
-                  <Label htmlFor="deposit">Kaution (€) *</Label>
-                  {isEditMode ? (
+                  <div>
+                    <Label htmlFor="deposit">Kaution (€) *</Label>
                     <Input
                       id="deposit"
                       type="number"
@@ -510,38 +527,30 @@ export function ItemDetailSheet({
                       {...form.register('deposit', { valueAsNumber: true })}
                       className="mt-1"
                     />
-                  ) : (
-                    <p className="mt-1 text-sm">{formatCurrency(item?.deposit || 0)}</p>
-                  )}
-                  {form.formState.errors.deposit && (
-                    <p className="text-sm text-destructive mt-1">
-                      {form.formState.errors.deposit.message}
-                    </p>
-                  )}
-                </div>
+                    {form.formState.errors.deposit && (
+                      <p className="text-sm text-destructive mt-1">
+                        {form.formState.errors.deposit.message}
+                      </p>
+                    )}
+                  </div>
 
-                <div>
-                  <Label htmlFor="copies">Anzahl *</Label>
-                  {isEditMode ? (
+                  <div>
+                    <Label htmlFor="copies">Anzahl *</Label>
                     <Input
                       id="copies"
                       type="number"
                       {...form.register('copies', { valueAsNumber: true })}
                       className="mt-1"
                     />
-                  ) : (
-                    <p className="mt-1 text-sm">{item?.copies || 0}</p>
-                  )}
-                  {form.formState.errors.copies && (
-                    <p className="text-sm text-destructive mt-1">
-                      {form.formState.errors.copies.message}
-                    </p>
-                  )}
-                </div>
+                    {form.formState.errors.copies && (
+                      <p className="text-sm text-destructive mt-1">
+                        {form.formState.errors.copies.message}
+                      </p>
+                    )}
+                  </div>
 
-                <div>
-                  <Label htmlFor="status">Status *</Label>
-                  {isEditMode ? (
+                  <div>
+                    <Label htmlFor="status">Status *</Label>
                     <select
                       id="status"
                       {...form.register('status')}
@@ -556,12 +565,9 @@ export function ItemDetailSheet({
                       <option value="forsale">Zu verkaufen</option>
                       <option value="deleted">Gelöscht</option>
                     </select>
-                  ) : (
-                    <div className="mt-1">{getStatusBadge((item?.status || 'instock') as ItemStatus)}</div>
-                  )}
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
 
             {/* Images */}
             <section className="space-y-4">
@@ -853,9 +859,209 @@ export function ItemDetailSheet({
               </section>
             )}
           </form>
+          ) : (
+            /* View Mode - Card-Based Layout */
+            <div className="space-y-6 px-6">
+              {/* Description Card */}
+              {item?.description && (
+                <section>
+                  <div className="border rounded-lg p-4 bg-muted/30">
+                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                      Beschreibung
+                    </div>
+                    <p className="text-base whitespace-pre-wrap">{item.description}</p>
+                  </div>
+                </section>
+              )}
 
-          {isEditMode && (
-            <SheetFooter className="border-t pt-4 px-6">
+              {/* Key Details Grid */}
+              <section className="grid grid-cols-2 gap-4">
+                {/* Categories */}
+                <div className="border rounded-lg p-4 bg-muted/30">
+                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                    Kategorien
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {item?.category && item.category.length > 0 ? (
+                      item.category.map((cat) => (
+                        <Badge key={cat} variant="secondary" className="text-sm">
+                          {cat}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-base text-muted-foreground">Keine</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Copies */}
+                <div className="border rounded-lg p-4 bg-muted/30">
+                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                    Anzahl Exemplare
+                  </div>
+                  <p className="text-2xl font-bold">{item?.copies || 0}</p>
+                </div>
+
+                {/* Added Date */}
+                <div className="border rounded-lg p-4 bg-muted/30">
+                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                    Hinzugefügt am
+                  </div>
+                  <p className="text-base font-semibold">
+                    {item ? formatDate(item.added_on) : '—'}
+                  </p>
+                </div>
+
+                {/* Synonyms */}
+                {item?.synonyms && item.synonyms.length > 0 && (
+                  <div className="border rounded-lg p-4 bg-muted/30">
+                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                      Synonyme
+                    </div>
+                    <p className="text-base">
+                      {Array.isArray(item.synonyms) ? item.synonyms.join(', ') : item.synonyms}
+                    </p>
+                  </div>
+                )}
+              </section>
+
+              {/* Additional Details */}
+              {(item?.packaging || item?.manual || item?.parts || item?.internal_note) && (
+                <section>
+                  <div className="border rounded-lg p-4 bg-muted/30 space-y-4">
+                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Weitere Details
+                    </div>
+
+                    {item?.packaging && (
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground mb-1">
+                          Verpackung
+                        </div>
+                        <p className="text-base whitespace-pre-wrap">{item.packaging}</p>
+                      </div>
+                    )}
+
+                    {item?.manual && (
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground mb-1">
+                          Anleitung
+                        </div>
+                        <p className="text-base whitespace-pre-wrap">{item.manual}</p>
+                      </div>
+                    )}
+
+                    {item?.parts && (
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground mb-1">
+                          Teile
+                        </div>
+                        <p className="text-base whitespace-pre-wrap">{item.parts}</p>
+                      </div>
+                    )}
+
+                    {item?.internal_note && (
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground mb-1">
+                          Interne Notiz
+                        </div>
+                        <p className="text-base whitespace-pre-wrap">{item.internal_note}</p>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {/* Images */}
+              {existingImages.length > 0 && (
+                <section>
+                  <div className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                    Bilder
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {existingImages.map((imageName) => (
+                      <div key={imageName} className="aspect-square rounded-lg border border-border overflow-hidden bg-muted">
+                        <img
+                          src={pb.files.getUrl(item!, imageName, { thumb: '200x200' })}
+                          alt={item?.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Rental History */}
+              {!isLoadingHistory && rentals.length > 0 && (
+                <section>
+                  <div className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                    Ausleihhistorie
+                  </div>
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wide px-4 py-3">
+                            Kunde
+                          </th>
+                          <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wide px-4 py-3">
+                            Ausgeliehen
+                          </th>
+                          <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wide px-4 py-3">
+                            Status
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {rentals.slice(0, 5).map((rental) => {
+                          const status = calculateRentalStatus(rental);
+                          return (
+                            <tr key={rental.id} className="hover:bg-muted/30">
+                              <td className="px-4 py-3 text-sm">
+                                {rental.expand?.customer
+                                  ? `${rental.expand.customer.firstname} ${rental.expand.customer.lastname}`
+                                  : '—'}
+                              </td>
+                              <td className="px-4 py-3 text-sm">
+                                {rental.rented_on ? formatDate(rental.rented_on) : '—'}
+                              </td>
+                              <td className="px-4 py-3">
+                                <Badge
+                                  variant={
+                                    status === 'returned' || status === 'returned_today'
+                                      ? 'secondary'
+                                      : status === 'overdue'
+                                      ? 'destructive'
+                                      : 'default'
+                                  }
+                                >
+                                  {status === 'active' && 'Aktiv'}
+                                  {status === 'returned' && 'Zurückgegeben'}
+                                  {status === 'overdue' && 'Überfällig'}
+                                  {status === 'due_today' && 'Heute fällig'}
+                                  {status === 'returned_today' && 'Heute zurück'}
+                                </Badge>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {rentals.length > 5 && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Zeige 5 von {rentals.length} Ausleihungen
+                    </p>
+                  )}
+                </section>
+              )}
+            </div>
+          )}
+          </div>
+
+          {isEditMode ? (
+            <SheetFooter className="border-t pt-4 px-6 shrink-0 bg-background">
               <Button
                 type="button"
                 variant="outline"
@@ -873,6 +1079,36 @@ export function ItemDetailSheet({
                 <SaveIcon className="size-4 mr-2" />
                 {isLoading ? 'Speichern...' : 'Speichern'}
               </Button>
+            </SheetFooter>
+          ) : !isNewItem && (
+            <SheetFooter className="border-t pt-4 px-6 shrink-0 bg-background">
+              <div className="flex justify-between w-full gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                >
+                  <XIcon className="size-4 mr-2" />
+                  Schließen
+                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="default"
+                    onClick={() => setIsRentalSheetOpen(true)}
+                    disabled={item?.status !== 'instock'}
+                    title={item?.status !== 'instock' ? 'Artikel ist nicht verfügbar' : 'Ausleihen'}
+                  >
+                    <PlusCircleIcon className="size-4 mr-2" />
+                    Ausleihen
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsEditMode(true)}
+                  >
+                    <PencilIcon className="size-4 mr-2" />
+                    Bearbeiten
+                  </Button>
+                </div>
+              </div>
             </SheetFooter>
           )}
         </SheetContent>

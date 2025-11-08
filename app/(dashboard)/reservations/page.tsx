@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { PlusIcon, CheckCircle2Icon } from 'lucide-react';
 import { SearchBar } from '@/components/search/search-bar';
 import { FilterPopover } from '@/components/search/filter-popover';
@@ -13,12 +13,13 @@ import { ColumnSelector } from '@/components/table/column-selector';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ReservationDetailSheet } from '@/components/detail-sheets/reservation-detail-sheet';
+import { RentalDetailSheet } from '@/components/detail-sheets/rental-detail-sheet';
 import { collections } from '@/lib/pocketbase/client';
 import { useFilters } from '@/hooks/use-filters';
 import { useColumnVisibility } from '@/hooks/use-column-visibility';
 import { reservationsFilterConfig } from '@/lib/filters/filter-configs';
 import { reservationsColumnConfig } from '@/lib/tables/column-configs';
-import type { ReservationExpanded } from '@/types';
+import type { ReservationExpanded, RentalExpanded } from '@/types';
 import { formatDateTime } from '@/lib/utils/formatting';
 
 export default function ReservationsPage() {
@@ -32,6 +33,11 @@ export default function ReservationsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedReservation, setSelectedReservation] = useState<ReservationExpanded | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [hasInitializedFilter, setHasInitializedFilter] = useState(false);
+
+  // Rental sheet state for converting reservation to rental
+  const [isRentalSheetOpen, setIsRentalSheetOpen] = useState(false);
+  const [rentalFromReservation, setRentalFromReservation] = useState<RentalExpanded | null>(null);
 
   const observerTarget = useRef<HTMLDivElement>(null);
   const perPage = 50;
@@ -41,6 +47,30 @@ export default function ReservationsPage() {
     entity: 'reservations',
     config: reservationsFilterConfig,
   });
+
+  // Calculate today's date range
+  const todayRange = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split('T')[0];
+    return { start: todayStr, end: todayStr };
+  }, []);
+
+  // Initialize "today" filter on first load if no filters exist
+  useEffect(() => {
+    // Only run once and only if there are no active filters
+    if (!hasInitializedFilter && filters.activeFilters.length === 0) {
+      filters.addFilter({
+        type: 'date',
+        field: 'pickup',
+        operator: '>=',
+        value: [todayRange.start, todayRange.end],
+        label: 'Abholung: Heute',
+      });
+    }
+    // Mark as initialized regardless (even if filters exist from localStorage)
+    setHasInitializedFilter(true);
+  }, [hasInitializedFilter, filters, todayRange]);
 
   // Sort management
   const [sortField, setSortField] = useState<string>(reservationsColumnConfig.defaultSort);
@@ -113,9 +143,12 @@ export default function ReservationsPage() {
 
   // Initial load and reload on search change
   useEffect(() => {
+    // Wait until filter initialization is complete before fetching
+    if (!hasInitializedFilter) return;
+
     setCurrentPage(1);
     fetchReservations(1);
-  }, [debouncedSearch, fetchReservations]);
+  }, [debouncedSearch, fetchReservations, hasInitializedFilter]);
 
   // Intersection Observer for infinite scroll
   useEffect(() => {
@@ -176,6 +209,59 @@ export default function ReservationsPage() {
   // Handle reservation save
   const handleReservationSave = () => {
     // Refresh the list
+    setReservations([]);
+    setCurrentPage(1);
+    fetchReservations(1);
+  };
+
+  // Handle converting reservation to rental
+  const handleConvertToRental = async (reservation: ReservationExpanded) => {
+    // Close reservation sheet
+    setIsSheetOpen(false);
+
+    // Create a template rental with data from reservation
+    const templateRental: any = {
+      id: '', // Empty ID indicates new rental
+      customer: '', // Will be set by customer_iid
+      items: reservation.items,
+      deposit: 0, // Will be calculated from items
+      deposit_back: 0,
+      rented_on: new Date().toISOString(),
+      returned_on: '',
+      expected_on: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+      extended_on: '',
+      remark: reservation.comments || '',
+      employee: '',
+      employee_back: '',
+      created: '',
+      updated: '',
+      collectionId: '',
+      collectionName: 'rental',
+      expand: {
+        items: reservation.expand?.items || [],
+      },
+    };
+
+    // If we have a customer IID, fetch the full customer data
+    if (reservation.customer_iid) {
+      try {
+        const customer = await collections.customers().getFirstListItem(`iid=${reservation.customer_iid}`);
+        templateRental.customer = customer.id;
+        templateRental.expand.customer = customer;
+      } catch (err) {
+        console.error('Error fetching customer:', err);
+      }
+    }
+
+    setRentalFromReservation(templateRental as RentalExpanded);
+    setIsRentalSheetOpen(true);
+  };
+
+  // Handle rental save
+  const handleRentalSave = () => {
+    setIsRentalSheetOpen(false);
+    setRentalFromReservation(null);
+    // Optionally refresh reservations list
     setReservations([]);
     setCurrentPage(1);
     fetchReservations(1);
@@ -258,22 +344,22 @@ export default function ReservationsPage() {
                           />
                         </th>
                       )}
-                      {columnVisibility.isColumnVisible('customer_phone') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Telefon"
-                            sortDirection={getSortDirection('customer_phone')}
-                            onSort={() => handleSort('customer_phone')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
                       {columnVisibility.isColumnVisible('items') && (
                         <th className="px-4 py-2 text-left">
                           <SortableHeader
                             label="Gegenstände"
                             sortDirection={getSortDirection('items')}
                             onSort={() => handleSort('items')}
+                            disabled={isLoading}
+                          />
+                        </th>
+                      )}
+                      {columnVisibility.isColumnVisible('customer_phone') && (
+                        <th className="px-4 py-2 text-left">
+                          <SortableHeader
+                            label="Telefon"
+                            sortDirection={getSortDirection('customer_phone')}
+                            onSort={() => handleSort('customer_phone')}
                             disabled={isLoading}
                           />
                         </th>
@@ -351,33 +437,36 @@ export default function ReservationsPage() {
                       >
                         {columnVisibility.isColumnVisible('customer_name') && (
                           <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
+                            {reservation.customer_iid ? (
                               <span className="font-medium">
-                                {!reservation.is_new_customer && reservation.customer_iid && (
-                                  <span className="font-mono text-primary mr-2">
-                                    #{String(reservation.customer_iid).padStart(4, '0')}
-                                  </span>
-                                )}
+                                <span className="font-mono text-primary mr-2">
+                                  #{String(reservation.customer_iid).padStart(4, '0')}
+                                </span>
                                 {reservation.customer_name}
                               </span>
-                              {reservation.is_new_customer && (
-                                <Badge variant="outline">
-                                  Neukunde
-                                </Badge>
-                              )}
-                            </div>
-                          </td>
-                        )}
-                        {columnVisibility.isColumnVisible('customer_phone') && (
-                          <td className="px-4 py-3 text-sm text-muted-foreground">
-                            {reservation.customer_phone || '—'}
+                            ) : (
+                              <span className="font-medium">{reservation.customer_name}</span>
+                            )}
                           </td>
                         )}
                         {columnVisibility.isColumnVisible('items') && (
                           <td className="px-4 py-3 text-sm">
                             {reservation.expand?.items?.length > 0
-                              ? reservation.expand.items.map((item) => item.name).join(', ')
+                              ? reservation.expand.items.map((item) => (
+                                  <span key={item.id} className="inline-block mr-2">
+                                    <span className="font-mono text-primary">
+                                      #{String(item.iid).padStart(4, '0')}
+                                    </span>
+                                    {' '}
+                                    {item.name}
+                                  </span>
+                                ))
                               : `${reservation.items.length} Gegenstände`}
+                          </td>
+                        )}
+                        {columnVisibility.isColumnVisible('customer_phone') && (
+                          <td className="px-4 py-3 text-sm text-muted-foreground">
+                            {reservation.customer_phone || '—'}
                           </td>
                         )}
                         {columnVisibility.isColumnVisible('pickup') && (
@@ -450,6 +539,15 @@ export default function ReservationsPage() {
         open={isSheetOpen}
         onOpenChange={setIsSheetOpen}
         onSave={handleReservationSave}
+        onConvertToRental={handleConvertToRental}
+      />
+
+      {/* Rental Detail Sheet (for converting reservations) */}
+      <RentalDetailSheet
+        rental={rentalFromReservation}
+        open={isRentalSheetOpen}
+        onOpenChange={setIsRentalSheetOpen}
+        onSave={handleRentalSave}
       />
     </div>
   );
