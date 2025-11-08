@@ -13,12 +13,13 @@ import { ColumnSelector } from '@/components/table/column-selector';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ReservationDetailSheet } from '@/components/detail-sheets/reservation-detail-sheet';
+import { RentalDetailSheet } from '@/components/detail-sheets/rental-detail-sheet';
 import { collections } from '@/lib/pocketbase/client';
 import { useFilters } from '@/hooks/use-filters';
 import { useColumnVisibility } from '@/hooks/use-column-visibility';
 import { reservationsFilterConfig } from '@/lib/filters/filter-configs';
 import { reservationsColumnConfig } from '@/lib/tables/column-configs';
-import type { ReservationExpanded } from '@/types';
+import type { ReservationExpanded, RentalExpanded } from '@/types';
 import { formatDateTime } from '@/lib/utils/formatting';
 
 export default function ReservationsPage() {
@@ -33,6 +34,10 @@ export default function ReservationsPage() {
   const [selectedReservation, setSelectedReservation] = useState<ReservationExpanded | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [hasInitializedFilter, setHasInitializedFilter] = useState(false);
+
+  // Rental sheet state for converting reservation to rental
+  const [isRentalSheetOpen, setIsRentalSheetOpen] = useState(false);
+  const [rentalFromReservation, setRentalFromReservation] = useState<RentalExpanded | null>(null);
 
   const observerTarget = useRef<HTMLDivElement>(null);
   const perPage = 50;
@@ -204,6 +209,59 @@ export default function ReservationsPage() {
   // Handle reservation save
   const handleReservationSave = () => {
     // Refresh the list
+    setReservations([]);
+    setCurrentPage(1);
+    fetchReservations(1);
+  };
+
+  // Handle converting reservation to rental
+  const handleConvertToRental = async (reservation: ReservationExpanded) => {
+    // Close reservation sheet
+    setIsSheetOpen(false);
+
+    // Create a template rental with data from reservation
+    const templateRental: any = {
+      id: '', // Empty ID indicates new rental
+      customer: '', // Will be set by customer_iid
+      items: reservation.items,
+      deposit: 0, // Will be calculated from items
+      deposit_back: 0,
+      rented_on: new Date().toISOString(),
+      returned_on: '',
+      expected_on: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+      extended_on: '',
+      remark: reservation.comments || '',
+      employee: '',
+      employee_back: '',
+      created: '',
+      updated: '',
+      collectionId: '',
+      collectionName: 'rental',
+      expand: {
+        items: reservation.expand?.items || [],
+      },
+    };
+
+    // If we have a customer IID, fetch the full customer data
+    if (reservation.customer_iid) {
+      try {
+        const customer = await collections.customers().getFirstListItem(`iid=${reservation.customer_iid}`);
+        templateRental.customer = customer.id;
+        templateRental.expand.customer = customer;
+      } catch (err) {
+        console.error('Error fetching customer:', err);
+      }
+    }
+
+    setRentalFromReservation(templateRental as RentalExpanded);
+    setIsRentalSheetOpen(true);
+  };
+
+  // Handle rental save
+  const handleRentalSave = () => {
+    setIsRentalSheetOpen(false);
+    setRentalFromReservation(null);
+    // Optionally refresh reservations list
     setReservations([]);
     setCurrentPage(1);
     fetchReservations(1);
@@ -481,6 +539,15 @@ export default function ReservationsPage() {
         open={isSheetOpen}
         onOpenChange={setIsSheetOpen}
         onSave={handleReservationSave}
+        onConvertToRental={handleConvertToRental}
+      />
+
+      {/* Rental Detail Sheet (for converting reservations) */}
+      <RentalDetailSheet
+        rental={rentalFromReservation}
+        open={isRentalSheetOpen}
+        onOpenChange={setIsRentalSheetOpen}
+        onSave={handleRentalSave}
       />
     </div>
   );

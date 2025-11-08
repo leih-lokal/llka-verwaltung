@@ -10,7 +10,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { SaveIcon, XIcon, CheckIcon, ChevronsUpDownIcon, PlusIcon, Trash2Icon } from 'lucide-react';
+import { SaveIcon, XIcon, CheckIcon, ChevronsUpDownIcon, PlusIcon, Trash2Icon, ArrowRightIcon } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -69,6 +69,7 @@ interface ReservationDetailSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave?: (reservation: Reservation) => void;
+  onConvertToRental?: (reservation: ReservationExpanded) => void;
 }
 
 export function ReservationDetailSheet({
@@ -76,6 +77,7 @@ export function ReservationDetailSheet({
   open,
   onOpenChange,
   onSave,
+  onConvertToRental,
 }: ReservationDetailSheetProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -568,23 +570,38 @@ export function ReservationDetailSheet({
           </form>
 
           <SheetFooter className="border-t pt-4 px-6">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCancel}
-              disabled={isLoading}
-            >
-              <XIcon className="size-4 mr-2" />
-              Abbrechen
-            </Button>
-            <Button
-              type="submit"
-              onClick={form.handleSubmit(handleSave)}
-              disabled={isLoading || isLoadingData}
-            >
-              <SaveIcon className="size-4 mr-2" />
-              {isLoading ? 'Speichern...' : 'Speichern'}
-            </Button>
+            <div className="flex justify-between w-full gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancel}
+                disabled={isLoading}
+              >
+                <XIcon className="size-4 mr-2" />
+                Abbrechen
+              </Button>
+              <div className="flex gap-2">
+                {!isNewReservation && reservation && onConvertToRental && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => onConvertToRental(reservation)}
+                    disabled={isLoading || isLoadingData}
+                  >
+                    <ArrowRightIcon className="size-4 mr-2" />
+                    In Ausleihe umwandeln
+                  </Button>
+                )}
+                <Button
+                  type="submit"
+                  onClick={form.handleSubmit(handleSave)}
+                  disabled={isLoading || isLoadingData}
+                >
+                  <SaveIcon className="size-4 mr-2" />
+                  {isLoading ? 'Speichern...' : 'Speichern'}
+                </Button>
+              </div>
+            </div>
           </SheetFooter>
         </SheetContent>
       </Sheet>
