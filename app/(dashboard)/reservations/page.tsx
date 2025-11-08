@@ -62,8 +62,9 @@ export default function ReservationsPage() {
         value: [todayRange.start, todayRange.end],
         label: 'Abholung: Heute',
       });
-      setHasInitializedFilter(true);
     }
+    // Mark as initialized regardless (even if filters exist from localStorage)
+    setHasInitializedFilter(true);
   }, [hasInitializedFilter, filters, todayRange]);
 
   // Sort management
@@ -137,9 +138,12 @@ export default function ReservationsPage() {
 
   // Initial load and reload on search change
   useEffect(() => {
+    // Wait until filter initialization is complete before fetching
+    if (!hasInitializedFilter) return;
+
     setCurrentPage(1);
     fetchReservations(1);
-  }, [debouncedSearch, fetchReservations]);
+  }, [debouncedSearch, fetchReservations, hasInitializedFilter]);
 
   // Intersection Observer for infinite scroll
   useEffect(() => {
