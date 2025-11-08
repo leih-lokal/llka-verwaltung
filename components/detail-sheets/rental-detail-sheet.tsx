@@ -1,6 +1,7 @@
 /**
  * Rental Detail Sheet Component
- * Displays and edits rental information (edit mode by default)
+ * Displays and edits rental information
+ * Based on the old Svelte version's patterns
  */
 
 'use client';
@@ -10,7 +11,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { SaveIcon, XIcon, CheckIcon, ChevronsUpDownIcon, PlusIcon, Trash2Icon, CalendarIcon } from 'lucide-react';
+import { SaveIcon, XIcon, CheckIcon, ChevronsUpDownIcon, CalendarIcon, TrashIcon } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -52,8 +53,8 @@ import type { Rental, RentalExpanded, Customer, Item } from '@/types';
 
 // Validation schema
 const rentalSchema = z.object({
-  customer_id: z.string().min(1, 'Kunde ist erforderlich'),
-  item_ids: z.array(z.string()).min(1, 'Mindestens ein Artikel ist erforderlich'),
+  customer_iid: z.number().min(1, 'Kunde ist erforderlich'),
+  item_iid: z.number().min(1, 'Artikel ist erforderlich'),
   deposit: z.number().min(0, 'Kaution muss positiv sein'),
   deposit_back: z.number().min(0, 'Rückkaution muss positiv sein'),
   rented_on: z.string(),
@@ -61,7 +62,7 @@ const rentalSchema = z.object({
   expected_on: z.string(),
   extended_on: z.string().optional(),
   remark: z.string().optional(),
-  employee: z.string().optional(),
+  employee: z.string().min(1, 'Mitarbeiter (Ausgabe) ist erforderlich'),
   employee_back: z.string().optional(),
 });
 
@@ -108,11 +109,23 @@ export function RentalDetailSheet({
 }: RentalDetailSheetProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [items, setItems] = useState<Item[]>([]);
-  const [isLoadingData, setIsLoadingData] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  // Customer state
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerResults, setCustomerResults] = useState<Customer[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
+  const [isSearchingCustomers, setIsSearchingCustomers] = useState(false);
+
+  // Item state
+  const [itemSearch, setItemSearch] = useState('');
+  const [itemResults, setItemResults] = useState<Item[]>([]);
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [itemSearchOpen, setItemSearchOpen] = useState(false);
+  const [isSearchingItems, setIsSearchingItems] = useState(false);
+
+  // Date picker state
   const [rentedOnPickerOpen, setRentedOnPickerOpen] = useState(false);
   const [expectedOnPickerOpen, setExpectedOnPickerOpen] = useState(false);
   const [extendedOnPickerOpen, setExtendedOnPickerOpen] = useState(false);
@@ -123,13 +136,13 @@ export function RentalDetailSheet({
   const form = useForm<RentalFormValues>({
     resolver: zodResolver(rentalSchema),
     defaultValues: {
-      customer_id: '',
-      item_ids: [],
+      customer_iid: 0,
+      item_iid: 0,
       deposit: 0,
       deposit_back: 0,
       rented_on: new Date().toISOString().split('T')[0],
       returned_on: '',
-      expected_on: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // +7 days
+      expected_on: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       extended_on: '',
       remark: '',
       employee: '',
@@ -138,8 +151,6 @@ export function RentalDetailSheet({
   });
 
   const { formState: { isDirty }, watch, setValue } = form;
-  const selectedCustomerId = watch('customer_id');
-  const selectedItemIds = watch('item_ids');
   const rentedOn = watch('rented_on');
   const expectedOn = watch('expected_on');
   const extendedOn = watch('extended_on');
@@ -168,42 +179,27 @@ export function RentalDetailSheet({
     setReturnedOnDisplay(formatDateDisplay(stringToDate(returnedOn)));
   }, [returnedOn]);
 
-  // Load customers and items for dropdowns
-  useEffect(() => {
-    if (open) {
-      loadData();
-    }
-  }, [open]);
-
-  const loadData = async () => {
-    setIsLoadingData(true);
-    try {
-      // Load customers
-      const customersResult = await collections.customers().getList<Customer>(1, 500, {
-        sort: 'lastname,firstname',
-      });
-      setCustomers(customersResult.items);
-
-      // Load items
-      const itemsResult = await collections.items().getList<Item>(1, 500, {
-        sort: 'name',
-        filter: 'status!="deleted"',
-      });
-      setItems(itemsResult.items);
-    } catch (err) {
-      console.error('Error loading data:', err);
-      toast.error('Fehler beim Laden der Daten');
-    } finally {
-      setIsLoadingData(false);
-    }
-  };
-
   // Load rental data when rental changes
   useEffect(() => {
-    if (rental) {
+    if (rental && open) {
+      // Set customer if expanded
+      if (rental.expand?.customer) {
+        setSelectedCustomer(rental.expand.customer);
+        setValue('customer_iid', rental.expand.customer.iid);
+      }
+
+      // Set item if expanded (only first item, old version only supported one)
+      if (rental.expand?.items && rental.expand.items.length > 0) {
+        const firstItem = rental.expand.items[0];
+        setSelectedItem(firstItem);
+        setValue('item_iid', firstItem.iid);
+        setValue('deposit', rental.deposit ?? firstItem.deposit ?? 0);
+      }
+
+      // Set form values
       form.reset({
-        customer_id: rental.customer || '',
-        item_ids: rental.items || [],
+        customer_iid: rental.expand?.customer?.iid ?? 0,
+        item_iid: rental.expand?.items?.[0]?.iid ?? 0,
         deposit: rental.deposit ?? 0,
         deposit_back: rental.deposit_back ?? 0,
         rented_on: rental.rented_on ? rental.rented_on.split('T')[0] : new Date().toISOString().split('T')[0],
@@ -214,10 +210,13 @@ export function RentalDetailSheet({
         employee: rental.employee || '',
         employee_back: rental.employee_back || '',
       });
-    } else if (isNewRental) {
+    } else if (isNewRental && open) {
+      // Reset for new rental
+      setSelectedCustomer(null);
+      setSelectedItem(null);
       form.reset({
-        customer_id: '',
-        item_ids: [],
+        customer_iid: 0,
+        item_iid: 0,
         deposit: 0,
         deposit_back: 0,
         rented_on: new Date().toISOString().split('T')[0],
@@ -229,14 +228,207 @@ export function RentalDetailSheet({
         employee_back: '',
       });
     }
-  }, [rental, isNewRental, form]);
+  }, [rental, isNewRental, form, open, setValue]);
+
+  // Search customers
+  useEffect(() => {
+    if (!customerSearch || customerSearch.length < 2) {
+      setCustomerResults([]);
+      return;
+    }
+
+    const searchCustomers = async () => {
+      setIsSearchingCustomers(true);
+      try {
+        const filters = [];
+
+        // If search is numeric, search by iid
+        if (/^\d+$/.test(customerSearch)) {
+          filters.push(`iid~'${customerSearch}'`);
+        }
+
+        // Always search by name
+        filters.push(`firstname~'${customerSearch}'`);
+        filters.push(`lastname~'${customerSearch}'`);
+        filters.push(`email~'${customerSearch}'`);
+
+        const filter = filters.join(' || ');
+
+        const result = await collections.customers().getList<Customer>(1, 20, {
+          filter,
+          sort: 'lastname,firstname',
+        });
+
+        setCustomerResults(result.items);
+      } catch (err) {
+        console.error('Error searching customers:', err);
+      } finally {
+        setIsSearchingCustomers(false);
+      }
+    };
+
+    const timer = setTimeout(searchCustomers, 300);
+    return () => clearTimeout(timer);
+  }, [customerSearch]);
+
+  // Search items
+  useEffect(() => {
+    if (!itemSearch || itemSearch.length < 2) {
+      setItemResults([]);
+      return;
+    }
+
+    const searchItems = async () => {
+      setIsSearchingItems(true);
+      try {
+        const filters = [];
+
+        // If search is numeric, search by iid
+        if (/^\d+$/.test(itemSearch)) {
+          filters.push(`iid~'${itemSearch}'`);
+        }
+
+        // Always search by name
+        filters.push(`name~'${itemSearch}'`);
+        filters.push(`brand~'${itemSearch}'`);
+        filters.push(`model~'${itemSearch}'`);
+
+        // Don't show deleted items
+        const filter = `(${filters.join(' || ')}) && status!='deleted'`;
+
+        const result = await collections.items().getList<Item>(1, 20, {
+          filter,
+          sort: 'name',
+        });
+
+        setItemResults(result.items);
+      } catch (err) {
+        console.error('Error searching items:', err);
+      } finally {
+        setIsSearchingItems(false);
+      }
+    };
+
+    const timer = setTimeout(searchItems, 300);
+    return () => clearTimeout(timer);
+  }, [itemSearch]);
+
+  // Show notifications for selected customer
+  const showCustomerNotifications = async (customer: Customer) => {
+    try {
+      // Check for active rentals
+      const activeRentalsFilter = `customer='${customer.id}' && returned_on=''`;
+      const activeRentals = await collections.rentals().getList<RentalExpanded>(1, 10, {
+        filter: activeRentalsFilter,
+        expand: 'items',
+      });
+
+      if (activeRentals.items.length > 0) {
+        const itemNames = activeRentals.items
+          .flatMap(r => r.expand?.items?.map(i => i.name) || [])
+          .filter(Boolean);
+
+        if (itemNames.length > 0 && itemNames.length < 3) {
+          toast.warning(`Nutzer:in hat schon diese Gegenstände ausgeliehen: ${itemNames.join(', ')}`, {
+            duration: 6000,
+          });
+        } else if (itemNames.length >= 3) {
+          toast.error(`Nutzer:in hat schon mehr als 2 Gegenstände ausgeliehen: ${itemNames.join(', ')}`, {
+            duration: 6000,
+          });
+        }
+      }
+
+      // Check for customer remark
+      if (customer.remark && customer.remark.trim() !== '') {
+        toast.error(customer.remark, { duration: Infinity });
+      }
+
+      // Check for highlight color
+      if (customer.highlight_color && customer.highlight_color !== '') {
+        const colorDescriptions: Record<string, string> = {
+          green: 'Grün - Positiv markiert',
+          blue: 'Blau - Information',
+          yellow: 'Gelb - Warnung',
+          red: 'Rot - Wichtig/Problem',
+        };
+        const description = colorDescriptions[customer.highlight_color] || customer.highlight_color;
+        toast.info(`Diese/r Nutzer:in wurde farblich markiert: ${description}`, {
+          duration: Infinity,
+        });
+      }
+    } catch (err) {
+      console.error('Error checking customer:', err);
+    }
+  };
+
+  // Show notifications for selected item
+  const showItemNotifications = (item: Item) => {
+    // Check item status
+    const statusMapping: Record<string, string> = {
+      instock: 'verfügbar',
+      outofstock: 'verliehen',
+      reserved: 'reserviert',
+      lost: 'verschollen',
+      repairing: 'in Reparatur',
+      forsale: 'zu verkaufen',
+    };
+
+    const status = statusMapping[item.status] || item.status;
+
+    if (['outofstock', 'reserved', 'lost', 'repairing', 'forsale'].includes(item.status)) {
+      toast.error(`${item.name} (#${String(item.iid).padStart(4, '0')}) ist nicht verfügbar, hat Status: ${status}`, {
+        duration: 10000,
+      });
+    }
+
+    // Check for highlight color
+    if (item.highlight_color && item.highlight_color !== '') {
+      const colorDescriptions: Record<string, string> = {
+        green: 'Grün - Positiv markiert',
+        blue: 'Blau - Information',
+        yellow: 'Gelb - Warnung',
+        red: 'Rot - Wichtig/Problem',
+      };
+      const description = colorDescriptions[item.highlight_color] || item.highlight_color;
+      toast.info(`${item.name} (#${String(item.iid).padStart(4, '0')}) wurde farblich markiert: ${description}`, {
+        duration: Infinity,
+      });
+    }
+  };
+
+  const handleCustomerSelect = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setValue('customer_iid', customer.iid, { shouldDirty: true });
+    setCustomerSearchOpen(false);
+    setCustomerSearch('');
+    showCustomerNotifications(customer);
+  };
+
+  const handleItemSelect = (item: Item) => {
+    setSelectedItem(item);
+    setValue('item_iid', item.iid, { shouldDirty: true });
+
+    // Auto-populate deposit from item
+    if (item.deposit && item.deposit > 0) {
+      setValue('deposit', item.deposit, { shouldDirty: true });
+    }
+
+    setItemSearchOpen(false);
+    setItemSearch('');
+    showItemNotifications(item);
+  };
 
   const handleSave = async (data: RentalFormValues) => {
     setIsLoading(true);
     try {
+      // Get customer and item by iid to get their PocketBase IDs
+      const customer = await collections.customers().getFirstListItem<Customer>(`iid=${data.customer_iid}`);
+      const item = await collections.items().getFirstListItem<Item>(`iid=${data.item_iid}`);
+
       const formData: Partial<Rental> = {
-        customer: data.customer_id,
-        items: data.item_ids,
+        customer: customer.id,
+        items: [item.id], // Only one item per rental (matching old version)
         deposit: data.deposit,
         deposit_back: data.deposit_back,
         rented_on: data.rented_on,
@@ -244,7 +436,7 @@ export function RentalDetailSheet({
         expected_on: data.expected_on,
         extended_on: data.extended_on || undefined,
         remark: data.remark || undefined,
-        employee: data.employee || undefined,
+        employee: data.employee,
         employee_back: data.employee_back || undefined,
       };
 
@@ -267,6 +459,43 @@ export function RentalDetailSheet({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleDelete = async () => {
+    if (!rental?.id) return;
+
+    setIsLoading(true);
+    try {
+      await collections.rentals().delete(rental.id);
+      toast.success('Leihvorgang erfolgreich gelöscht');
+      setShowDeleteDialog(false);
+      onSave?.(rental as Rental);
+      onOpenChange(false);
+    } catch (err) {
+      console.error('Error deleting rental:', err);
+      toast.error('Fehler beim Löschen des Leihvorgangs');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleReturn = async () => {
+    if (isNewRental) return;
+
+    const data = form.getValues();
+
+    // Set return date to today if not set
+    if (!data.returned_on) {
+      setValue('returned_on', new Date().toISOString().split('T')[0], { shouldDirty: true });
+    }
+
+    // Set deposit_back to deposit if not set
+    if (data.deposit_back === 0 && data.deposit > 0) {
+      setValue('deposit_back', data.deposit, { shouldDirty: true });
+    }
+
+    // Submit the form
+    form.handleSubmit(handleSave)();
   };
 
   const handleCancel = () => {
@@ -304,20 +533,6 @@ export function RentalDetailSheet({
     return <Badge variant={variant}>{label}</Badge>;
   };
 
-  const selectedCustomer = customers.find((c) => c.id === selectedCustomerId);
-  const selectedItems = items.filter((i) => selectedItemIds.includes(i.id));
-
-  const handleAddItem = (itemId: string) => {
-    if (!selectedItemIds.includes(itemId)) {
-      setValue('item_ids', [...selectedItemIds, itemId], { shouldDirty: true });
-    }
-    setItemSearchOpen(false);
-  };
-
-  const handleRemoveItem = (itemId: string) => {
-    setValue('item_ids', selectedItemIds.filter((id) => id !== itemId), { shouldDirty: true });
-  };
-
   // Date quick-action helpers
   const setRentedOnToday = () => {
     setValue('rented_on', new Date().toISOString().split('T')[0], { shouldDirty: true });
@@ -348,7 +563,7 @@ export function RentalDetailSheet({
               <div className="flex-1 min-w-0">
                 <div className="mb-2">
                   <SheetTitle className="text-2xl">
-                    {isNewRental ? 'Neuer Leihvorgang' : 'Leihvorgang'}
+                    {isNewRental ? 'Neuer Leihvorgang' : 'Leihvorgang bearbeiten'}
                   </SheetTitle>
                 </div>
                 {!isNewRental && rental && (
@@ -369,10 +584,10 @@ export function RentalDetailSheet({
             {/* Customer Selection */}
             <section className="space-y-4">
               <div className="border-b pb-2 mb-4">
-                <h3 className="font-semibold text-lg">Kunde</h3>
+                <h3 className="font-semibold text-lg">Nutzer:in</h3>
               </div>
               <div>
-                <Label htmlFor="customer">Kunde auswählen *</Label>
+                <Label htmlFor="customer">Nutzer:in auswählen *</Label>
                 <Popover open={customerSearchOpen} onOpenChange={setCustomerSearchOpen}>
                   <PopoverTrigger asChild>
                     <Button
@@ -380,54 +595,63 @@ export function RentalDetailSheet({
                       role="combobox"
                       aria-expanded={customerSearchOpen}
                       className="w-full justify-between mt-1"
-                      disabled={isLoadingData}
                     >
                       {selectedCustomer
                         ? `#${String(selectedCustomer.iid).padStart(4, '0')} - ${selectedCustomer.firstname} ${selectedCustomer.lastname}`
-                        : "Kunde auswählen..."}
+                        : "Nutzer:in auswählen..."}
                       <ChevronsUpDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-full p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Kunde suchen..." />
+                    <Command shouldFilter={false}>
+                      <CommandInput
+                        placeholder="Nutzer:in suchen (Name, Nr, E-Mail)..."
+                        value={customerSearch}
+                        onValueChange={setCustomerSearch}
+                      />
                       <CommandList>
-                        <CommandEmpty>Kein Kunde gefunden.</CommandEmpty>
-                        <CommandGroup>
-                          {customers.map((customer) => (
-                            <CommandItem
-                              key={customer.id}
-                              value={`${customer.iid} ${customer.firstname} ${customer.lastname} ${customer.email || ''}`}
-                              onSelect={() => {
-                                setValue('customer_id', customer.id, { shouldDirty: true });
-                                setCustomerSearchOpen(false);
-                              }}
-                            >
-                              <CheckIcon
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  selectedCustomerId === customer.id ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              <span className="font-mono text-primary font-semibold mr-2">
-                                #{String(customer.iid).padStart(4, '0')}
-                              </span>
-                              <span>{customer.firstname} {customer.lastname}</span>
-                              {customer.email && (
-                                <span className="ml-2 text-muted-foreground text-xs">
-                                  {customer.email}
+                        {isSearchingCustomers ? (
+                          <div className="py-6 text-center text-sm">Suche...</div>
+                        ) : customerResults.length === 0 && customerSearch.length >= 2 ? (
+                          <CommandEmpty>Kein/e Nutzer:in gefunden.</CommandEmpty>
+                        ) : customerResults.length === 0 ? (
+                          <div className="py-6 text-center text-sm text-muted-foreground">
+                            Tippen Sie, um zu suchen...
+                          </div>
+                        ) : (
+                          <CommandGroup>
+                            {customerResults.map((customer) => (
+                              <CommandItem
+                                key={customer.id}
+                                value={customer.id}
+                                onSelect={() => handleCustomerSelect(customer)}
+                              >
+                                <CheckIcon
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedCustomer?.id === customer.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <span className="font-mono text-primary font-semibold mr-2">
+                                  #{String(customer.iid).padStart(4, '0')}
                                 </span>
-                              )}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
+                                <span>{customer.firstname} {customer.lastname}</span>
+                                {customer.email && (
+                                  <span className="ml-2 text-muted-foreground text-xs">
+                                    {customer.email}
+                                  </span>
+                                )}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        )}
                       </CommandList>
                     </Command>
                   </PopoverContent>
                 </Popover>
-                {form.formState.errors.customer_id && (
+                {form.formState.errors.customer_iid && (
                   <p className="text-sm text-destructive mt-1">
-                    {form.formState.errors.customer_id.message}
+                    {form.formState.errors.customer_iid.message}
                   </p>
                 )}
               </div>
@@ -458,13 +682,13 @@ export function RentalDetailSheet({
               )}
             </section>
 
-            {/* Items Selection */}
+            {/* Item Selection */}
             <section className="space-y-4">
               <div className="border-b pb-2 mb-4">
-                <h3 className="font-semibold text-lg">Artikel</h3>
+                <h3 className="font-semibold text-lg">Gegenstand</h3>
               </div>
               <div>
-                <Label>Artikel hinzufügen *</Label>
+                <Label htmlFor="item">Gegenstand auswählen *</Label>
                 <Popover open={itemSearchOpen} onOpenChange={setItemSearchOpen}>
                   <PopoverTrigger asChild>
                     <Button
@@ -472,88 +696,85 @@ export function RentalDetailSheet({
                       role="combobox"
                       aria-expanded={itemSearchOpen}
                       className="w-full justify-between mt-1"
-                      disabled={isLoadingData}
                     >
-                      <span className="flex items-center gap-2">
-                        <PlusIcon className="h-4 w-4" />
-                        Artikel hinzufügen...
-                      </span>
+                      {selectedItem
+                        ? `#${String(selectedItem.iid).padStart(4, '0')} - ${selectedItem.name}`
+                        : "Gegenstand auswählen..."}
                       <ChevronsUpDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-full p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Artikel suchen..." />
+                    <Command shouldFilter={false}>
+                      <CommandInput
+                        placeholder="Gegenstand suchen (Name, Nr, Marke)..."
+                        value={itemSearch}
+                        onValueChange={setItemSearch}
+                      />
                       <CommandList>
-                        <CommandEmpty>Kein Artikel gefunden.</CommandEmpty>
-                        <CommandGroup>
-                          {items.map((item) => (
-                            <CommandItem
-                              key={item.id}
-                              value={`${item.iid} ${item.name} ${item.brand || ''} ${item.model || ''}`}
-                              onSelect={() => handleAddItem(item.id)}
-                              disabled={selectedItemIds.includes(item.id)}
-                            >
-                              <CheckIcon
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  selectedItemIds.includes(item.id) ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              <span className="font-mono text-primary font-semibold mr-2">
-                                #{String(item.iid).padStart(4, '0')}
-                              </span>
-                              <span className="flex-1">{item.name}</span>
-                              <span className="text-muted-foreground text-xs ml-2">
-                                {formatCurrency(item.deposit)}
-                              </span>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
+                        {isSearchingItems ? (
+                          <div className="py-6 text-center text-sm">Suche...</div>
+                        ) : itemResults.length === 0 && itemSearch.length >= 2 ? (
+                          <CommandEmpty>Kein Gegenstand gefunden.</CommandEmpty>
+                        ) : itemResults.length === 0 ? (
+                          <div className="py-6 text-center text-sm text-muted-foreground">
+                            Tippen Sie, um zu suchen...
+                          </div>
+                        ) : (
+                          <CommandGroup>
+                            {itemResults.map((item) => (
+                              <CommandItem
+                                key={item.id}
+                                value={item.id}
+                                onSelect={() => handleItemSelect(item)}
+                              >
+                                <CheckIcon
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedItem?.id === item.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <span className="font-mono text-primary font-semibold mr-2">
+                                  #{String(item.iid).padStart(4, '0')}
+                                </span>
+                                <span className="flex-1">{item.name}</span>
+                                <span className="text-muted-foreground text-xs ml-2">
+                                  {formatCurrency(item.deposit)}
+                                </span>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        )}
                       </CommandList>
                     </Command>
                   </PopoverContent>
                 </Popover>
-                {form.formState.errors.item_ids && (
+                {form.formState.errors.item_iid && (
                   <p className="text-sm text-destructive mt-1">
-                    {form.formState.errors.item_ids.message}
+                    {form.formState.errors.item_iid.message}
                   </p>
                 )}
               </div>
 
-              {/* Selected Items Display */}
-              {selectedItems.length > 0 && (
-                <div className="space-y-2">
-                  {selectedItems.map((item) => (
-                    <div key={item.id} className="border rounded-lg p-4 bg-muted/50">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-baseline gap-2 mb-1">
-                            <span className="font-mono text-primary font-semibold text-lg">
-                              #{String(item.iid).padStart(4, '0')}
-                            </span>
-                            <span className="font-semibold text-lg">{item.name}</span>
-                          </div>
-                          <div className="space-y-1 text-sm text-muted-foreground">
-                            {item.brand && <p>Marke: {item.brand}</p>}
-                            {item.model && <p>Modell: {item.model}</p>}
-                            <p className="font-medium text-foreground">
-                              Kaution: {formatCurrency(item.deposit)}
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveItem(item.id)}
-                          className="shrink-0"
-                        >
-                          <Trash2Icon className="h-4 w-4" />
-                        </Button>
+              {/* Selected Item Display */}
+              {selectedItem && (
+                <div className="border rounded-lg p-4 bg-muted/50">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-baseline gap-2 mb-1">
+                        <span className="font-mono text-primary font-semibold text-lg">
+                          #{String(selectedItem.iid).padStart(4, '0')}
+                        </span>
+                        <span className="font-semibold text-lg">{selectedItem.name}</span>
+                      </div>
+                      <div className="space-y-1 text-sm text-muted-foreground">
+                        {selectedItem.brand && <p>Marke: {selectedItem.brand}</p>}
+                        {selectedItem.model && <p>Modell: {selectedItem.model}</p>}
+                        <p className="font-medium text-foreground">
+                          Kaution: {formatCurrency(selectedItem.deposit)}
+                        </p>
                       </div>
                     </div>
-                  ))}
+                  </div>
                 </div>
               )}
             </section>
@@ -574,19 +795,8 @@ export function RentalDetailSheet({
                         value={rentedOnDisplay}
                         placeholder="Tag auswählen..."
                         className="bg-background pr-10"
-                        onChange={(e) => {
-                          const date = new Date(e.target.value);
-                          setRentedOnDisplay(e.target.value);
-                          if (isValidDate(date)) {
-                            setValue('rented_on', dateToString(date), { shouldDirty: true });
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'ArrowDown') {
-                            e.preventDefault();
-                            setRentedOnPickerOpen(true);
-                          }
-                        }}
+                        readOnly
+                        onClick={() => setRentedOnPickerOpen(true)}
                       />
                       <Popover open={rentedOnPickerOpen} onOpenChange={setRentedOnPickerOpen}>
                         <PopoverTrigger asChild>
@@ -638,7 +848,7 @@ export function RentalDetailSheet({
 
                 {/* Expected On */}
                 <div>
-                  <Label htmlFor="expected_on">Erwartet am *</Label>
+                  <Label htmlFor="expected_on">Zurückerwartet am *</Label>
                   <div className="flex gap-2 mt-1">
                     <div className="relative flex-1">
                       <Input
@@ -646,19 +856,8 @@ export function RentalDetailSheet({
                         value={expectedOnDisplay}
                         placeholder="Tag auswählen..."
                         className="bg-background pr-10"
-                        onChange={(e) => {
-                          const date = new Date(e.target.value);
-                          setExpectedOnDisplay(e.target.value);
-                          if (isValidDate(date)) {
-                            setValue('expected_on', dateToString(date), { shouldDirty: true });
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'ArrowDown') {
-                            e.preventDefault();
-                            setExpectedOnPickerOpen(true);
-                          }
-                        }}
+                        readOnly
+                        onClick={() => setExpectedOnPickerOpen(true)}
                       />
                       <Popover open={expectedOnPickerOpen} onOpenChange={setExpectedOnPickerOpen}>
                         <PopoverTrigger asChild>
@@ -728,85 +927,19 @@ export function RentalDetailSheet({
                 </div>
 
                 {/* Extended On */}
-                <div>
-                  <Label htmlFor="extended_on">Verlängert bis</Label>
-                  <div className="relative mt-1">
-                    <Input
-                      id="extended_on"
-                      value={extendedOnDisplay}
-                      placeholder="Tag auswählen..."
-                      className="bg-background pr-10"
-                      onChange={(e) => {
-                        const date = new Date(e.target.value);
-                        setExtendedOnDisplay(e.target.value);
-                        if (isValidDate(date)) {
-                          setValue('extended_on', dateToString(date), { shouldDirty: true });
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'ArrowDown') {
-                          e.preventDefault();
-                          setExtendedOnPickerOpen(true);
-                        }
-                      }}
-                    />
-                    <Popover open={extendedOnPickerOpen} onOpenChange={setExtendedOnPickerOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          className="absolute top-1/2 right-2 size-6 -translate-y-1/2"
-                        >
-                          <CalendarIcon className="size-3.5" />
-                          <span className="sr-only">Datum auswählen</span>
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        className="w-auto overflow-hidden p-0"
-                        align="end"
-                        alignOffset={-8}
-                        sideOffset={10}
-                      >
-                        <Calendar
-                          mode="single"
-                          selected={stringToDate(extendedOn)}
-                          captionLayout="dropdown"
-                          onSelect={(date) => {
-                            setValue('extended_on', dateToString(date), { shouldDirty: true });
-                            setExtendedOnDisplay(formatDateDisplay(date));
-                            setExtendedOnPickerOpen(false);
-                          }}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-
-                {/* Returned On */}
-                <div>
-                  <Label htmlFor="returned_on">Zurückgegeben am</Label>
-                  <div className="flex gap-2 mt-1">
-                    <div className="relative flex-1">
+                {!isNewRental && (
+                  <div>
+                    <Label htmlFor="extended_on">Verlängert bis</Label>
+                    <div className="relative mt-1">
                       <Input
-                        id="returned_on"
-                        value={returnedOnDisplay}
+                        id="extended_on"
+                        value={extendedOnDisplay}
                         placeholder="Tag auswählen..."
                         className="bg-background pr-10"
-                        onChange={(e) => {
-                          const date = new Date(e.target.value);
-                          setReturnedOnDisplay(e.target.value);
-                          if (isValidDate(date)) {
-                            setValue('returned_on', dateToString(date), { shouldDirty: true });
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'ArrowDown') {
-                            e.preventDefault();
-                            setReturnedOnPickerOpen(true);
-                          }
-                        }}
+                        readOnly
+                        onClick={() => setExtendedOnPickerOpen(true)}
                       />
-                      <Popover open={returnedOnPickerOpen} onOpenChange={setReturnedOnPickerOpen}>
+                      <Popover open={extendedOnPickerOpen} onOpenChange={setExtendedOnPickerOpen}>
                         <PopoverTrigger asChild>
                           <Button
                             type="button"
@@ -825,40 +958,88 @@ export function RentalDetailSheet({
                         >
                           <Calendar
                             mode="single"
-                            selected={stringToDate(returnedOn)}
+                            selected={stringToDate(extendedOn)}
                             captionLayout="dropdown"
                             onSelect={(date) => {
-                              setValue('returned_on', dateToString(date), { shouldDirty: true });
-                              setReturnedOnDisplay(formatDateDisplay(date));
-                              setReturnedOnPickerOpen(false);
+                              setValue('extended_on', dateToString(date), { shouldDirty: true });
+                              setExtendedOnDisplay(formatDateDisplay(date));
+                              setExtendedOnPickerOpen(false);
                             }}
                           />
                         </PopoverContent>
                       </Popover>
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={setReturnedOnToday}
-                      className="shrink-0"
-                      title="Heute zurückgegeben"
-                    >
-                      Heute
-                    </Button>
                   </div>
-                </div>
+                )}
+
+                {/* Returned On */}
+                {!isNewRental && (
+                  <div>
+                    <Label htmlFor="returned_on">Zurückgegeben am</Label>
+                    <div className="flex gap-2 mt-1">
+                      <div className="relative flex-1">
+                        <Input
+                          id="returned_on"
+                          value={returnedOnDisplay}
+                          placeholder="Tag auswählen..."
+                          className="bg-background pr-10"
+                          readOnly
+                          onClick={() => setReturnedOnPickerOpen(true)}
+                        />
+                        <Popover open={returnedOnPickerOpen} onOpenChange={setReturnedOnPickerOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              className="absolute top-1/2 right-2 size-6 -translate-y-1/2"
+                            >
+                              <CalendarIcon className="size-3.5" />
+                              <span className="sr-only">Datum auswählen</span>
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent
+                            className="w-auto overflow-hidden p-0"
+                            align="end"
+                            alignOffset={-8}
+                            sideOffset={10}
+                          >
+                            <Calendar
+                              mode="single"
+                              selected={stringToDate(returnedOn)}
+                              captionLayout="dropdown"
+                              onSelect={(date) => {
+                                setValue('returned_on', dateToString(date), { shouldDirty: true });
+                                setReturnedOnDisplay(formatDateDisplay(date));
+                                setReturnedOnPickerOpen(false);
+                              }}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={setReturnedOnToday}
+                        className="shrink-0"
+                        title="Heute zurückgegeben"
+                      >
+                        Heute
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </section>
 
             {/* Financial */}
             <section className="space-y-4">
               <div className="border-b pb-2 mb-4">
-                <h3 className="font-semibold text-lg">Kaution</h3>
+                <h3 className="font-semibold text-lg">Pfand</h3>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="deposit">Kaution gegeben (€) *</Label>
+                  <Label htmlFor="deposit">Pfand gegeben (€) *</Label>
                   <Input
                     id="deposit"
                     type="number"
@@ -873,47 +1054,56 @@ export function RentalDetailSheet({
                   )}
                 </div>
 
-                <div>
-                  <Label htmlFor="deposit_back">Kaution zurückgegeben (€) *</Label>
-                  <Input
-                    id="deposit_back"
-                    type="number"
-                    step="0.01"
-                    {...form.register('deposit_back', { valueAsNumber: true })}
-                    className="mt-1"
-                  />
-                  {form.formState.errors.deposit_back && (
-                    <p className="text-sm text-destructive mt-1">
-                      {form.formState.errors.deposit_back.message}
-                    </p>
-                  )}
-                </div>
+                {!isNewRental && (
+                  <div>
+                    <Label htmlFor="deposit_back">Pfand zurückgegeben (€) *</Label>
+                    <Input
+                      id="deposit_back"
+                      type="number"
+                      step="0.01"
+                      {...form.register('deposit_back', { valueAsNumber: true })}
+                      className="mt-1"
+                    />
+                    {form.formState.errors.deposit_back && (
+                      <p className="text-sm text-destructive mt-1">
+                        {form.formState.errors.deposit_back.message}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </section>
 
             {/* Additional Information */}
             <section className="space-y-4">
               <div className="border-b pb-2 mb-4">
-                <h3 className="font-semibold text-lg">Zusätzliche Informationen</h3>
+                <h3 className="font-semibold text-lg">Mitarbeiter</h3>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="employee">Mitarbeiter (Ausgabe)</Label>
+                  <Label htmlFor="employee">Ausgabe *</Label>
                   <Input
                     id="employee"
                     {...form.register('employee')}
                     className="mt-1"
                   />
+                  {form.formState.errors.employee && (
+                    <p className="text-sm text-destructive mt-1">
+                      {form.formState.errors.employee.message}
+                    </p>
+                  )}
                 </div>
 
-                <div>
-                  <Label htmlFor="employee_back">Mitarbeiter (Rückgabe)</Label>
-                  <Input
-                    id="employee_back"
-                    {...form.register('employee_back')}
-                    className="mt-1"
-                  />
-                </div>
+                {!isNewRental && (
+                  <div>
+                    <Label htmlFor="employee_back">Rücknahme</Label>
+                    <Input
+                      id="employee_back"
+                      {...form.register('employee_back')}
+                      className="mt-1"
+                    />
+                  </div>
+                )}
 
                 <div className="col-span-2">
                   <Label htmlFor="remark">Bemerkung</Label>
@@ -928,24 +1118,53 @@ export function RentalDetailSheet({
             </section>
           </form>
 
-          <SheetFooter className="border-t pt-4 px-6">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCancel}
-              disabled={isLoading}
-            >
-              <XIcon className="size-4 mr-2" />
-              Abbrechen
-            </Button>
-            <Button
-              type="submit"
-              onClick={form.handleSubmit(handleSave)}
-              disabled={isLoading || isLoadingData}
-            >
-              <SaveIcon className="size-4 mr-2" />
-              {isLoading ? 'Speichern...' : 'Speichern'}
-            </Button>
+          <SheetFooter className="border-t pt-4 px-6 mt-8">
+            <div className="flex justify-between w-full">
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCancel}
+                  disabled={isLoading}
+                >
+                  <XIcon className="size-4 mr-2" />
+                  Abbrechen
+                </Button>
+                {!isNewRental && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => setShowDeleteDialog(true)}
+                    disabled={isLoading}
+                  >
+                    <TrashIcon className="size-4 mr-2" />
+                    Löschen
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                {!isNewRental && !returnedOn && (
+                  <Button
+                    type="button"
+                    variant="default"
+                    className="bg-green-600 hover:bg-green-700"
+                    onClick={handleReturn}
+                    disabled={isLoading}
+                  >
+                    <CheckIcon className="size-4 mr-2" />
+                    Zurückgeben
+                  </Button>
+                )}
+                <Button
+                  type="submit"
+                  onClick={form.handleSubmit(handleSave)}
+                  disabled={isLoading}
+                >
+                  <SaveIcon className="size-4 mr-2" />
+                  {isLoading ? 'Speichern...' : 'Speichern'}
+                </Button>
+              </div>
+            </div>
           </SheetFooter>
         </SheetContent>
       </Sheet>
@@ -965,6 +1184,26 @@ export function RentalDetailSheet({
             </Button>
             <Button variant="destructive" onClick={handleConfirmCancel}>
               Verwerfen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Leihvorgang löschen?</DialogTitle>
+            <DialogDescription>
+              Möchten Sie diesen Leihvorgang wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Abbrechen
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={isLoading}>
+              Löschen
             </Button>
           </DialogFooter>
         </DialogContent>
