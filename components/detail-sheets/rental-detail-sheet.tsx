@@ -140,18 +140,20 @@ export function RentalDetailSheet({
     }
   };
 
-  // Load rental data when rental changes
+  // Load rental data when rental changes or sheet opens
   useEffect(() => {
+    if (!open) return;
+
     if (rental) {
       form.reset({
-        customer_id: rental.customer,
-        item_ids: rental.items,
-        deposit: rental.deposit,
-        deposit_back: rental.deposit_back,
-        rented_on: rental.rented_on.split('T')[0],
-        returned_on: rental.returned_on?.split('T')[0] || '',
-        expected_on: rental.expected_on.split('T')[0],
-        extended_on: rental.extended_on?.split('T')[0] || '',
+        customer_id: rental.customer || '',
+        item_ids: rental.items || [],
+        deposit: rental.deposit ?? 0,
+        deposit_back: rental.deposit_back ?? 0,
+        rented_on: rental.rented_on ? rental.rented_on.split('T')[0] : new Date().toISOString().split('T')[0],
+        returned_on: rental.returned_on ? rental.returned_on.split('T')[0] : '',
+        expected_on: rental.expected_on ? rental.expected_on.split('T')[0] : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        extended_on: rental.extended_on ? rental.extended_on.split('T')[0] : '',
         remark: rental.remark || '',
         employee: rental.employee || '',
         employee_back: rental.employee_back || '',
@@ -171,7 +173,7 @@ export function RentalDetailSheet({
         employee_back: '',
       });
     }
-  }, [rental, isNewRental, form]);
+  }, [rental, open, isNewRental]);
 
   const handleSave = async (data: RentalFormValues) => {
     setIsLoading(true);
