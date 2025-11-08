@@ -143,17 +143,16 @@ export function Navbar() {
 
         {/* Quick Find Button */}
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
           onClick={() => setOpen(true)}
-          className="mr-2 h-8 px-3 gap-2 hover:bg-accent transition-colors"
+          className="mr-2 h-7 px-2 gap-1.5 hover:bg-accent transition-colors"
           title="Quick Find (Cmd+P)"
         >
-          <Zap className="h-3.5 w-3.5" />
-          <span className="text-xs font-medium">Quick Find</span>
-          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-muted border border-border rounded">
-            <Command className="h-2.5 w-2.5" />
-            <span>{isMac ? 'P' : 'P'}</span>
+          <Zap className="h-3 w-3" />
+          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1 py-0.5 text-[9px] font-medium bg-muted border border-border rounded">
+            <Command className="h-2 w-2" />
+            <span>P</span>
           </kbd>
         </Button>
 

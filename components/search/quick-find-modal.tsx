@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuickFind } from '@/hooks/use-quick-find';
 import {
   Dialog,
@@ -62,6 +62,7 @@ export function QuickFindModal() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [selectedEntity, setSelectedEntity] = useState<SelectedEntity>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const selectedRef = useRef<HTMLButtonElement>(null);
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -203,6 +204,16 @@ export function QuickFindModal() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [open, selectedIndex, getAllResults]);
 
+  // Auto-scroll selected item into view
+  useEffect(() => {
+    if (selectedRef.current) {
+      selectedRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    }
+  }, [selectedIndex]);
+
   const handleSelectResult = (
     type: 'customer' | 'item' | 'rental' | 'reservation',
     data: Customer | Item | RentalExpanded | ReservationExpanded
@@ -228,7 +239,7 @@ export function QuickFindModal() {
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Quick Find</DialogTitle>
             <DialogDescription>
@@ -245,11 +256,11 @@ export function QuickFindModal() {
                 onChange={setValue}
                 autoFocus
               >
-                <InputOTPGroup>
-                  <InputOTPSlot index={0} />
-                  <InputOTPSlot index={1} />
-                  <InputOTPSlot index={2} />
-                  <InputOTPSlot index={3} />
+                <InputOTPGroup className="gap-3">
+                  <InputOTPSlot index={0} className="h-16 w-16 text-2xl font-bold" />
+                  <InputOTPSlot index={1} className="h-16 w-16 text-2xl font-bold" />
+                  <InputOTPSlot index={2} className="h-16 w-16 text-2xl font-bold" />
+                  <InputOTPSlot index={3} className="h-16 w-16 text-2xl font-bold" />
                 </InputOTPGroup>
               </InputOTP>
             </div>
@@ -284,15 +295,19 @@ export function QuickFindModal() {
                       return (
                         <button
                           key={customer.id}
+                          ref={selectedIndex === globalIndex ? selectedRef : null}
                           onClick={() => handleSelectResult('customer', customer)}
                           className={cn(
-                            'w-full flex items-center gap-3 p-3 rounded-md text-left transition-colors',
+                            'w-full flex items-center gap-3 p-3 rounded-md text-left transition-all border-2',
                             selectedIndex === globalIndex
-                              ? 'bg-accent text-accent-foreground'
-                              : 'hover:bg-muted'
+                              ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                              : 'border-transparent hover:bg-muted hover:border-border'
                           )}
                         >
-                          <UserIcon className="h-4 w-4 text-muted-foreground" />
+                          <UserIcon className={cn(
+                            'h-4 w-4',
+                            selectedIndex === globalIndex ? 'text-primary-foreground' : 'text-muted-foreground'
+                          )} />
                           <div className="flex-1">
                             <div className="font-medium">
                               {customer.firstname} {customer.lastname}
@@ -302,7 +317,12 @@ export function QuickFindModal() {
                             </div>
                           </div>
                           {globalIndex < 10 && (
-                            <kbd className="px-2 py-1 text-xs bg-muted rounded">
+                            <kbd className={cn(
+                              'px-2 py-1 text-xs rounded font-mono',
+                              selectedIndex === globalIndex
+                                ? 'bg-primary-foreground text-primary'
+                                : 'bg-muted text-muted-foreground'
+                            )}>
                               {globalIndex}
                             </kbd>
                           )}
@@ -325,15 +345,19 @@ export function QuickFindModal() {
                       return (
                         <button
                           key={item.id}
+                          ref={selectedIndex === globalIndex ? selectedRef : null}
                           onClick={() => handleSelectResult('item', item)}
                           className={cn(
-                            'w-full flex items-center gap-3 p-3 rounded-md text-left transition-colors',
+                            'w-full flex items-center gap-3 p-3 rounded-md text-left transition-all border-2',
                             selectedIndex === globalIndex
-                              ? 'bg-accent text-accent-foreground'
-                              : 'hover:bg-muted'
+                              ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                              : 'border-transparent hover:bg-muted hover:border-border'
                           )}
                         >
-                          <PackageIcon className="h-4 w-4 text-muted-foreground" />
+                          <PackageIcon className={cn(
+                            'h-4 w-4',
+                            selectedIndex === globalIndex ? 'text-primary-foreground' : 'text-muted-foreground'
+                          )} />
                           <div className="flex-1">
                             <div className="font-medium">{item.name}</div>
                             <div className="text-xs text-muted-foreground">
@@ -341,7 +365,12 @@ export function QuickFindModal() {
                             </div>
                           </div>
                           {globalIndex < 10 && (
-                            <kbd className="px-2 py-1 text-xs bg-muted rounded">
+                            <kbd className={cn(
+                              'px-2 py-1 text-xs rounded font-mono',
+                              selectedIndex === globalIndex
+                                ? 'bg-primary-foreground text-primary'
+                                : 'bg-muted text-muted-foreground'
+                            )}>
                               {globalIndex}
                             </kbd>
                           )}
@@ -364,15 +393,19 @@ export function QuickFindModal() {
                       return (
                         <button
                           key={rental.id}
+                          ref={selectedIndex === globalIndex ? selectedRef : null}
                           onClick={() => handleSelectResult('rental', rental)}
                           className={cn(
-                            'w-full flex items-center gap-3 p-3 rounded-md text-left transition-colors',
+                            'w-full flex items-center gap-3 p-3 rounded-md text-left transition-all border-2',
                             selectedIndex === globalIndex
-                              ? 'bg-accent text-accent-foreground'
-                              : 'hover:bg-muted'
+                              ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                              : 'border-transparent hover:bg-muted hover:border-border'
                           )}
                         >
-                          <RepeatIcon className="h-4 w-4 text-muted-foreground" />
+                          <RepeatIcon className={cn(
+                            'h-4 w-4',
+                            selectedIndex === globalIndex ? 'text-primary-foreground' : 'text-muted-foreground'
+                          )} />
                           <div className="flex-1">
                             <div className="font-medium">
                               {rental.expand?.customer?.firstname}{' '}
@@ -384,7 +417,12 @@ export function QuickFindModal() {
                             </div>
                           </div>
                           {globalIndex < 10 && (
-                            <kbd className="px-2 py-1 text-xs bg-muted rounded">
+                            <kbd className={cn(
+                              'px-2 py-1 text-xs rounded font-mono',
+                              selectedIndex === globalIndex
+                                ? 'bg-primary-foreground text-primary'
+                                : 'bg-muted text-muted-foreground'
+                            )}>
                               {globalIndex}
                             </kbd>
                           )}
@@ -407,15 +445,19 @@ export function QuickFindModal() {
                       return (
                         <button
                           key={reservation.id}
+                          ref={selectedIndex === globalIndex ? selectedRef : null}
                           onClick={() => handleSelectResult('reservation', reservation)}
                           className={cn(
-                            'w-full flex items-center gap-3 p-3 rounded-md text-left transition-colors',
+                            'w-full flex items-center gap-3 p-3 rounded-md text-left transition-all border-2',
                             selectedIndex === globalIndex
-                              ? 'bg-accent text-accent-foreground'
-                              : 'hover:bg-muted'
+                              ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                              : 'border-transparent hover:bg-muted hover:border-border'
                           )}
                         >
-                          <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                          <CalendarIcon className={cn(
+                            'h-4 w-4',
+                            selectedIndex === globalIndex ? 'text-primary-foreground' : 'text-muted-foreground'
+                          )} />
                           <div className="flex-1">
                             <div className="font-medium">
                               {reservation.customer_name}
@@ -426,7 +468,12 @@ export function QuickFindModal() {
                             </div>
                           </div>
                           {globalIndex < 10 && (
-                            <kbd className="px-2 py-1 text-xs bg-muted rounded">
+                            <kbd className={cn(
+                              'px-2 py-1 text-xs rounded font-mono',
+                              selectedIndex === globalIndex
+                                ? 'bg-primary-foreground text-primary'
+                                : 'bg-muted text-muted-foreground'
+                            )}>
                               {globalIndex}
                             </kbd>
                           )}
