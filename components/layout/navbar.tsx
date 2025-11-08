@@ -4,6 +4,7 @@
 
 'use client';
 
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -62,6 +63,36 @@ export function Navbar() {
   const { user, logout } = useAuth();
   const userEmail = (user as any)?.email || 'admin@leihlokal.de';
 
+  // State for current time
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Update time every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // Format time and date
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('de-DE', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  };
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('de-DE', {
+      weekday: 'short',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  };
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 h-16 border-b-2 border-primary bg-background">
       <div className="flex h-full items-center px-4">
@@ -88,6 +119,16 @@ export function Navbar() {
               label={item.label}
             />
           ))}
+        </div>
+
+        {/* Time and Date */}
+        <div className="flex flex-col items-end mr-4 text-sm">
+          <div className="font-mono font-semibold text-foreground">
+            {formatTime(currentTime)}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {formatDate(currentTime)}
+          </div>
         </div>
 
         {/* Overflow Menu */}

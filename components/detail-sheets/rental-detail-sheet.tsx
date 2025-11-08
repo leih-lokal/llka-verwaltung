@@ -54,7 +54,7 @@ import type { Rental, RentalExpanded, Customer, Item } from '@/types';
 // Validation schema
 const rentalSchema = z.object({
   customer_iid: z.number().min(1, 'Kunde ist erforderlich'),
-  item_iid: z.number().min(1, 'Artikel ist erforderlich'),
+  item_iids: z.array(z.number()).min(1, 'Mindestens ein Artikel ist erforderlich'),
   deposit: z.number().min(0, 'Kaution muss positiv sein'),
   deposit_back: z.number().min(0, 'Rückkaution muss positiv sein'),
   rented_on: z.string(),
@@ -121,7 +121,7 @@ export function RentalDetailSheet({
   // Item state
   const [itemSearch, setItemSearch] = useState('');
   const [itemResults, setItemResults] = useState<Item[]>([]);
-  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  const [selectedItems, setSelectedItems] = useState<Item[]>([]);
   const [itemSearchOpen, setItemSearchOpen] = useState(false);
   const [isSearchingItems, setIsSearchingItems] = useState(false);
 
@@ -137,7 +137,7 @@ export function RentalDetailSheet({
     resolver: zodResolver(rentalSchema),
     defaultValues: {
       customer_iid: 0,
-      item_iid: 0,
+      item_iids: [],
       deposit: 0,
       deposit_back: 0,
       rented_on: new Date().toISOString().split('T')[0],
@@ -164,12 +164,10 @@ export function RentalDetailSheet({
         setValue('customer_iid', rental.expand.customer.iid);
       }
 
-      // Set item if expanded (only first item, old version only supported one)
+      // Set items if expanded (support multiple items)
       if (rental.expand?.items && rental.expand.items.length > 0) {
-        const firstItem = rental.expand.items[0];
-        setSelectedItem(firstItem);
-        setValue('item_iid', firstItem.iid);
-        setValue('deposit', rental.deposit ?? firstItem.deposit ?? 0);
+        setSelectedItems(rental.expand.items);
+        setValue('item_iids', rental.expand.items.map(item => item.iid));
       }
 
       // Set form values - handle both 'T' and space separators in date strings
@@ -186,7 +184,7 @@ export function RentalDetailSheet({
 
       form.reset({
         customer_iid: rental.expand?.customer?.iid ?? 0,
-        item_iid: rental.expand?.items?.[0]?.iid ?? 0,
+        item_iids: rental.expand?.items?.map(item => item.iid) ?? [],
         deposit: rental.deposit ?? 0,
         deposit_back: rental.deposit_back ?? 0,
         rented_on: rentedOnValue,
@@ -200,14 +198,14 @@ export function RentalDetailSheet({
     } else if (isNewRental && open) {
       // Reset for new rental
       setSelectedCustomer(null);
-      setSelectedItem(null);
+      setSelectedItems([]);
 
       const defaultRentedOn = new Date().toISOString().split('T')[0];
       const defaultExpectedOn = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
       form.reset({
         customer_iid: 0,
-        item_iid: 0,
+        item_iids: [],
         deposit: 0,
         deposit_back: 0,
         rented_on: defaultRentedOn,
@@ -336,7 +334,7 @@ export function RentalDetailSheet({
       }
 
       // Check for highlight color
-      if (customer.highlight_color && customer.highlight_color !== '') {
+      if (customer.highlight_color) {
         const colorDescriptions: Record<string, string> = {
           green: 'Grün - Positiv markiert',
           blue: 'Blau - Information',
@@ -374,7 +372,7 @@ export function RentalDetailSheet({
     }
 
     // Check for highlight color
-    if (item.highlight_color && item.highlight_color !== '') {
+    if (item.highlight_color) {
       const colorDescriptions: Record<string, string> = {
         green: 'Grün - Positiv markiert',
         blue: 'Blau - Information',
@@ -397,29 +395,52 @@ export function RentalDetailSheet({
   };
 
   const handleItemSelect = (item: Item) => {
-    setSelectedItem(item);
-    setValue('item_iid', item.iid, { shouldDirty: true });
-
-    // Auto-populate deposit from item
-    if (item.deposit && item.deposit > 0) {
-      setValue('deposit', item.deposit, { shouldDirty: true });
+    // Check if item is already selected
+    if (selectedItems.some(i => i.id === item.id)) {
+      toast.warning('Dieser Gegenstand wurde bereits hinzugefügt');
+      return;
     }
+
+    const newSelectedItems = [...selectedItems, item];
+    setSelectedItems(newSelectedItems);
+    setValue('item_iids', newSelectedItems.map(i => i.iid), { shouldDirty: true });
+
+    // Auto-calculate total deposit from all items
+    const totalDeposit = newSelectedItems.reduce((sum, i) => sum + (i.deposit || 0), 0);
+    setValue('deposit', totalDeposit, { shouldDirty: true });
 
     setItemSearchOpen(false);
     setItemSearch('');
     showItemNotifications(item);
   };
 
+  const handleItemRemove = (itemId: string) => {
+    const newSelectedItems = selectedItems.filter(i => i.id !== itemId);
+    setSelectedItems(newSelectedItems);
+    setValue('item_iids', newSelectedItems.map(i => i.iid), { shouldDirty: true });
+
+    // Recalculate deposit
+    const totalDeposit = newSelectedItems.reduce((sum, i) => sum + (i.deposit || 0), 0);
+    setValue('deposit', totalDeposit, { shouldDirty: true });
+  };
+
   const handleSave = async (data: RentalFormValues) => {
     setIsLoading(true);
     try {
-      // Get customer and item by iid to get their PocketBase IDs
+      // Get customer by iid to get its PocketBase ID
       const customer = await collections.customers().getFirstListItem<Customer>(`iid=${data.customer_iid}`);
-      const item = await collections.items().getFirstListItem<Item>(`iid=${data.item_iid}`);
+
+      // Get all items by iid to get their PocketBase IDs
+      const itemIds = await Promise.all(
+        data.item_iids.map(async (iid) => {
+          const item = await collections.items().getFirstListItem<Item>(`iid=${iid}`);
+          return item.id;
+        })
+      );
 
       const formData: Partial<Rental> = {
         customer: customer.id,
-        items: [item.id], // Only one item per rental (matching old version)
+        items: itemIds, // Multiple items per rental
         deposit: data.deposit,
         deposit_back: data.deposit_back,
         rented_on: data.rented_on,
@@ -575,7 +596,7 @@ export function RentalDetailSheet({
             {/* Customer and Item Selection */}
             <section className="space-y-4">
               <div className="border-b pb-2 mb-4">
-                <h3 className="font-semibold text-lg">Nutzer:in & Gegenstand</h3>
+                <h3 className="font-semibold text-lg">Nutzer:in & Gegenstände</h3>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 {/* Customer Selection */}
@@ -679,7 +700,7 @@ export function RentalDetailSheet({
                 {/* Item Selection */}
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="item">Gegenstand auswählen *</Label>
+                    <Label htmlFor="item">Gegenstände auswählen *</Label>
                     <Popover open={itemSearchOpen} onOpenChange={setItemSearchOpen}>
                       <PopoverTrigger asChild>
                         <Button
@@ -688,9 +709,9 @@ export function RentalDetailSheet({
                           aria-expanded={itemSearchOpen}
                           className="w-full justify-between mt-1"
                         >
-                          {selectedItem
-                            ? `#${String(selectedItem.iid).padStart(4, '0')} - ${selectedItem.name}`
-                            : "Gegenstand auswählen..."}
+                          {selectedItems.length > 0
+                            ? `${selectedItems.length} Gegenstand${selectedItems.length > 1 ? 'e' : ''} ausgewählt`
+                            : "Gegenstand hinzufügen..."}
                           <ChevronsUpDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </PopoverTrigger>
@@ -721,7 +742,7 @@ export function RentalDetailSheet({
                                     <CheckIcon
                                       className={cn(
                                         "mr-2 h-4 w-4",
-                                        selectedItem?.id === item.id ? "opacity-100" : "opacity-0"
+                                        selectedItems.some(i => i.id === item.id) ? "opacity-100" : "opacity-0"
                                       )}
                                     />
                                     <span className="font-mono text-primary font-semibold mr-2">
@@ -739,32 +760,47 @@ export function RentalDetailSheet({
                         </Command>
                       </PopoverContent>
                     </Popover>
-                    {form.formState.errors.item_iid && (
+                    {form.formState.errors.item_iids && (
                       <p className="text-sm text-destructive mt-1">
-                        {form.formState.errors.item_iid.message}
+                        {form.formState.errors.item_iids.message}
                       </p>
                     )}
                   </div>
 
-                  {/* Selected Item Display */}
-                  {selectedItem && (
-                    <div className="border rounded-lg p-4 bg-muted/50">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-baseline gap-2 mb-1">
-                            <span className="font-mono text-primary font-semibold text-lg">
-                              #{String(selectedItem.iid).padStart(4, '0')}
-                            </span>
-                            <span className="font-semibold text-lg">{selectedItem.name}</span>
+                  {/* Selected Items Display */}
+                  {selectedItems.length > 0 && (
+                    <div className="space-y-2">
+                      {selectedItems.map((item) => (
+                        <div key={item.id} className="border rounded-lg p-3 bg-muted/50 flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-baseline gap-2 mb-1">
+                              <span className="font-mono text-primary font-semibold">
+                                #{String(item.iid).padStart(4, '0')}
+                              </span>
+                              <span className="font-semibold truncate">{item.name}</span>
+                            </div>
+                            <div className="flex gap-3 text-xs text-muted-foreground">
+                              {item.brand && <span>Marke: {item.brand}</span>}
+                              {item.model && <span>Modell: {item.model}</span>}
+                              <span className="font-medium text-foreground">
+                                {formatCurrency(item.deposit)}
+                              </span>
+                            </div>
                           </div>
-                          <div className="space-y-1 text-sm text-muted-foreground">
-                            {selectedItem.brand && <p>Marke: {selectedItem.brand}</p>}
-                            {selectedItem.model && <p>Modell: {selectedItem.model}</p>}
-                            <p className="font-medium text-foreground">
-                              Kaution: {formatCurrency(selectedItem.deposit)}
-                            </p>
-                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleItemRemove(item.id)}
+                            className="shrink-0 h-8 w-8 p-0"
+                            title="Entfernen"
+                          >
+                            <XIcon className="h-4 w-4" />
+                          </Button>
                         </div>
+                      ))}
+                      <div className="text-sm font-medium pt-2 border-t">
+                        Gesamt Kaution: {formatCurrency(selectedItems.reduce((sum, i) => sum + (i.deposit || 0), 0))}
                       </div>
                     </div>
                   )}

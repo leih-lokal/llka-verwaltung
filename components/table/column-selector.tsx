@@ -43,7 +43,7 @@ export function ColumnSelector({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="h-9 gap-1">
+        <Button variant="outline" size="sm" className="h-10 gap-1.5">
           <Columns className="h-4 w-4" />
           <span>Spalten</span>
           {hiddenCount > 0 && (

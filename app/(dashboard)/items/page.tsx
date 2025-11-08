@@ -187,7 +187,7 @@ export default function ItemsPage() {
       {/* Toolbar */}
       <div className="border-b-2 border-primary bg-background p-4">
         <div className="flex gap-2">
-          <Button onClick={handleNewItem} size="sm">
+          <Button onClick={handleNewItem} size="sm" className="h-10">
             <PlusIcon className="size-4 mr-2" />
             Neu
           </Button>

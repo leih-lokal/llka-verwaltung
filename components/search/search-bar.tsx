@@ -60,7 +60,7 @@ export function SearchBar({
       <div
         className={`
           relative flex items-center gap-2
-          border-2 rounded-md transition-all min-h-[42px]
+          border-2 rounded-md transition-all h-10
           ${
             isFocused
               ? 'border-primary ring-2 ring-primary/20'
@@ -102,15 +102,17 @@ export function SearchBar({
             flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0
             bg-transparent py-2
             ${showFilterChips ? 'pl-2' : 'pl-9'}
-            pr-24
+            pr-[90px]
           `}
         />
 
         {/* Keyboard shortcut hint (when not focused and empty) */}
         {!isFocused && !value && !showFilterChips && (
-          <div className="absolute right-14 pointer-events-none flex items-center gap-1 text-xs text-muted-foreground">
-            <Command className="h-3 w-3" />
-            <span>K</span>
+          <div className="absolute right-[75px] top-1/2 -translate-y-1/2 pointer-events-none flex items-center gap-0.5 text-xs text-muted-foreground">
+            <kbd className="px-1.5 py-0.5 text-[10px] font-medium bg-muted border border-border rounded">
+              <Command className="h-2.5 w-2.5 inline" />
+              <span className="ml-0.5">K</span>
+            </kbd>
           </div>
         )}
 
@@ -120,13 +122,13 @@ export function SearchBar({
           size="sm"
           onClick={onFilterClick}
           disabled={disabled}
-          className="absolute right-1 h-7 px-2 gap-1"
+          className="absolute right-1 h-7 px-2 gap-1.5"
         >
           <SlidersHorizontal className="h-4 w-4" />
+          <span className="text-xs font-medium">Filter</span>
           {filterCount > 0 && (
-            <span className="text-xs font-medium">{filterCount}</span>
+            <span className="ml-0.5 text-xs font-medium">({filterCount})</span>
           )}
-          <span className="sr-only">Filter öffnen</span>
         </Button>
       </div>
     </div>
