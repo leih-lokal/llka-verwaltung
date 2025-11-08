@@ -284,11 +284,27 @@ export function ItemDetailSheet({
         }
       }}>
         <SheetContent className="w-full sm:max-w-4xl overflow-y-auto">
-          <SheetHeader className="border-b pb-4">
-            <div className="flex items-center justify-between">
-              <SheetTitle>
-                {isNewItem ? 'Neuer Artikel' : `Artikel #${String(item?.iid).padStart(4, '0')}`}
-              </SheetTitle>
+          <SheetHeader className="border-b pb-6 mb-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="flex items-baseline gap-3 mb-2">
+                  <SheetTitle className="text-2xl">
+                    {isNewItem ? 'Neuer Artikel' : item?.name}
+                  </SheetTitle>
+                  {!isNewItem && (
+                    <span className="font-mono text-lg text-primary font-semibold">
+                      #{String(item?.iid).padStart(4, '0')}
+                    </span>
+                  )}
+                </div>
+                {!isNewItem && item && (
+                  <div className="flex gap-4 text-sm text-muted-foreground">
+                    {item.brand && <span>{item.brand}</span>}
+                    {item.brand && item.model && <span>•</span>}
+                    {item.model && <span>{item.model}</span>}
+                  </div>
+                )}
+              </div>
               {!isNewItem && !isEditMode && (
                 <Button
                   variant="outline"
@@ -302,10 +318,36 @@ export function ItemDetailSheet({
             </div>
           </SheetHeader>
 
-          <form onSubmit={form.handleSubmit(handleSave)} className="space-y-6 py-6">
+          {/* Quick Stats */}
+          {!isNewItem && !isEditMode && (
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="border rounded-lg p-4 bg-muted/50">
+                <div className="text-sm font-medium text-muted-foreground mb-1">Ausleihungen</div>
+                <div className="text-2xl font-bold">
+                  {rentals.length}
+                </div>
+              </div>
+              <div className="border rounded-lg p-4 bg-muted/50">
+                <div className="text-sm font-medium text-muted-foreground mb-1">Aktuell ausgeliehen</div>
+                <div className="text-2xl font-bold">
+                  {rentals.filter(r => !r.returned_on).length}
+                </div>
+              </div>
+              <div className="border rounded-lg p-4 bg-muted/50">
+                <div className="text-sm font-medium text-muted-foreground mb-1">Kaution</div>
+                <div className="text-2xl font-bold">
+                  {formatCurrency(item?.deposit || 0)}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={form.handleSubmit(handleSave)} className="space-y-8">
             {/* Basic Information */}
-            <section>
-              <h3 className="font-semibold text-lg mb-4">Basisdaten</h3>
+            <section className="space-y-4">
+              <div className="border-b pb-2 mb-4">
+                <h3 className="font-semibold text-lg">Basisdaten</h3>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <Label htmlFor="name">Name *</Label>
@@ -464,8 +506,10 @@ export function ItemDetailSheet({
             </section>
 
             {/* Details */}
-            <section>
-              <h3 className="font-semibold text-lg mb-4">Details</h3>
+            <section className="space-y-4">
+              <div className="border-b pb-2 mb-4">
+                <h3 className="font-semibold text-lg">Details</h3>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <Label htmlFor="synonyms">Synonyme</Label>
@@ -536,8 +580,10 @@ export function ItemDetailSheet({
             </section>
 
             {/* Additional Information */}
-            <section>
-              <h3 className="font-semibold text-lg mb-4">Zusätzliche Informationen</h3>
+            <section className="space-y-4">
+              <div className="border-b pb-2 mb-4">
+                <h3 className="font-semibold text-lg">Zusätzliche Informationen</h3>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="added_on">Hinzugefügt am</Label>
@@ -596,27 +642,31 @@ export function ItemDetailSheet({
 
             {/* Rental History */}
             {!isNewItem && (
-              <section>
-                <h3 className="font-semibold text-lg mb-4">Leihverlauf</h3>
+              <section className="space-y-4">
+                <div className="border-b pb-2 mb-4">
+                  <h3 className="font-semibold text-lg">Leihverlauf</h3>
+                </div>
                 {isLoadingHistory ? (
                   <div className="flex justify-center py-4">
                     <div className="h-6 w-6 animate-spin border-4 border-primary border-t-transparent rounded-full" />
                   </div>
                 ) : rentals.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Keine Leihvorgänge</p>
+                  <p className="text-sm text-muted-foreground py-4 text-center bg-muted/30 rounded-md">
+                    Keine Leihvorgänge
+                  </p>
                 ) : (
-                  <div className="border rounded-md overflow-hidden">
+                  <div className="border rounded-lg overflow-hidden shadow-sm">
                     <table className="w-full text-sm">
-                      <thead className="bg-muted">
-                        <tr>
-                          <th className="px-3 py-2 text-left">Kunde</th>
-                          <th className="px-3 py-2 text-left">Ausgeliehen</th>
-                          <th className="px-3 py-2 text-left">Erwartet</th>
-                          <th className="px-3 py-2 text-left">Zurückgegeben</th>
-                          <th className="px-3 py-2 text-left">Status</th>
+                      <thead className="bg-muted/70">
+                        <tr className="border-b">
+                          <th className="px-4 py-3 text-left font-semibold">Kunde</th>
+                          <th className="px-4 py-3 text-left font-semibold">Ausgeliehen</th>
+                          <th className="px-4 py-3 text-left font-semibold">Erwartet</th>
+                          <th className="px-4 py-3 text-left font-semibold">Zurückgegeben</th>
+                          <th className="px-4 py-3 text-left font-semibold">Status</th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody className="bg-background">
                         {rentals.map((rental) => {
                           const status = calculateRentalStatus(
                             rental.rented_on,
@@ -625,18 +675,18 @@ export function ItemDetailSheet({
                             rental.extended_on
                           );
                           return (
-                            <tr key={rental.id} className="border-t">
-                              <td className="px-3 py-2">
+                            <tr key={rental.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                              <td className="px-4 py-3 font-medium">
                                 {rental.expand?.customer
                                   ? `${rental.expand.customer.firstname} ${rental.expand.customer.lastname}`
                                   : '—'}
                               </td>
-                              <td className="px-3 py-2">{formatDate(rental.rented_on)}</td>
-                              <td className="px-3 py-2">{formatDate(rental.expected_on)}</td>
-                              <td className="px-3 py-2">
+                              <td className="px-4 py-3 text-muted-foreground">{formatDate(rental.rented_on)}</td>
+                              <td className="px-4 py-3 text-muted-foreground">{formatDate(rental.expected_on)}</td>
+                              <td className="px-4 py-3 text-muted-foreground">
                                 {rental.returned_on ? formatDate(rental.returned_on) : '—'}
                               </td>
-                              <td className="px-3 py-2">
+                              <td className="px-4 py-3">
                                 <Badge variant={status === 'overdue' ? 'destructive' : 'secondary'}>
                                   {status}
                                 </Badge>
