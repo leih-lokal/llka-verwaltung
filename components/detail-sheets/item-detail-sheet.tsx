@@ -856,22 +856,33 @@ export function ItemDetailSheet({
             </SheetFooter>
           ) : !isNewItem && (
             <SheetFooter className="border-t pt-4 px-6 shrink-0 bg-background">
-              <Button
-                variant="default"
-                onClick={() => setIsRentalSheetOpen(true)}
-                disabled={item?.status !== 'instock'}
-                title={item?.status !== 'instock' ? 'Artikel ist nicht verfügbar' : 'Ausleihen'}
-              >
-                <PlusCircleIcon className="size-4 mr-2" />
-                Ausleihen
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setIsEditMode(true)}
-              >
-                <PencilIcon className="size-4 mr-2" />
-                Bearbeiten
-              </Button>
+              <div className="flex justify-between w-full gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                >
+                  <XIcon className="size-4 mr-2" />
+                  Schließen
+                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="default"
+                    onClick={() => setIsRentalSheetOpen(true)}
+                    disabled={item?.status !== 'instock'}
+                    title={item?.status !== 'instock' ? 'Artikel ist nicht verfügbar' : 'Ausleihen'}
+                  >
+                    <PlusCircleIcon className="size-4 mr-2" />
+                    Ausleihen
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsEditMode(true)}
+                  >
+                    <PencilIcon className="size-4 mr-2" />
+                    Bearbeiten
+                  </Button>
+                </div>
+              </div>
             </SheetFooter>
           )}
         </SheetContent>
