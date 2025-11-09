@@ -85,7 +85,7 @@ export const customersFilterConfig: EntityFilterConfig = {
 // ============================================================================
 
 export const itemsFilterConfig: EntityFilterConfig = {
-  searchFields: ['name', 'brand', 'iid'],
+  searchFields: ['name', 'brand', 'iid', 'synonyms'],
 
   statusFilters: [
     {
