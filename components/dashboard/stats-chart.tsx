@@ -37,19 +37,19 @@ interface StatsChartProps {
 const chartConfig = {
   activeCustomers: {
     label: 'Aktive Nutzer:innen',
-    color: 'rgb(35, 26, 136)', // Dark purple
+    color: '#f20c0d', // Dark purple
   },
   rentals: {
     label: 'Anzahl Ausleihen',
-    color: 'rgb(205, 130, 158)', // Pink
+    color: '#3b0617', // Pink
   },
   newCustomers: {
     label: 'Neue Nutzer:innen',
-    color: 'rgb(71, 225, 167)', // Green
+    color: '#f9b4be', // Green
   },
   totalItems: {
     label: 'Anzahl Gegenstände',
-    color: 'rgb(189, 224, 254)', // Light blue
+    color: '#620c24', // Light blue
   },
 } satisfies ChartConfig;
 
