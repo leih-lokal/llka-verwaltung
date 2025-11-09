@@ -10,7 +10,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { PencilIcon, SaveIcon, XIcon, MailIcon, PhoneIcon, MapPinIcon, CalendarIcon } from 'lucide-react';
+import { PencilIcon, SaveIcon, XIcon, MailIcon, PhoneIcon, MapPinIcon, CalendarIcon, Trash2Icon } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -71,6 +71,7 @@ export function CustomerDetailSheet({
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [rentals, setRentals] = useState<RentalExpanded[]>([]);
   const [reservations, setReservations] = useState<ReservationExpanded[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -263,6 +264,24 @@ export function CustomerDetailSheet({
     } else {
       form.reset();
       setIsEditMode(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!customer?.id) return;
+
+    setIsLoading(true);
+    try {
+      await collections.customers().delete(customer.id);
+      toast.success('Kunde erfolgreich gelöscht');
+      setShowDeleteDialog(false);
+      onSave?.(customer);
+      onOpenChange(false);
+    } catch (err) {
+      console.error('Error deleting customer:', err);
+      toast.error('Fehler beim Löschen des Kunden');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -798,13 +817,23 @@ export function CustomerDetailSheet({
           ) : !isNewCustomer && (
             <SheetFooter className="border-t pt-4 px-6 shrink-0 bg-background">
               <div className="flex justify-between w-full gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                >
-                  <XIcon className="size-4 mr-2" />
-                  Schließen
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => onOpenChange(false)}
+                  >
+                    <XIcon className="size-4 mr-2" />
+                    Schließen
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => setShowDeleteDialog(true)}
+                    disabled={isLoading}
+                  >
+                    <Trash2Icon className="size-4 mr-2" />
+                    Löschen
+                  </Button>
+                </div>
                 <Button
                   variant="outline"
                   onClick={() => setIsEditMode(true)}
@@ -833,6 +862,26 @@ export function CustomerDetailSheet({
             </Button>
             <Button variant="destructive" onClick={handleConfirmCancel}>
               Verwerfen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Kunde löschen?</DialogTitle>
+            <DialogDescription>
+              Möchten Sie diesen Kunden wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Abbrechen
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={isLoading}>
+              Löschen
             </Button>
           </DialogFooter>
         </DialogContent>

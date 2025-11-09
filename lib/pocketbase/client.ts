@@ -92,6 +92,7 @@ export const pb = new Proxy({} as TypedPocketBase, {
  */
 export const collections = {
   customers: () => pb.collection('customer'),
+  customerRentals: () => pb.collection('customer_rentals'),
   items: () => pb.collection('item'),
   rentals: () => pb.collection('rental'),
   reservations: () => pb.collection('reservation'),

@@ -18,14 +18,16 @@ import { useFilters } from '@/hooks/use-filters';
 import { useColumnVisibility } from '@/hooks/use-column-visibility';
 import { customersFilterConfig } from '@/lib/filters/filter-configs';
 import { customersColumnConfig } from '@/lib/tables/column-configs';
-import type { Customer } from '@/types';
+import { enrichCustomersWithStats } from '@/lib/utils/customer-stats';
+import type { Customer, CustomerWithStats } from '@/types';
 
 export default function CustomersPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customers, setCustomers] = useState<CustomerWithStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -115,10 +117,15 @@ export default function CustomersPage() {
         }
       );
 
+      // Enrich customers with stats
+      setIsLoadingStats(true);
+      const enrichedCustomers = await enrichCustomersWithStats(result.items);
+      setIsLoadingStats(false);
+
       if (isInitialLoad) {
-        setCustomers(result.items);
+        setCustomers(enrichedCustomers);
       } else {
-        setCustomers((prev) => [...prev, ...result.items]);
+        setCustomers((prev) => [...prev, ...enrichedCustomers]);
       }
 
       setHasMore(result.items.length === perPage);
@@ -132,6 +139,7 @@ export default function CustomersPage() {
     } finally {
       setIsLoading(false);
       setIsLoadingMore(false);
+      setIsLoadingStats(false);
     }
   }, [debouncedSearch, filters.buildFilter, sortField, perPage]);
 
@@ -463,22 +471,14 @@ export default function CustomersPage() {
                           {customer.phone || '—'}
                         </td>
                       )}
-                      {columnVisibility.isColumnVisible('active_reservations') && (
-                        <td className="px-4 py-3 text-sm text-center">
-                          {/* TODO: Compute active reservations count */}
-                          —
-                        </td>
-                      )}
                       {columnVisibility.isColumnVisible('active_rentals') && (
                         <td className="px-4 py-3 text-sm text-center">
-                          {/* TODO: Compute active rentals count */}
-                          —
+                          {isLoadingStats ? '—' : customer.active_rentals}
                         </td>
                       )}
                       {columnVisibility.isColumnVisible('total_rentals') && (
                         <td className="px-4 py-3 text-sm text-center">
-                          {/* TODO: Compute total rentals count */}
-                          —
+                          {isLoadingStats ? '—' : customer.total_rentals}
                         </td>
                       )}
                       {columnVisibility.isColumnVisible('street') && (

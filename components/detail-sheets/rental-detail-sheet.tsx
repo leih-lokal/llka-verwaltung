@@ -47,8 +47,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { collections } from '@/lib/pocketbase/client';
-import { formatDate, formatCurrency, calculateRentalStatus } from '@/lib/utils/formatting';
+import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate } from '@/lib/utils/formatting';
 import { cn } from '@/lib/utils';
+import { useIdentity } from '@/hooks/use-identity';
 import type { Rental, RentalExpanded, Customer, Item } from '@/types';
 
 // Validation schema
@@ -85,13 +86,17 @@ function isValidDate(date: Date | undefined): boolean {
 
 function dateToString(date: Date | undefined): string {
   if (!date || !isValidDate(date)) return '';
-  return date.toISOString().split('T')[0];
+  return dateToLocalString(date);
 }
 
 function stringToDate(dateString: string | undefined): Date | undefined {
   if (!dateString) return undefined;
-  const date = new Date(dateString + 'T00:00:00');
-  return isValidDate(date) ? date : undefined;
+  try {
+    const date = localStringToDate(dateString);
+    return isValidDate(date) ? date : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 interface RentalDetailSheetProps {
@@ -109,6 +114,7 @@ export function RentalDetailSheet({
   onSave,
   preloadedItems = [],
 }: RentalDetailSheetProps) {
+  const { currentIdentity } = useIdentity();
   const [isLoading, setIsLoading] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -145,9 +151,9 @@ export function RentalDetailSheet({
       item_iids: [],
       deposit: 0,
       deposit_back: 0,
-      rented_on: new Date().toISOString().split('T')[0],
+      rented_on: dateToLocalString(new Date()),
       returned_on: '',
-      expected_on: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      expected_on: dateToLocalString(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
       extended_on: '',
       remark: '',
       employee: '',
@@ -182,9 +188,9 @@ export function RentalDetailSheet({
         return dateStr.split(/[T\s]/)[0];
       };
 
-      const rentedOnValue = parseDate(rental.rented_on) || new Date().toISOString().split('T')[0];
+      const rentedOnValue = parseDate(rental.rented_on) || dateToLocalString(new Date());
       const returnedOnValue = parseDate(rental.returned_on);
-      const expectedOnValue = parseDate(rental.expected_on) || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const expectedOnValue = parseDate(rental.expected_on) || dateToLocalString(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
       const extendedOnValue = parseDate(rental.extended_on);
 
       form.reset({
@@ -216,8 +222,8 @@ export function RentalDetailSheet({
         // Calculate total deposit from preloaded items
         const totalDeposit = itemsToUse.reduce((sum, item) => sum + (item.deposit || 0), 0);
 
-        const defaultRentedOn = new Date().toISOString().split('T')[0];
-        const defaultExpectedOn = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const defaultRentedOn = dateToLocalString(new Date());
+        const defaultExpectedOn = dateToLocalString(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
 
         form.reset({
           customer_iid: 0,
@@ -241,6 +247,23 @@ export function RentalDetailSheet({
       preloadedItemsAppliedRef.current = false;
     }
   }, [rental, isNewRental, form, open, setValue]);
+
+  // Auto-fill employee field from identity when creating new rental
+  useEffect(() => {
+    if (isNewRental && open && currentIdentity) {
+      // Only auto-fill if the field is empty
+      const currentEmployee = form.getValues('employee');
+      if (!currentEmployee || currentEmployee.trim() === '') {
+        setValue('employee', currentIdentity, { shouldDirty: false });
+      }
+    } else if (isNewRental && open && !currentIdentity) {
+      // Show warning if no identity is set
+      const timer = setTimeout(() => {
+        toast.warning('Bitte wählen Sie Ihre Identität in der Navigationsleiste');
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isNewRental, open, currentIdentity, form, setValue]);
 
   // Search customers
   useEffect(() => {
@@ -521,12 +544,21 @@ export function RentalDetailSheet({
 
     // Set return date to today if not set
     if (!data.returned_on) {
-      setValue('returned_on', new Date().toISOString().split('T')[0], { shouldDirty: true });
+      setValue('returned_on', dateToLocalString(new Date()), { shouldDirty: true });
     }
 
     // Set deposit_back to deposit if not set
     if (data.deposit_back === 0 && data.deposit > 0) {
       setValue('deposit_back', data.deposit, { shouldDirty: true });
+    }
+
+    // Auto-fill employee_back from current identity if not set
+    if (!data.employee_back || data.employee_back.trim() === '') {
+      if (currentIdentity) {
+        setValue('employee_back', currentIdentity, { shouldDirty: true });
+      } else {
+        toast.warning('Bitte wählen Sie Ihre Identität in der Navigationsleiste');
+      }
     }
 
     // Submit the form
@@ -570,17 +602,17 @@ export function RentalDetailSheet({
 
   // Date quick-action helpers
   const setRentedOnToday = () => {
-    setValue('rented_on', new Date().toISOString().split('T')[0], { shouldDirty: true });
+    setValue('rented_on', dateToLocalString(new Date()), { shouldDirty: true });
   };
 
   const setExpectedOn = (weeks: number) => {
     const date = new Date();
     date.setDate(date.getDate() + weeks * 7);
-    setValue('expected_on', date.toISOString().split('T')[0], { shouldDirty: true });
+    setValue('expected_on', dateToLocalString(date), { shouldDirty: true });
   };
 
   const setReturnedOnToday = () => {
-    setValue('returned_on', new Date().toISOString().split('T')[0], { shouldDirty: true });
+    setValue('returned_on', dateToLocalString(new Date()), { shouldDirty: true });
   };
 
   return (
@@ -1030,7 +1062,7 @@ export function RentalDetailSheet({
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setValue('extended_on', new Date().toISOString().split('T')[0], { shouldDirty: true })}
+                        onClick={() => setValue('extended_on', dateToLocalString(new Date()), { shouldDirty: true })}
                         className="shrink-0"
                         title="Heute"
                       >

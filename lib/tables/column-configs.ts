@@ -48,22 +48,16 @@ export const customersColumnConfig: EntityColumnConfig = {
       sortable: true,
     },
     {
-      id: 'active_reservations',
-      label: 'Aktive Reservierungen',
-      defaultVisible: true,
-      sortable: false, // Computed client-side
-    },
-    {
       id: 'active_rentals',
       label: 'Aktive Ausleihen',
       defaultVisible: true,
-      sortable: false, // Computed client-side
+      sortable: false, // Computed from customer_rentals view
     },
     {
       id: 'total_rentals',
       label: 'Gesamt Ausleihen',
       defaultVisible: true,
-      sortable: false, // Computed client-side
+      sortable: false, // Computed from customer_rentals view
     },
     {
       id: 'street',

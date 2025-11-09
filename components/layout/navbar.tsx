@@ -23,6 +23,7 @@ import {
   Tag,
 } from 'lucide-react';
 import { NavLink } from './nav-link';
+import { IdentityPicker } from './identity-picker';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -141,6 +142,9 @@ export function Navbar() {
             {formatDate(currentTime)}
           </div>
         </div>
+
+        {/* Identity Picker */}
+        <IdentityPicker />
 
         {/* Quick Find Button */}
         <Button

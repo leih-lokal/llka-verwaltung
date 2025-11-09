@@ -7,6 +7,8 @@
 import { Navbar } from '@/components/layout/navbar';
 import { GlobalCommandMenu } from '@/components/search/global-command-menu';
 import { QuickFindModal } from '@/components/search/quick-find-modal';
+import { QuickFindProvider } from '@/hooks/use-quick-find';
+import { IdentityProvider } from '@/hooks/use-identity';
 import { useRequireAuth } from '@/hooks/use-auth';
 
 export default function DashboardLayout({
@@ -28,13 +30,17 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen flex-col">
-      <Navbar />
-      <main className="flex-1 overflow-y-auto pt-16">
-        {children}
-      </main>
-      <GlobalCommandMenu />
-      <QuickFindModal />
-    </div>
+    <IdentityProvider>
+      <QuickFindProvider>
+        <div className="flex h-screen flex-col">
+          <Navbar />
+          <main className="flex-1 overflow-y-auto pt-16">
+            {children}
+          </main>
+          <GlobalCommandMenu />
+          <QuickFindModal />
+        </div>
+      </QuickFindProvider>
+    </IdentityProvider>
   );
 }

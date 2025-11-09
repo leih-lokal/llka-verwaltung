@@ -233,9 +233,13 @@ export function FilterPopover({
   };
 
   return (
-    <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent className="w-80" align="start">
+    <div className="relative flex-1">
+      {children}
+      <Popover open={open} onOpenChange={onOpenChange}>
+        <PopoverTrigger asChild>
+          <div className="absolute top-10 left-0 w-0 h-0 pointer-events-none" />
+        </PopoverTrigger>
+        <PopoverContent className="w-80" align="start" sideOffset={5}>
         <div className="space-y-4">
           {/* Header */}
           <div className="flex items-center justify-between">
@@ -500,6 +504,7 @@ export function FilterPopover({
           </Tabs>
         </div>
       </PopoverContent>
-    </Popover>
+      </Popover>
+    </div>
   );
 }

@@ -76,6 +76,7 @@ export function ItemDetailSheet({
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [rentals, setRentals] = useState<RentalExpanded[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
@@ -319,6 +320,24 @@ export function ItemDetailSheet({
     } else {
       form.reset();
       setIsEditMode(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!item?.id) return;
+
+    setIsLoading(true);
+    try {
+      await collections.items().delete(item.id);
+      toast.success('Artikel erfolgreich gelöscht');
+      setShowDeleteDialog(false);
+      onSave?.(item);
+      onOpenChange(false);
+    } catch (err) {
+      console.error('Error deleting item:', err);
+      toast.error('Fehler beim Löschen des Artikels');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -1089,13 +1108,23 @@ export function ItemDetailSheet({
           ) : !isNewItem && (
             <SheetFooter className="border-t pt-4 px-6 shrink-0 bg-background">
               <div className="flex justify-between w-full gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                >
-                  <XIcon className="size-4 mr-2" />
-                  Schließen
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => onOpenChange(false)}
+                  >
+                    <XIcon className="size-4 mr-2" />
+                    Schließen
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => setShowDeleteDialog(true)}
+                    disabled={isLoading}
+                  >
+                    <Trash2Icon className="size-4 mr-2" />
+                    Löschen
+                  </Button>
+                </div>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
@@ -1144,6 +1173,26 @@ export function ItemDetailSheet({
             </Button>
             <Button variant="destructive" onClick={handleConfirmCancel}>
               Verwerfen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Artikel löschen?</DialogTitle>
+            <DialogDescription>
+              Möchten Sie diesen Artikel wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Abbrechen
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={isLoading}>
+              Löschen
             </Button>
           </DialogFooter>
         </DialogContent>

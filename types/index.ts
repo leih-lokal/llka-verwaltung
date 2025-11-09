@@ -156,7 +156,7 @@ export interface Customer extends BaseRecord {
 }
 
 /**
- * Customer with computed rental statistics
+ * Customer with computed rental statistics (from customer_rentals view)
  */
 export interface CustomerWithStats extends Customer {
   /** Number of currently active rentals */
@@ -164,6 +164,15 @@ export interface CustomerWithStats extends Customer {
 
   /** Total number of rentals (all time) */
   total_rentals: number;
+}
+
+/**
+ * Customer rentals view record
+ */
+export interface CustomerRentals {
+  id: string;
+  num_active_rentals: number;
+  num_rentals: number;
 }
 
 /**
