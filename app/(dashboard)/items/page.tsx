@@ -459,7 +459,7 @@ export default function ItemsPage() {
                                 <HoverCardTrigger asChild>
                                   <div className="w-10 h-10 rounded overflow-hidden border border-border cursor-pointer">
                                     <img
-                                      src={pb.files.getUrl(item, item.images[0], { thumb: '40x40' })}
+                                      src={pb.files.getURL(item, item.images[0], { thumb: '40x40' })}
                                       alt={item.name}
                                       className="w-full h-full object-cover"
                                     />
@@ -467,7 +467,7 @@ export default function ItemsPage() {
                                 </HoverCardTrigger>
                                 <HoverCardContent className="w-80 p-2">
                                   <img
-                                    src={pb.files.getUrl(item, item.images[0], { thumb: '300x300' })}
+                                    src={pb.files.getURL(item, item.images[0], { thumb: '300x300' })}
                                     alt={item.name}
                                     className="w-full h-auto rounded"
                                   />

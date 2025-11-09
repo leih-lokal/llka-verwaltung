@@ -604,7 +604,7 @@ export function ItemDetailSheet({
                       <div key={imageName} className="relative group">
                         <div className="aspect-square rounded-lg border border-border overflow-hidden bg-muted">
                           <img
-                            src={pb.files.getUrl(item!, imageName, { thumb: '200x200' })}
+                            src={pb.files.getURL(item!, imageName, { thumb: '200x200' })}
                             alt={item?.name}
                             className="w-full h-full object-cover"
                           />
@@ -1002,7 +1002,7 @@ export function ItemDetailSheet({
                     {existingImages.map((imageName) => (
                       <div key={imageName} className="aspect-square rounded-lg border border-border overflow-hidden bg-muted">
                         <img
-                          src={pb.files.getUrl(item!, imageName, { thumb: '200x200' })}
+                          src={pb.files.getURL(item!, imageName, { thumb: '200x200' })}
                           alt={item?.name}
                           className="w-full h-full object-cover"
                         />

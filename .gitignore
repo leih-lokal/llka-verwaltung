@@ -10,6 +10,10 @@
 !.yarn/releases
 !.yarn/versions
 
+# old shit
+/!old-svelte-version
+/!database-settings
+
 # testing
 /coverage
 
