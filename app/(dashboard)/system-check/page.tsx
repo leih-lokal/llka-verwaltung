@@ -471,22 +471,6 @@ export default function SystemCheckPage() {
                 </div>
               </div>
 
-              {/* ASCII Art Logo (smaller with glow) */}
-              <div className="flex justify-center relative">
-                <div className="relative p-6 rounded-lg border-2 border-green-500 bg-black shadow-[0_0_40px_rgba(34,197,94,0.4)]">
-                  <img
-                    src="/SCM.svg"
-                    alt="System Check Mode"
-                    className="w-full max-w-xs h-auto drop-shadow-[0_0_15px_rgba(34,197,94,0.6)] opacity-80"
-                  />
-                  {/* Corner Accents */}
-                  <div className="absolute top-0 left-0 w-3 h-3 border-l-2 border-t-2 border-white" />
-                  <div className="absolute top-0 right-0 w-3 h-3 border-r-2 border-t-2 border-white" />
-                  <div className="absolute bottom-0 left-0 w-3 h-3 border-l-2 border-b-2 border-white" />
-                  <div className="absolute bottom-0 right-0 w-3 h-3 border-r-2 border-b-2 border-white" />
-                </div>
-              </div>
-
               {/* Stats */}
               <div className="relative inline-block">
                 <div className="absolute inset-0 bg-green-500 blur-2xl opacity-20 animate-pulse" />
