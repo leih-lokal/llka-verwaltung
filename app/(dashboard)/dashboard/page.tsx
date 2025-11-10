@@ -80,8 +80,8 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Column: Rentals & Reservations */}
         <div className="space-y-6">
-          <ActiveRentalsSection onRentalReturned={loadStats} />
           <TodaysReservationsSection onReservationCompleted={loadStats} />
+          <ActiveRentalsSection onRentalReturned={loadStats} />
         </div>
 
         {/* Right Column: Notes & Stats */}
