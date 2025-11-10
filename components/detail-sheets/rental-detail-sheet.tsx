@@ -485,17 +485,22 @@ export function RentalDetailSheet({
       );
 
       // Validate that all items are available (instock or reserved)
-      const unavailableItems = items.filter(item =>
-        item.status !== 'instock' && item.status !== 'reserved'
-      );
+      // Skip this check if we're returning a rental (returned_on is set)
+      const isReturning = !!data.returned_on;
 
-      if (unavailableItems.length > 0) {
-        const itemNames = unavailableItems.map(item =>
-          `${item.name} (#${String(item.iid).padStart(4, '0')})`
-        ).join(', ');
-        toast.error(`Folgende Gegenstände sind nicht verfügbar: ${itemNames}`);
-        setIsLoading(false);
-        return;
+      if (!isReturning) {
+        const unavailableItems = items.filter(item =>
+          item.status !== 'instock' && item.status !== 'reserved'
+        );
+
+        if (unavailableItems.length > 0) {
+          const itemNames = unavailableItems.map(item =>
+            `${item.name} (#${String(item.iid).padStart(4, '0')})`
+          ).join(', ');
+          toast.error(`Folgende Gegenstände sind nicht verfügbar: ${itemNames}`);
+          setIsLoading(false);
+          return;
+        }
       }
 
       const itemIds = items.map(item => item.id);
