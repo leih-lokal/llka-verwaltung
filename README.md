@@ -84,6 +84,16 @@ PocketBase will run on `http://localhost:8090` by default.
 
 The PocketBase collections will be automatically created when you use the app, or you can manually import the schema from `pocketbase_schema.json`.
 
+## Deployment
+### Self-hosted
+To build and deploy as an SPA under a subpath, run:
+
+```bash
+BASE_PATH=/backend npm run build
+```
+
+Then, serve `out/` as static files.
+
 ## Project Structure
 
 ```
