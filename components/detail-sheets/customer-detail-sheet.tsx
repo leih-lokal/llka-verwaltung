@@ -128,7 +128,7 @@ export function CustomerDetailSheet({
       // Partial customer data (e.g., from reservation) - pre-fill what we have
       const fetchNextIid = async () => {
         try {
-          const result = await collections.customers().getList(1, 1, {
+          const result = await collections.customers().getList<Customer>(1, 1, {
             sort: '-iid',
           });
           const nextIid = result.items.length > 0 ? result.items[0].iid + 1 : 1;
