@@ -21,6 +21,7 @@ import {
   Command,
   Zap,
   Tag,
+  ClipboardCheck,
 } from 'lucide-react';
 import { NavLink } from './nav-link';
 import { IdentityPicker } from './identity-picker';
@@ -172,6 +173,12 @@ export function Navbar() {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>Mehr</DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/system-check" className="flex items-center cursor-pointer">
+                  <ClipboardCheck className="mr-2 h-4 w-4" />
+                  <span>System Check Mode</span>
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href="/label-designer" className="flex items-center cursor-pointer">
                   <Tag className="mr-2 h-4 w-4" />
