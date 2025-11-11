@@ -6,7 +6,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { PlusIcon, HeartIcon, CalendarCheckIcon, PackageIcon, HistoryIcon } from 'lucide-react';
+import { PlusIcon, HeartIcon, CalendarCheckIcon, PackageIcon, HistoryIcon, MailIcon } from 'lucide-react';
 import { SearchBar } from '@/components/search/search-bar';
 import { FilterPopover } from '@/components/search/filter-popover';
 import { SortableHeader, type SortDirection } from '@/components/table/sortable-header';
@@ -245,6 +245,278 @@ export default function CustomersPage() {
     fetchCustomers(1);
   };
 
+  // Render table header cell for a given column
+  const renderHeaderCell = (columnId: string) => {
+    switch (columnId) {
+      case 'iid':
+        return (
+          <th key="iid" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="ID"
+              sortDirection={getSortDirection('iid')}
+              onSort={() => handleSort('iid')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'name':
+        return (
+          <th key="name" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Name"
+              sortDirection={getSortDirection('name')}
+              onSort={() => handleSort('name')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'email':
+        return (
+          <th key="email" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Email"
+              sortDirection={getSortDirection('email')}
+              onSort={() => handleSort('email')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'phone':
+        return (
+          <th key="phone" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Telefon"
+              sortDirection={getSortDirection('phone')}
+              onSort={() => handleSort('phone')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'active_reservations':
+        return (
+          <th key="active_reservations" className="px-4 py-2 text-left" title="Aktive Reservierungen">
+            <CalendarCheckIcon className="size-4" />
+          </th>
+        );
+      case 'active_rentals':
+        return (
+          <th key="active_rentals" className="px-4 py-2 text-left" title="Aktive Ausleihen">
+            <PackageIcon className="size-4" />
+          </th>
+        );
+      case 'total_rentals':
+        return (
+          <th key="total_rentals" className="px-4 py-2 text-left" title="Gesamt Ausleihen">
+            <HistoryIcon className="size-4" />
+          </th>
+        );
+      case 'street':
+        return (
+          <th key="street" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Straße"
+              sortDirection={getSortDirection('street')}
+              onSort={() => handleSort('street')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'postal_code':
+        return (
+          <th key="postal_code" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="PLZ"
+              sortDirection={getSortDirection('postal_code')}
+              onSort={() => handleSort('postal_code')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'city':
+        return (
+          <th key="city" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Stadt"
+              sortDirection={getSortDirection('city')}
+              onSort={() => handleSort('city')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'registered_on':
+        return (
+          <th key="registered_on" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Registriert"
+              sortDirection={getSortDirection('registered_on')}
+              onSort={() => handleSort('registered_on')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'renewed_on':
+        return (
+          <th key="renewed_on" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Verlängert"
+              sortDirection={getSortDirection('renewed_on')}
+              onSort={() => handleSort('renewed_on')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'heard':
+        return (
+          <th key="heard" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Gehört über"
+              sortDirection={getSortDirection('heard')}
+              onSort={() => handleSort('heard')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+        case 'newsletter':
+          return (
+            <th key="newsletter" className="px-4 py-2 text-left" title="Newsletter">
+              <SortableHeader
+                label={<MailIcon className="size-4" />}
+                sortDirection={getSortDirection('newsletter')}
+                onSort={() => handleSort('newsletter')}
+                disabled={isLoading}
+              />
+            </th>
+          );
+      case 'remark':
+        return (
+          <th key="remark" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Bemerkung"
+              sortDirection={getSortDirection('remark')}
+              onSort={() => handleSort('remark')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      default:
+        return null;
+    }
+  };
+
+  // Render table body cell for a given column and customer
+  const renderBodyCell = (columnId: string, customer: CustomerWithStats) => {
+    switch (columnId) {
+      case 'iid':
+        return (
+          <td key="iid" className="px-4 py-3 font-mono text-sm">
+            {String(customer.iid).padStart(4, '0')}
+          </td>
+        );
+      case 'name':
+        return (
+          <td key="name" className="px-4 py-3">
+            <div className="flex items-center gap-2">
+              {customer.highlight_color && (
+                customer.highlight_color === 'green' ? (
+                  <span title="Teil des Teams">
+                    <HeartIcon
+                      className="size-4 fill-green-500 text-green-500 shrink-0"
+                    />
+                  </span>
+                ) : (
+                  <div
+                    className={`size-3 rounded-full shrink-0 ${
+                      customer.highlight_color === 'red' ? 'bg-red-500' :
+                      customer.highlight_color === 'yellow' ? 'bg-yellow-500' :
+                      'bg-blue-500'
+                    }`}
+                    title={`Markiert: ${customer.highlight_color}`}
+                  />
+                )
+              )}
+              <span>{customer.firstname} {customer.lastname}</span>
+            </div>
+          </td>
+        );
+      case 'email':
+        return (
+          <td key="email" className="px-4 py-3 text-sm text-muted-foreground">
+            {customer.email || '—'}
+          </td>
+        );
+      case 'phone':
+        return (
+          <td key="phone" className="px-4 py-3 text-sm text-muted-foreground">
+            {customer.phone || '—'}
+          </td>
+        );
+      case 'active_rentals':
+        return (
+          <td key="active_rentals" className="px-4 py-3 text-sm text-center">
+            {isLoadingStats ? '—' : customer.active_rentals}
+          </td>
+        );
+      case 'total_rentals':
+        return (
+          <td key="total_rentals" className="px-4 py-3 text-sm text-center">
+            {isLoadingStats ? '—' : customer.total_rentals}
+          </td>
+        );
+      case 'street':
+        return (
+          <td key="street" className="px-4 py-3 text-sm">
+            {customer.street || '—'}
+          </td>
+        );
+      case 'postal_code':
+        return (
+          <td key="postal_code" className="px-4 py-3 text-sm">
+            {customer.postal_code || '—'}
+          </td>
+        );
+      case 'city':
+        return (
+          <td key="city" className="px-4 py-3 text-sm">
+            {customer.city || '—'}
+          </td>
+        );
+      case 'registered_on':
+        return (
+          <td key="registered_on" className="px-4 py-3 text-sm text-muted-foreground">
+            {new Date(customer.registered_on).toLocaleDateString('de-DE')}
+          </td>
+        );
+      case 'renewed_on':
+        return (
+          <td key="renewed_on" className="px-4 py-3 text-sm text-muted-foreground">
+            {customer.renewed_on
+              ? new Date(customer.renewed_on).toLocaleDateString('de-DE')
+              : '—'}
+          </td>
+        );
+      case 'heard':
+        return (
+          <td key="heard" className="px-4 py-3 text-sm">
+            {customer.heard || '—'}
+          </td>
+        );
+      case 'newsletter':
+        return (
+          <td key="newsletter" className="px-4 py-3 text-sm">
+            {customer.newsletter ? 'Ja' : 'Nein'}
+          </td>
+        );
+      case 'remark':
+        return (
+          <td key="remark" className="px-4 py-3 text-sm">
+            {customer.remark || '—'}
+          </td>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="h-full flex flex-col">
       {/* Toolbar */}
@@ -280,8 +552,11 @@ export default function CustomersPage() {
           <ColumnSelector
             columns={customersColumnConfig.columns}
             visibleColumns={columnVisibility.visibleColumns}
+            columnOrder={columnVisibility.columnOrder}
             onToggle={columnVisibility.toggleColumn}
             onReset={columnVisibility.resetColumns}
+            onResetOrder={columnVisibility.resetOrder}
+            onReorderColumns={columnVisibility.reorderColumns}
             hiddenCount={columnVisibility.hiddenCount}
           />
         </div>
@@ -311,141 +586,7 @@ export default function CustomersPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b-2 border-primary">
-                    {columnVisibility.isColumnVisible('iid') && (
-                      <th className="px-4 py-2 text-left">
-                        <SortableHeader
-                          label="ID"
-                          sortDirection={getSortDirection('iid')}
-                          onSort={() => handleSort('iid')}
-                          disabled={isLoading}
-                        />
-                      </th>
-                    )}
-                    {columnVisibility.isColumnVisible('name') && (
-                      <th className="px-4 py-2 text-left">
-                        <SortableHeader
-                          label="Name"
-                          sortDirection={getSortDirection('name')}
-                          onSort={() => handleSort('name')}
-                          disabled={isLoading}
-                        />
-                      </th>
-                    )}
-                    {columnVisibility.isColumnVisible('email') && (
-                      <th className="px-4 py-2 text-left">
-                        <SortableHeader
-                          label="Email"
-                          sortDirection={getSortDirection('email')}
-                          onSort={() => handleSort('email')}
-                          disabled={isLoading}
-                        />
-                      </th>
-                    )}
-                    {columnVisibility.isColumnVisible('phone') && (
-                      <th className="px-4 py-2 text-left">
-                        <SortableHeader
-                          label="Telefon"
-                          sortDirection={getSortDirection('phone')}
-                          onSort={() => handleSort('phone')}
-                          disabled={isLoading}
-                        />
-                      </th>
-                    )}
-                    {columnVisibility.isColumnVisible('active_reservations') && (
-                      <th className="px-4 py-2 text-left" title="Aktive Reservierungen">
-                        <CalendarCheckIcon className="size-4" />
-                      </th>
-                    )}
-                    {columnVisibility.isColumnVisible('active_rentals') && (
-                      <th className="px-4 py-2 text-left" title="Aktive Ausleihen">
-                        <PackageIcon className="size-4" />
-                      </th>
-                    )}
-                    {columnVisibility.isColumnVisible('total_rentals') && (
-                      <th className="px-4 py-2 text-left" title="Gesamt Ausleihen">
-                        <HistoryIcon className="size-4" />
-                      </th>
-                    )}
-                    {columnVisibility.isColumnVisible('street') && (
-                      <th className="px-4 py-2 text-left">
-                        <SortableHeader
-                          label="Straße"
-                          sortDirection={getSortDirection('street')}
-                          onSort={() => handleSort('street')}
-                          disabled={isLoading}
-                        />
-                      </th>
-                    )}
-                    {columnVisibility.isColumnVisible('postal_code') && (
-                      <th className="px-4 py-2 text-left">
-                        <SortableHeader
-                          label="PLZ"
-                          sortDirection={getSortDirection('postal_code')}
-                          onSort={() => handleSort('postal_code')}
-                          disabled={isLoading}
-                        />
-                      </th>
-                    )}
-                    {columnVisibility.isColumnVisible('city') && (
-                      <th className="px-4 py-2 text-left">
-                        <SortableHeader
-                          label="Stadt"
-                          sortDirection={getSortDirection('city')}
-                          onSort={() => handleSort('city')}
-                          disabled={isLoading}
-                        />
-                      </th>
-                    )}
-                    {columnVisibility.isColumnVisible('registered_on') && (
-                      <th className="px-4 py-2 text-left">
-                        <SortableHeader
-                          label="Registriert"
-                          sortDirection={getSortDirection('registered_on')}
-                          onSort={() => handleSort('registered_on')}
-                          disabled={isLoading}
-                        />
-                      </th>
-                    )}
-                    {columnVisibility.isColumnVisible('renewed_on') && (
-                      <th className="px-4 py-2 text-left">
-                        <SortableHeader
-                          label="Verlängert"
-                          sortDirection={getSortDirection('renewed_on')}
-                          onSort={() => handleSort('renewed_on')}
-                          disabled={isLoading}
-                        />
-                      </th>
-                    )}
-                    {columnVisibility.isColumnVisible('heard') && (
-                      <th className="px-4 py-2 text-left">
-                        <SortableHeader
-                          label="Gehört über"
-                          sortDirection={getSortDirection('heard')}
-                          onSort={() => handleSort('heard')}
-                          disabled={isLoading}
-                        />
-                      </th>
-                    )}
-                    {columnVisibility.isColumnVisible('newsletter') && (
-                      <th className="px-4 py-2 text-left">
-                        <SortableHeader
-                          label="Newsletter"
-                          sortDirection={getSortDirection('newsletter')}
-                          onSort={() => handleSort('newsletter')}
-                          disabled={isLoading}
-                        />
-                      </th>
-                    )}
-                    {columnVisibility.isColumnVisible('remark') && (
-                      <th className="px-4 py-2 text-left">
-                        <SortableHeader
-                          label="Bemerkung"
-                          sortDirection={getSortDirection('remark')}
-                          onSort={() => handleSort('remark')}
-                          disabled={isLoading}
-                        />
-                      </th>
-                    )}
+                    {columnVisibility.getOrderedColumns(true).map(renderHeaderCell)}
                   </tr>
                 </thead>
                 <tbody>
@@ -463,100 +604,7 @@ export default function CustomersPage() {
                           : 'border-b'
                       }`}
                     >
-                      {columnVisibility.isColumnVisible('iid') && (
-                        <td className="px-4 py-3 font-mono text-sm">
-                          {String(customer.iid).padStart(4, '0')}
-                        </td>
-                      )}
-                      {columnVisibility.isColumnVisible('name') && (
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            {customer.highlight_color && (
-                              customer.highlight_color === 'green' ? (
-                                <span title="Teil des Teams">
-                                  <HeartIcon
-                                    className="size-4 fill-green-500 text-green-500 shrink-0"
-                                  />
-                                </span>
-                              ) : (
-                                <div
-                                  className={`size-3 rounded-full shrink-0 ${
-                                    customer.highlight_color === 'red' ? 'bg-red-500' :
-                                    customer.highlight_color === 'yellow' ? 'bg-yellow-500' :
-                                    'bg-blue-500'
-                                  }`}
-                                  title={`Markiert: ${customer.highlight_color}`}
-                                />
-                              )
-                            )}
-                            <span>{customer.firstname} {customer.lastname}</span>
-                          </div>
-                        </td>
-                      )}
-                      {columnVisibility.isColumnVisible('email') && (
-                        <td className="px-4 py-3 text-sm text-muted-foreground">
-                          {customer.email || '—'}
-                        </td>
-                      )}
-                      {columnVisibility.isColumnVisible('phone') && (
-                        <td className="px-4 py-3 text-sm text-muted-foreground">
-                          {customer.phone || '—'}
-                        </td>
-                      )}
-                      {columnVisibility.isColumnVisible('active_rentals') && (
-                        <td className="px-4 py-3 text-sm text-center">
-                          {isLoadingStats ? '—' : customer.active_rentals}
-                        </td>
-                      )}
-                      {columnVisibility.isColumnVisible('total_rentals') && (
-                        <td className="px-4 py-3 text-sm text-center">
-                          {isLoadingStats ? '—' : customer.total_rentals}
-                        </td>
-                      )}
-                      {columnVisibility.isColumnVisible('street') && (
-                        <td className="px-4 py-3 text-sm">
-                          {customer.street || '—'}
-                        </td>
-                      )}
-                      {columnVisibility.isColumnVisible('postal_code') && (
-                        <td className="px-4 py-3 text-sm">
-                          {customer.postal_code || '—'}
-                        </td>
-                      )}
-                      {columnVisibility.isColumnVisible('city') && (
-                        <td className="px-4 py-3 text-sm">
-                          {customer.city || '—'}
-                        </td>
-                      )}
-                      {columnVisibility.isColumnVisible('registered_on') && (
-                        <td className="px-4 py-3 text-sm text-muted-foreground">
-                          {new Date(customer.registered_on).toLocaleDateString(
-                            'de-DE'
-                          )}
-                        </td>
-                      )}
-                      {columnVisibility.isColumnVisible('renewed_on') && (
-                        <td className="px-4 py-3 text-sm text-muted-foreground">
-                          {customer.renewed_on
-                            ? new Date(customer.renewed_on).toLocaleDateString('de-DE')
-                            : '—'}
-                        </td>
-                      )}
-                      {columnVisibility.isColumnVisible('heard') && (
-                        <td className="px-4 py-3 text-sm">
-                          {customer.heard || '—'}
-                        </td>
-                      )}
-                      {columnVisibility.isColumnVisible('newsletter') && (
-                        <td className="px-4 py-3 text-sm">
-                          {customer.newsletter ? 'Ja' : 'Nein'}
-                        </td>
-                      )}
-                      {columnVisibility.isColumnVisible('remark') && (
-                        <td className="px-4 py-3 text-sm">
-                          {customer.remark || '—'}
-                        </td>
-                      )}
+                      {columnVisibility.getOrderedColumns(true).map((columnId) => renderBodyCell(columnId, customer))}
                     </tr>
                   ))}
                 </tbody>

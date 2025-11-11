@@ -17,7 +17,7 @@ export interface FilterOption {
 export interface FilterConfig {
   id: string;
   label: string;
-  type: 'status' | 'date' | 'category' | 'numeric' | 'boolean';
+  type: 'status' | 'date' | 'category' | 'numeric' | 'boolean' | 'text';
   field: string;
   options?: FilterOption[];
   placeholder?: string;
@@ -40,6 +40,9 @@ export interface EntityFilterConfig {
 
   /** Available numeric filters */
   numericFilters?: FilterConfig[];
+
+  /** Available text filters */
+  textFilters?: FilterConfig[];
 }
 
 // ============================================================================
@@ -195,6 +198,23 @@ export const rentalsFilterConfig: EntityFilterConfig = {
       placeholder: 'Betrag',
       min: 0,
       max: 1000,
+    },
+  ],
+
+  textFilters: [
+    {
+      id: 'employee',
+      label: 'Mitarbeiter (Ausgabe)',
+      type: 'text',
+      field: 'employee',
+      placeholder: 'Name eingeben',
+    },
+    {
+      id: 'employee_back',
+      label: 'Mitarbeiter (Rücknahme)',
+      type: 'text',
+      field: 'employee_back',
+      placeholder: 'Name eingeben',
     },
   ],
 };

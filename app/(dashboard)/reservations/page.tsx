@@ -7,7 +7,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { PlusIcon, CheckCircle2Icon } from 'lucide-react';
+import { PlusIcon, CheckCircle2Icon, UserPlus, Check, X } from 'lucide-react';
 import { SearchBar } from '@/components/search/search-bar';
 import { FilterPopover } from '@/components/search/filter-popover';
 import { SortableHeader, type SortDirection } from '@/components/table/sortable-header';
@@ -347,6 +347,204 @@ export default function ReservationsPage() {
     fetchReservations(1);
   };
 
+  // Render table header cell for a given column
+  const renderHeaderCell = (columnId: string) => {
+    switch (columnId) {
+      case 'customer_name':
+        return (
+          <th key="customer_name" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Kunde"
+              sortDirection={getSortDirection('customer_name')}
+              onSort={() => handleSort('customer_name')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'items':
+        return (
+          <th key="items" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Gegenstände"
+              sortDirection={getSortDirection('items')}
+              onSort={() => handleSort('items')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'customer_phone':
+        return (
+          <th key="customer_phone" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Telefon"
+              sortDirection={getSortDirection('customer_phone')}
+              onSort={() => handleSort('customer_phone')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'pickup':
+        return (
+          <th key="pickup" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Abholung"
+              sortDirection={getSortDirection('pickup')}
+              onSort={() => handleSort('pickup')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'status':
+        return (
+          <th key="status" className="px-4 py-2 text-left">
+            <button
+              onClick={() => handleSort('status')}
+              disabled={isLoading}
+              className="flex items-center gap-1 hover:text-primary transition-colors"
+              title="Status"
+            >
+              <CheckCircle2Icon className="size-4" />
+            </button>
+          </th>
+        );
+      case 'customer_email':
+        return (
+          <th key="customer_email" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Email"
+              sortDirection={getSortDirection('customer_email')}
+              onSort={() => handleSort('customer_email')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'customer_iid':
+        return (
+          <th key="customer_iid" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Kunden-ID"
+              sortDirection={getSortDirection('customer_iid')}
+              onSort={() => handleSort('customer_iid')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'is_new_customer':
+        return (
+          <th key="is_new_customer" className="px-4 py-2 text-left">
+            <SortableHeader
+              label={<UserPlus className="size-4" />}
+              sortDirection={getSortDirection('is_new_customer')}
+              onSort={() => handleSort('is_new_customer')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'comments':
+        return (
+          <th key="comments" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Kommentare"
+              sortDirection={getSortDirection('comments')}
+              onSort={() => handleSort('comments')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      default:
+        return null;
+    }
+  };
+
+  // Render table body cell for a given column and reservation
+  const renderBodyCell = (columnId: string, reservation: ReservationExpanded) => {
+    switch (columnId) {
+      case 'customer_name':
+        return (
+          <td key="customer_name" className="px-4 py-3">
+            {reservation.customer_iid ? (
+              <span className="font-medium">
+                <span className="font-mono text-primary mr-2">
+                  #{String(reservation.customer_iid).padStart(4, '0')}
+                </span>
+                {reservation.customer_name}
+              </span>
+            ) : (
+              <span className="font-medium">{reservation.customer_name}</span>
+            )}
+          </td>
+        );
+      case 'items':
+        return (
+          <td key="items" className="px-4 py-3 text-sm">
+            {reservation.expand?.items?.length > 0
+              ? reservation.expand.items.map((item) => (
+                  <span key={item.id} className="inline-block mr-2">
+                    <span className="font-mono text-primary">
+                      #{String(item.iid).padStart(4, '0')}
+                    </span>
+                    {' '}
+                    {item.name}
+                  </span>
+                ))
+              : `${reservation.items.length} Gegenstände`}
+          </td>
+        );
+      case 'customer_phone':
+        return (
+          <td key="customer_phone" className="px-4 py-3 text-sm text-muted-foreground">
+            {reservation.customer_phone || '—'}
+          </td>
+        );
+      case 'pickup':
+        return (
+          <td key="pickup" className="px-4 py-3 text-sm text-muted-foreground">
+            {formatDateTime(reservation.pickup)}
+          </td>
+        );
+      case 'status':
+        return (
+          <td key="status" className="px-4 py-3">
+            <Badge variant={reservation.done ? 'default' : 'outline'}>
+              {reservation.done ? 'Erledigt' : 'Offen'}
+            </Badge>
+          </td>
+        );
+      case 'customer_email':
+        return (
+          <td key="customer_email" className="px-4 py-3 text-sm text-muted-foreground">
+            {reservation.customer_email || '—'}
+          </td>
+        );
+      case 'customer_iid':
+        return (
+          <td key="customer_iid" className="px-4 py-3 text-sm font-mono">
+            {reservation.customer_iid
+              ? String(reservation.customer_iid).padStart(4, '0')
+              : '—'}
+          </td>
+        );
+      case 'is_new_customer':
+        return (
+          <td key="is_new_customer" className="px-4 py-3 text-sm">
+            {reservation.is_new_customer ? (
+              <Check className="size-4 text-green-600" />
+            ) : (
+              <X className="size-4 text-muted-foreground" />
+            )}
+          </td>
+        );
+      case 'comments':
+        return (
+          <td key="comments" className="px-4 py-3 text-sm">
+            {reservation.comments || '—'}
+          </td>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="h-full flex flex-col">
       {/* Toolbar */}
@@ -383,8 +581,11 @@ export default function ReservationsPage() {
           <ColumnSelector
             columns={reservationsColumnConfig.columns}
             visibleColumns={columnVisibility.visibleColumns}
+            columnOrder={columnVisibility.columnOrder}
             onToggle={columnVisibility.toggleColumn}
             onReset={columnVisibility.resetColumns}
+            onResetOrder={columnVisibility.resetOrder}
+            onReorderColumns={columnVisibility.reorderColumns}
             hiddenCount={columnVisibility.hiddenCount}
           />
         </div>
@@ -412,178 +613,20 @@ export default function ReservationsPage() {
         ) : (
           <>
             <table className="w-full">
-                  <thead>
-                    <tr className="border-b-2 border-primary">
-                      {columnVisibility.isColumnVisible('customer_name') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Kunde"
-                            sortDirection={getSortDirection('customer_name')}
-                            onSort={() => handleSort('customer_name')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('items') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Gegenstände"
-                            sortDirection={getSortDirection('items')}
-                            onSort={() => handleSort('items')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('customer_phone') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Telefon"
-                            sortDirection={getSortDirection('customer_phone')}
-                            onSort={() => handleSort('customer_phone')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('pickup') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Abholung"
-                            sortDirection={getSortDirection('pickup')}
-                            onSort={() => handleSort('pickup')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('status') && (
-                        <th className="px-4 py-2 text-left">
-                          <button
-                            onClick={() => handleSort('status')}
-                            disabled={isLoading}
-                            className="flex items-center gap-1 hover:text-primary transition-colors"
-                            title="Status"
-                          >
-                            <CheckCircle2Icon className="size-4" />
-                          </button>
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('customer_email') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Email"
-                            sortDirection={getSortDirection('customer_email')}
-                            onSort={() => handleSort('customer_email')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('customer_iid') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Kunden-ID"
-                            sortDirection={getSortDirection('customer_iid')}
-                            onSort={() => handleSort('customer_iid')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('is_new_customer') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Neukunde"
-                            sortDirection={getSortDirection('is_new_customer')}
-                            onSort={() => handleSort('is_new_customer')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('comments') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Kommentare"
-                            sortDirection={getSortDirection('comments')}
-                            onSort={() => handleSort('comments')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {reservations.map((reservation) => (
-                      <tr
-                        key={reservation.id}
-                        onClick={() => handleRowClick(reservation)}
-                        className="border-b hover:bg-muted/50 transition-colors cursor-pointer"
-                      >
-                        {columnVisibility.isColumnVisible('customer_name') && (
-                          <td className="px-4 py-3">
-                            {reservation.customer_iid ? (
-                              <span className="font-medium">
-                                <span className="font-mono text-primary mr-2">
-                                  #{String(reservation.customer_iid).padStart(4, '0')}
-                                </span>
-                                {reservation.customer_name}
-                              </span>
-                            ) : (
-                              <span className="font-medium">{reservation.customer_name}</span>
-                            )}
-                          </td>
-                        )}
-                        {columnVisibility.isColumnVisible('items') && (
-                          <td className="px-4 py-3 text-sm">
-                            {reservation.expand?.items?.length > 0
-                              ? reservation.expand.items.map((item) => (
-                                  <span key={item.id} className="inline-block mr-2">
-                                    <span className="font-mono text-primary">
-                                      #{String(item.iid).padStart(4, '0')}
-                                    </span>
-                                    {' '}
-                                    {item.name}
-                                  </span>
-                                ))
-                              : `${reservation.items.length} Gegenstände`}
-                          </td>
-                        )}
-                        {columnVisibility.isColumnVisible('customer_phone') && (
-                          <td className="px-4 py-3 text-sm text-muted-foreground">
-                            {reservation.customer_phone || '—'}
-                          </td>
-                        )}
-                        {columnVisibility.isColumnVisible('pickup') && (
-                          <td className="px-4 py-3 text-sm text-muted-foreground">
-                            {formatDateTime(reservation.pickup)}
-                          </td>
-                        )}
-                        {columnVisibility.isColumnVisible('status') && (
-                          <td className="px-4 py-3">
-                            <Badge variant={reservation.done ? 'default' : 'outline'}>
-                              {reservation.done ? 'Erledigt' : 'Offen'}
-                            </Badge>
-                          </td>
-                        )}
-                        {columnVisibility.isColumnVisible('customer_email') && (
-                          <td className="px-4 py-3 text-sm text-muted-foreground">
-                            {reservation.customer_email || '—'}
-                          </td>
-                        )}
-                        {columnVisibility.isColumnVisible('customer_iid') && (
-                          <td className="px-4 py-3 text-sm font-mono">
-                            {reservation.customer_iid
-                              ? String(reservation.customer_iid).padStart(4, '0')
-                              : '—'}
-                          </td>
-                        )}
-                        {columnVisibility.isColumnVisible('is_new_customer') && (
-                          <td className="px-4 py-3 text-sm">
-                            {reservation.is_new_customer ? 'Ja' : 'Nein'}
-                          </td>
-                        )}
-                        {columnVisibility.isColumnVisible('comments') && (
-                          <td className="px-4 py-3 text-sm">
-                            {reservation.comments || '—'}
-                          </td>
-                        )}
-                      </tr>
+              <thead>
+                <tr className="border-b-2 border-primary">
+                  {columnVisibility.getOrderedColumns(true).map(renderHeaderCell)}
+                </tr>
+              </thead>
+              <tbody>
+                {reservations.map((reservation) => (
+                  <tr
+                    key={reservation.id}
+                    onClick={() => handleRowClick(reservation)}
+                    className="border-b hover:bg-muted/50 transition-colors cursor-pointer"
+                  >
+                    {columnVisibility.getOrderedColumns(true).map((columnId) => renderBodyCell(columnId, reservation))}
+                  </tr>
                 ))}
               </tbody>
             </table>

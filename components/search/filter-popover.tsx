@@ -98,6 +98,9 @@ export interface FilterPopoverProps {
   /** Numeric filter configs */
   numericFilters?: FilterConfig[];
 
+  /** Text filter configs */
+  textFilters?: FilterConfig[];
+
   /** Current active filters */
   activeFilters: ActiveFilter[];
 
@@ -119,6 +122,7 @@ export function FilterPopover({
   dateFilters = [],
   categoryFilters = [],
   numericFilters = [],
+  textFilters = [],
   activeFilters,
   onAddFilter,
   onRemoveFilter,
@@ -130,18 +134,21 @@ export function FilterPopover({
   const [numericRanges, setNumericRanges] = useState<
     Record<string, { min: string; max: string }>
   >({});
+  const [textValues, setTextValues] = useState<Record<string, string>>({});
 
   // Count filters by type
   const statusCount = activeFilters.filter((f) => f.type === 'status').length;
   const dateCount = activeFilters.filter((f) => f.type === 'date').length;
   const categoryCount = activeFilters.filter((f) => f.type === 'category').length;
   const numericCount = activeFilters.filter((f) => f.type === 'numeric').length;
+  const textCount = activeFilters.filter((f) => f.type === 'text').length;
 
   // Determine which tabs to show
   const hasStatus = statusFilters.length > 0;
   const hasDate = dateFilters.length > 0;
   const hasCategory = categoryFilters.length > 0;
   const hasNumeric = numericFilters.length > 0;
+  const hasText = textFilters.length > 0;
 
   const defaultTab = hasStatus
     ? 'status'
@@ -149,7 +156,9 @@ export function FilterPopover({
     ? 'date'
     : hasCategory
     ? 'category'
-    : 'numeric';
+    : hasNumeric
+    ? 'numeric'
+    : 'text';
 
   // Check if a filter is active
   const isFilterActive = (field: string, value: string) => {
@@ -232,6 +241,22 @@ export function FilterPopover({
     }
   };
 
+  // Handle text filter
+  const handleApplyTextFilter = (config: FilterConfig) => {
+    const value = textValues[config.id];
+    if (value && value.trim()) {
+      onAddFilter({
+        type: 'text',
+        field: config.field,
+        operator: '~',
+        value: value.trim(),
+        label: `${config.label}: ${value.trim()}`,
+      });
+      // Clear the text
+      setTextValues((prev) => ({ ...prev, [config.id]: '' }));
+    }
+  };
+
   return (
     <div className="relative flex-1">
       {children}
@@ -255,7 +280,7 @@ export function FilterPopover({
 
           {/* Filter tabs */}
           <Tabs defaultValue={defaultTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               {hasStatus && (
                 <TabsTrigger value="status" className="text-xs relative">
                   Status
@@ -292,6 +317,16 @@ export function FilterPopover({
                   {numericCount > 0 && (
                     <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] text-primary-foreground flex items-center justify-center">
                       {numericCount}
+                    </span>
+                  )}
+                </TabsTrigger>
+              )}
+              {hasText && (
+                <TabsTrigger value="text" className="text-xs relative">
+                  Text
+                  {textCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] text-primary-foreground flex items-center justify-center">
+                      {textCount}
                     </span>
                   )}
                 </TabsTrigger>
@@ -494,6 +529,38 @@ export function FilterPopover({
                       className="w-full text-xs"
                       onClick={() => handleApplyNumericRange(config)}
                       disabled={!numericRanges[config.id]?.min && !numericRanges[config.id]?.max}
+                    >
+                      Anwenden
+                    </Button>
+                  </div>
+                ))}
+              </TabsContent>
+            )}
+
+            {/* Text filters */}
+            {hasText && (
+              <TabsContent value="text" className="space-y-4 max-h-64 overflow-y-auto">
+                {textFilters.map((config) => (
+                  <div key={config.id} className="space-y-2">
+                    <Label className="text-xs font-medium">{config.label}</Label>
+                    <Input
+                      type="text"
+                      placeholder={config.placeholder}
+                      value={textValues[config.id] || ''}
+                      onChange={(e) =>
+                        setTextValues((prev) => ({
+                          ...prev,
+                          [config.id]: e.target.value,
+                        }))
+                      }
+                      className="text-xs"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full text-xs"
+                      onClick={() => handleApplyTextFilter(config)}
+                      disabled={!textValues[config.id]?.trim()}
                     >
                       Anwenden
                     </Button>

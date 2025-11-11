@@ -1,5 +1,5 @@
 /**
- * Hook for managing column visibility with localStorage persistence
+ * Hook for managing column visibility and order with localStorage persistence
  */
 
 'use client';
@@ -28,36 +28,68 @@ export function useColumnVisibility({
     .filter((col) => col.defaultVisible)
     .map((col) => col.id);
 
-  const [visibleColumns, setVisibleColumns] = useState<string[]>(defaultVisibleColumns);
+  // Initialize with default column order (all columns in config order)
+  const defaultColumnOrder = config.columns.map((col) => col.id);
 
-  // Storage key for this entity
-  const storageKey = `column_visibility_${entity}`;
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(defaultVisibleColumns);
+  const [columnOrder, setColumnOrder] = useState<string[]>(defaultColumnOrder);
+
+  // Storage keys for this entity
+  const visibilityStorageKey = `column_visibility_${entity}`;
+  const orderStorageKey = `column_order_${entity}`;
 
   // Load from localStorage on mount
   useEffect(() => {
     if (!persist) return;
 
     try {
-      const stored = localStorage.getItem(storageKey);
-      if (stored) {
-        const savedColumns = JSON.parse(stored) as string[];
+      // Load visibility
+      const storedVisibility = localStorage.getItem(visibilityStorageKey);
+      if (storedVisibility) {
+        const savedColumns = JSON.parse(storedVisibility) as string[];
         setVisibleColumns(savedColumns);
       }
-    } catch (error) {
-      console.error('Failed to load column visibility from localStorage:', error);
-    }
-  }, [storageKey, persist]);
 
-  // Save to localStorage when visibility changes
+      // Load order
+      const storedOrder = localStorage.getItem(orderStorageKey);
+      if (storedOrder) {
+        const savedOrder = JSON.parse(storedOrder) as string[];
+        // Validate that saved order contains all current columns
+        const currentColumnIds = config.columns.map((col) => col.id);
+        const validOrder = savedOrder.filter((id) => currentColumnIds.includes(id));
+
+        // Add any new columns that aren't in saved order to the end
+        const missingColumns = currentColumnIds.filter((id) => !validOrder.includes(id));
+        const completeOrder = [...validOrder, ...missingColumns];
+
+        setColumnOrder(completeOrder);
+      }
+    } catch (error) {
+      console.error('Failed to load column state from localStorage:', error);
+    }
+  }, [visibilityStorageKey, orderStorageKey, persist, config.columns]);
+
+  // Save visibility to localStorage when it changes
   useEffect(() => {
     if (!persist) return;
 
     try {
-      localStorage.setItem(storageKey, JSON.stringify(visibleColumns));
+      localStorage.setItem(visibilityStorageKey, JSON.stringify(visibleColumns));
     } catch (error) {
       console.error('Failed to save column visibility to localStorage:', error);
     }
-  }, [visibleColumns, storageKey, persist]);
+  }, [visibleColumns, visibilityStorageKey, persist]);
+
+  // Save order to localStorage when it changes
+  useEffect(() => {
+    if (!persist) return;
+
+    try {
+      localStorage.setItem(orderStorageKey, JSON.stringify(columnOrder));
+    } catch (error) {
+      console.error('Failed to save column order to localStorage:', error);
+    }
+  }, [columnOrder, orderStorageKey, persist]);
 
   /**
    * Toggle column visibility
@@ -82,6 +114,25 @@ export function useColumnVisibility({
   }, [defaultVisibleColumns]);
 
   /**
+   * Reset to default column order
+   */
+  const resetOrder = useCallback(() => {
+    setColumnOrder(defaultColumnOrder);
+  }, [defaultColumnOrder]);
+
+  /**
+   * Reorder columns (used for drag and drop)
+   */
+  const reorderColumns = useCallback((startIndex: number, endIndex: number) => {
+    setColumnOrder((prev) => {
+      const result = [...prev];
+      const [removed] = result.splice(startIndex, 1);
+      result.splice(endIndex, 0, removed);
+      return result;
+    });
+  }, []);
+
+  /**
    * Check if a column is visible
    */
   const isColumnVisible = useCallback(
@@ -92,15 +143,32 @@ export function useColumnVisibility({
   );
 
   /**
+   * Get columns in their current order, optionally filtered by visibility
+   */
+  const getOrderedColumns = useCallback(
+    (onlyVisible = false) => {
+      if (onlyVisible) {
+        return columnOrder.filter((id) => visibleColumns.includes(id));
+      }
+      return columnOrder;
+    },
+    [columnOrder, visibleColumns]
+  );
+
+  /**
    * Get number of hidden columns
    */
   const hiddenCount = config.columns.length - visibleColumns.length;
 
   return {
     visibleColumns,
+    columnOrder,
     toggleColumn,
     resetColumns,
+    resetOrder,
+    reorderColumns,
     isColumnVisible,
+    getOrderedColumns,
     hiddenCount,
   };
 }

@@ -234,6 +234,349 @@ export default function ItemsPage() {
     fetchItems(1);
   };
 
+  // Render table header cell for a given column
+  const renderHeaderCell = (columnId: string) => {
+    switch (columnId) {
+      case 'iid':
+        return (
+          <th key="iid" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="ID"
+              sortDirection={getSortDirection('iid')}
+              onSort={() => handleSort('iid')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'images':
+        return (
+          <th key="images" className="px-4 py-2 text-left">
+            <span className="text-sm font-medium">Bild</span>
+          </th>
+        );
+      case 'name':
+        return (
+          <th key="name" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Name"
+              sortDirection={getSortDirection('name')}
+              onSort={() => handleSort('name')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'brand':
+        return (
+          <th key="brand" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Marke"
+              sortDirection={getSortDirection('brand')}
+              onSort={() => handleSort('brand')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'model':
+        return (
+          <th key="model" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Modell"
+              sortDirection={getSortDirection('model')}
+              onSort={() => handleSort('model')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'category':
+        return (
+          <th key="category" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Kategorie"
+              sortDirection={getSortDirection('category')}
+              onSort={() => handleSort('category')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'status':
+        return (
+          <th key="status" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Status"
+              sortDirection={getSortDirection('status')}
+              onSort={() => handleSort('status')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'deposit':
+        return (
+          <th key="deposit" className="px-4 py-2 text-left">
+            <button
+              onClick={() => handleSort('deposit')}
+              disabled={isLoading}
+              className="flex items-center gap-1 hover:text-primary transition-colors"
+              title="Kaution/Tara"
+            >
+              <CoinsIcon className="size-4" />
+            </button>
+          </th>
+        );
+      case 'description':
+        return (
+          <th key="description" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Beschreibung"
+              sortDirection={getSortDirection('description')}
+              onSort={() => handleSort('description')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'packaging':
+        return (
+          <th key="packaging" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Verpackung"
+              sortDirection={getSortDirection('packaging')}
+              onSort={() => handleSort('packaging')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'manual':
+        return (
+          <th key="manual" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Anleitung"
+              sortDirection={getSortDirection('manual')}
+              onSort={() => handleSort('manual')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'parts':
+        return (
+          <th key="parts" className="px-4 py-2 text-left">
+            <button
+              onClick={() => handleSort('parts')}
+              disabled={isLoading}
+              className="flex items-center gap-1 hover:text-primary transition-colors"
+              title="Teile"
+            >
+              <WrenchIcon className="size-4" />
+            </button>
+          </th>
+        );
+      case 'copies':
+        return (
+          <th key="copies" className="px-4 py-2 text-left">
+            <button
+              onClick={() => handleSort('copies')}
+              disabled={isLoading}
+              className="flex items-center gap-1 hover:text-primary transition-colors"
+              title="Exemplare"
+            >
+              <CopyIcon className="size-4" />
+            </button>
+          </th>
+        );
+      case 'total_rentals':
+        return (
+          <th key="total_rentals" className="px-4 py-2 text-left" title="Gesamt Ausleihen">
+            <HistoryIcon className="size-4" />
+          </th>
+        );
+      case 'internal_note':
+        return (
+          <th key="internal_note" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Interne Notiz"
+              sortDirection={getSortDirection('internal_note')}
+              onSort={() => handleSort('internal_note')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'added_on':
+        return (
+          <th key="added_on" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Hinzugefügt"
+              sortDirection={getSortDirection('added_on')}
+              onSort={() => handleSort('added_on')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      default:
+        return null;
+    }
+  };
+
+  // Render table body cell for a given column and item
+  const renderBodyCell = (columnId: string, item: Item) => {
+    switch (columnId) {
+      case 'iid':
+        return (
+          <td key="iid" className="px-4 py-3 font-mono text-sm">
+            <div className="flex items-center gap-1">
+              <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-1.5 py-0.5 rounded text-xs">
+                {String(item.iid).padStart(4, '0').substring(0, 2)}
+              </span>
+              <span>{String(item.iid).padStart(4, '0').substring(2, 4)}</span>
+            </div>
+          </td>
+        );
+      case 'images':
+        return (
+          <td key="images" className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+            {item.images && item.images.length > 0 ? (
+              <HoverCard openDelay={200}>
+                <HoverCardTrigger asChild>
+                  <div className="w-10 h-10 rounded overflow-hidden border border-border cursor-pointer">
+                    <img
+                      src={pb.files.getURL(item, item.images[0], { thumb: '40x40' })}
+                      alt={item.name}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                      width={40}
+                      height={40}
+                    />
+                  </div>
+                </HoverCardTrigger>
+                <HoverCardContent className="w-80 p-2">
+                  <img
+                    src={pb.files.getURL(item, item.images[0], { thumb: '300x300' })}
+                    alt={item.name}
+                    className="w-full h-auto rounded"
+                    loading="lazy"
+                    decoding="async"
+                    width={300}
+                    height={300}
+                  />
+                  {item.images.length > 1 && (
+                    <p className="text-xs text-muted-foreground mt-2 text-center">
+                      +{item.images.length - 1} weitere{item.images.length - 1 === 1 ? 's' : ''} Bild{item.images.length - 1 === 1 ? '' : 'er'}
+                    </p>
+                  )}
+                </HoverCardContent>
+              </HoverCard>
+            ) : (
+              <div className="w-10 h-10 rounded border border-dashed border-border flex items-center justify-center bg-muted/20">
+                <ImageIcon className="size-4 text-muted-foreground" />
+              </div>
+            )}
+          </td>
+        );
+      case 'name':
+        return (
+          <td key="name" className="px-4 py-3 font-medium">
+            <div className="flex items-center gap-2">
+              {item.highlight_color && (
+                item.highlight_color === 'green' ? (
+                  <HeartIcon className="size-4 fill-green-500 text-green-500" />
+                ) : (
+                  <div className={`size-3 rounded-full ${
+                    item.highlight_color === 'red' ? 'bg-red-500' :
+                    item.highlight_color === 'yellow' ? 'bg-yellow-500' :
+                    'bg-blue-500'
+                  }`} />
+                )
+              )}
+              <span>{item.name}</span>
+            </div>
+          </td>
+        );
+      case 'brand':
+        return (
+          <td key="brand" className="px-4 py-3 text-sm text-muted-foreground">
+            {item.brand || '—'}
+          </td>
+        );
+      case 'model':
+        return (
+          <td key="model" className="px-4 py-3 text-sm text-muted-foreground">
+            {item.model || '—'}
+          </td>
+        );
+      case 'category':
+        return (
+          <td key="category" className="px-4 py-3 text-sm">
+            {item.category.length > 0
+              ? item.category.map(getCategoryLabel).join(', ')
+              : '—'}
+          </td>
+        );
+      case 'status':
+        return (
+          <td key="status" className="px-4 py-3">
+            <Badge variant={ITEM_STATUS_COLORS[item.status]}>
+              {getItemStatusLabel(item.status)}
+            </Badge>
+          </td>
+        );
+      case 'deposit':
+        return (
+          <td key="deposit" className="px-4 py-3 text-sm">
+            {item.deposit > 0 ? `${item.deposit} €` : '—'}
+          </td>
+        );
+      case 'description':
+        return (
+          <td key="description" className="px-4 py-3 text-sm">
+            {item.description || '—'}
+          </td>
+        );
+      case 'packaging':
+        return (
+          <td key="packaging" className="px-4 py-3 text-sm">
+            {item.packaging || '—'}
+          </td>
+        );
+      case 'manual':
+        return (
+          <td key="manual" className="px-4 py-3 text-sm">
+            {item.manual || '—'}
+          </td>
+        );
+      case 'parts':
+        return (
+          <td key="parts" className="px-4 py-3 text-sm">
+            {item.parts || '—'}
+          </td>
+        );
+      case 'copies':
+        return (
+          <td key="copies" className="px-4 py-3 text-sm">
+            {item.copies}
+          </td>
+        );
+      case 'total_rentals':
+        return (
+          <td key="total_rentals" className="px-4 py-3 text-sm text-center">
+            {/* TODO: Compute total rentals count */}
+            —
+          </td>
+        );
+      case 'internal_note':
+        return (
+          <td key="internal_note" className="px-4 py-3 text-sm">
+            {item.internal_note || '—'}
+          </td>
+        );
+      case 'added_on':
+        return (
+          <td key="added_on" className="px-4 py-3 text-sm text-muted-foreground">
+            {new Date(item.added_on).toLocaleDateString('de-DE')}
+          </td>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="h-full flex flex-col">
       {/* Toolbar */}
@@ -271,8 +614,11 @@ export default function ItemsPage() {
           <ColumnSelector
             columns={itemsColumnConfig.columns}
             visibleColumns={columnVisibility.visibleColumns}
+            columnOrder={columnVisibility.columnOrder}
             onToggle={columnVisibility.toggleColumn}
             onReset={columnVisibility.resetColumns}
+            onResetOrder={columnVisibility.resetOrder}
+            onReorderColumns={columnVisibility.reorderColumns}
             hiddenCount={columnVisibility.hiddenCount}
           />
         </div>
@@ -300,314 +646,21 @@ export default function ItemsPage() {
         ) : (
           <>
             <table className="w-full">
-                  <thead>
-                    <tr className="border-b-2 border-primary">
-                      {columnVisibility.isColumnVisible('iid') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="ID"
-                            sortDirection={getSortDirection('iid')}
-                            onSort={() => handleSort('iid')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('images') && (
-                        <th className="px-4 py-2 text-left">
-                          <span className="text-sm font-medium">Bild</span>
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('name') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Name"
-                            sortDirection={getSortDirection('name')}
-                            onSort={() => handleSort('name')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('brand') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Marke"
-                            sortDirection={getSortDirection('brand')}
-                            onSort={() => handleSort('brand')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('model') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Modell"
-                            sortDirection={getSortDirection('model')}
-                            onSort={() => handleSort('model')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('category') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Kategorie"
-                            sortDirection={getSortDirection('category')}
-                            onSort={() => handleSort('category')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('status') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Status"
-                            sortDirection={getSortDirection('status')}
-                            onSort={() => handleSort('status')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('deposit') && (
-                        <th className="px-4 py-2 text-left">
-                          <button
-                            onClick={() => handleSort('deposit')}
-                            disabled={isLoading}
-                            className="flex items-center gap-1 hover:text-primary transition-colors"
-                            title="Kaution/Tara"
-                          >
-                            <CoinsIcon className="size-4" />
-                          </button>
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('description') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Beschreibung"
-                            sortDirection={getSortDirection('description')}
-                            onSort={() => handleSort('description')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('packaging') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Verpackung"
-                            sortDirection={getSortDirection('packaging')}
-                            onSort={() => handleSort('packaging')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('manual') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Anleitung"
-                            sortDirection={getSortDirection('manual')}
-                            onSort={() => handleSort('manual')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('parts') && (
-                        <th className="px-4 py-2 text-left">
-                          <button
-                            onClick={() => handleSort('parts')}
-                            disabled={isLoading}
-                            className="flex items-center gap-1 hover:text-primary transition-colors"
-                            title="Teile"
-                          >
-                            <WrenchIcon className="size-4" />
-                          </button>
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('copies') && (
-                        <th className="px-4 py-2 text-left">
-                          <button
-                            onClick={() => handleSort('copies')}
-                            disabled={isLoading}
-                            className="flex items-center gap-1 hover:text-primary transition-colors"
-                            title="Exemplare"
-                          >
-                            <CopyIcon className="size-4" />
-                          </button>
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('total_rentals') && (
-                        <th className="px-4 py-2 text-left" title="Gesamt Ausleihen">
-                          <HistoryIcon className="size-4" />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('internal_note') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Interne Notiz"
-                            sortDirection={getSortDirection('internal_note')}
-                            onSort={() => handleSort('internal_note')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('added_on') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Hinzugefügt"
-                            sortDirection={getSortDirection('added_on')}
-                            onSort={() => handleSort('added_on')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((item) => (
-                      <tr
-                        key={item.id}
-                        onClick={() => handleRowClick(item)}
-                        className="border-b hover:bg-muted/50 transition-colors cursor-pointer"
-                      >
-                        {columnVisibility.isColumnVisible('iid') && (
-                          <td className="px-4 py-3 font-mono text-sm">
-                            <div className="flex items-center gap-1">
-                              <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-1.5 py-0.5 rounded text-xs">
-                                {String(item.iid).padStart(4, '0').substring(0, 2)}
-                              </span>
-                              <span>{String(item.iid).padStart(4, '0').substring(2, 4)}</span>
-                            </div>
-                          </td>
-                        )}
-                        {columnVisibility.isColumnVisible('images') && (
-                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                            {item.images && item.images.length > 0 ? (
-                              <HoverCard openDelay={200}>
-                                <HoverCardTrigger asChild>
-                                  <div className="w-10 h-10 rounded overflow-hidden border border-border cursor-pointer">
-                                    <img
-                                      src={pb.files.getURL(item, item.images[0], { thumb: '40x40' })}
-                                      alt={item.name}
-                                      className="w-full h-full object-cover"
-                                      loading="lazy"
-                                      decoding="async"
-                                      width={40}
-                                      height={40}
-                                    />
-                                  </div>
-                                </HoverCardTrigger>
-                                <HoverCardContent className="w-80 p-2">
-                                  <img
-                                    src={pb.files.getURL(item, item.images[0], { thumb: '300x300' })}
-                                    alt={item.name}
-                                    className="w-full h-auto rounded"
-                                    loading="lazy"
-                                    decoding="async"
-                                    width={300}
-                                    height={300}
-                                  />
-                                  {item.images.length > 1 && (
-                                    <p className="text-xs text-muted-foreground mt-2 text-center">
-                                      +{item.images.length - 1} weitere{item.images.length - 1 === 1 ? 's' : ''} Bild{item.images.length - 1 === 1 ? '' : 'er'}
-                                    </p>
-                                  )}
-                                </HoverCardContent>
-                              </HoverCard>
-                            ) : (
-                              <div className="w-10 h-10 rounded border border-dashed border-border flex items-center justify-center bg-muted/20">
-                                <ImageIcon className="size-4 text-muted-foreground" />
-                              </div>
-                            )}
-                          </td>
-                        )}
-                        {columnVisibility.isColumnVisible('name') && (
-                          <td className="px-4 py-3 font-medium">
-                            <div className="flex items-center gap-2">
-                              {item.highlight_color && (
-                                item.highlight_color === 'green' ? (
-                                  <HeartIcon className="size-4 fill-green-500 text-green-500" />
-                                ) : (
-                                  <div className={`size-3 rounded-full ${
-                                    item.highlight_color === 'red' ? 'bg-red-500' :
-                                    item.highlight_color === 'yellow' ? 'bg-yellow-500' :
-                                    'bg-blue-500'
-                                  }`} />
-                                )
-                              )}
-                              <span>{item.name}</span>
-                            </div>
-                          </td>
-                        )}
-                        {columnVisibility.isColumnVisible('brand') && (
-                          <td className="px-4 py-3 text-sm text-muted-foreground">
-                            {item.brand || '—'}
-                          </td>
-                        )}
-                        {columnVisibility.isColumnVisible('model') && (
-                          <td className="px-4 py-3 text-sm text-muted-foreground">
-                            {item.model || '—'}
-                          </td>
-                        )}
-                        {columnVisibility.isColumnVisible('category') && (
-                          <td className="px-4 py-3 text-sm">
-                            {item.category.length > 0
-                              ? item.category.map(getCategoryLabel).join(', ')
-                              : '—'}
-                          </td>
-                        )}
-                        {columnVisibility.isColumnVisible('status') && (
-                          <td className="px-4 py-3">
-                            <Badge variant={ITEM_STATUS_COLORS[item.status]}>
-                              {getItemStatusLabel(item.status)}
-                            </Badge>
-                          </td>
-                        )}
-                        {columnVisibility.isColumnVisible('deposit') && (
-                          <td className="px-4 py-3 text-sm">
-                            {item.deposit > 0 ? `${item.deposit} €` : '—'}
-                          </td>
-                        )}
-                        {columnVisibility.isColumnVisible('description') && (
-                          <td className="px-4 py-3 text-sm">
-                            {item.description || '—'}
-                          </td>
-                        )}
-                        {columnVisibility.isColumnVisible('packaging') && (
-                          <td className="px-4 py-3 text-sm">
-                            {item.packaging || '—'}
-                          </td>
-                        )}
-                        {columnVisibility.isColumnVisible('manual') && (
-                          <td className="px-4 py-3 text-sm">
-                            {item.manual || '—'}
-                          </td>
-                        )}
-                        {columnVisibility.isColumnVisible('parts') && (
-                          <td className="px-4 py-3 text-sm">
-                            {item.parts || '—'}
-                          </td>
-                        )}
-                        {columnVisibility.isColumnVisible('copies') && (
-                          <td className="px-4 py-3 text-sm">
-                            {item.copies}
-                          </td>
-                        )}
-                        {columnVisibility.isColumnVisible('total_rentals') && (
-                          <td className="px-4 py-3 text-sm text-center">
-                            {/* TODO: Compute total rentals count */}
-                            —
-                          </td>
-                        )}
-                        {columnVisibility.isColumnVisible('internal_note') && (
-                          <td className="px-4 py-3 text-sm">
-                            {item.internal_note || '—'}
-                          </td>
-                        )}
-                        {columnVisibility.isColumnVisible('added_on') && (
-                          <td className="px-4 py-3 text-sm text-muted-foreground">
-                            {new Date(item.added_on).toLocaleDateString('de-DE')}
-                          </td>
-                        )}
-                      </tr>
-                    ))}
+              <thead>
+                <tr className="border-b-2 border-primary">
+                  {columnVisibility.getOrderedColumns(true).map(renderHeaderCell)}
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr
+                    key={item.id}
+                    onClick={() => handleRowClick(item)}
+                    className="border-b hover:bg-muted/50 transition-colors cursor-pointer"
+                  >
+                    {columnVisibility.getOrderedColumns(true).map((columnId) => renderBodyCell(columnId, item))}
+                  </tr>
+                ))}
               </tbody>
             </table>
 

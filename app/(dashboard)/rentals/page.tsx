@@ -6,7 +6,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { PlusIcon, BadgeCheckIcon, CoinsIcon, WalletIcon } from 'lucide-react';
+import { PlusIcon, BadgeCheckIcon, CoinsIcon, WalletIcon, SmileIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { SearchBar } from '@/components/search/search-bar';
 import { FilterPopover } from '@/components/search/filter-popover';
 import { SortableHeader, type SortDirection } from '@/components/table/sortable-header';
@@ -254,6 +254,274 @@ export default function RentalsPage() {
     fetchRentals(1);
   };
 
+  // Render table header cell for a given column
+  const renderHeaderCell = (columnId: string) => {
+    switch (columnId) {
+      case 'customer':
+        return (
+          <th key="customer" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Kunde"
+              sortDirection={getSortDirection('customer')}
+              onSort={() => handleSort('customer')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'items':
+        return (
+          <th key="items" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Gegenstände"
+              sortDirection={getSortDirection('items')}
+              onSort={() => handleSort('items')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'rented_on':
+        return (
+          <th key="rented_on" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Ausgeliehen"
+              sortDirection={getSortDirection('rented_on')}
+              onSort={() => handleSort('rented_on')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'expected_on':
+        return (
+          <th key="expected_on" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Erwartet"
+              sortDirection={getSortDirection('expected_on')}
+              onSort={() => handleSort('expected_on')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'returned_on':
+        return (
+          <th key="returned_on" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Zurück"
+              sortDirection={getSortDirection('returned_on')}
+              onSort={() => handleSort('returned_on')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'status':
+        return (
+          <th key="status" className="px-4 py-2 text-left" title="Status">
+            <BadgeCheckIcon className="size-4" />
+          </th>
+        );
+      case 'extended_on':
+        return (
+          <th key="extended_on" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Verlängert"
+              sortDirection={getSortDirection('extended_on')}
+              onSort={() => handleSort('extended_on')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'deposit':
+        return (
+          <th key="deposit" className="px-4 py-2 text-left">
+            <button
+              onClick={() => handleSort('deposit')}
+              disabled={isLoading}
+              className="flex items-center gap-1 hover:text-primary transition-colors"
+              title="Kaution"
+            >
+              <CoinsIcon className="size-4" />
+            </button>
+          </th>
+        );
+      case 'deposit_back':
+        return (
+          <th key="deposit_back" className="px-4 py-2 text-left">
+            <button
+              onClick={() => handleSort('deposit_back')}
+              disabled={isLoading}
+              className="flex items-center gap-1 hover:text-primary transition-colors"
+              title="Kaution zurück"
+            >
+              <WalletIcon className="size-4" />
+            </button>
+          </th>
+        );
+      case 'remark':
+        return (
+          <th key="remark" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Bemerkung"
+              sortDirection={getSortDirection('remark')}
+              onSort={() => handleSort('remark')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'employee':
+        return (
+          <th key="employee" className="px-4 py-2 text-left">
+            <SortableHeader
+            label={
+              <div className="flex items-center gap-1">
+                <SmileIcon className="size-4" />
+                <ChevronRight className="size-4" />
+              </div>
+            }
+              sortDirection={getSortDirection('employee')}
+              onSort={() => handleSort('employee')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'employee_back':
+        return (
+          <th key="employee_back" className="px-4 py-2 text-left">
+            <SortableHeader
+            label={
+              <div className="flex items-center gap-1">
+                <SmileIcon className="size-4" />
+                <ChevronLeft className="size-4" />
+              </div>
+            }
+              sortDirection={getSortDirection('employee_back')}
+              onSort={() => handleSort('employee_back')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      default:
+        return null;
+    }
+  };
+
+  // Render table body cell for a given column and rental
+  const renderBodyCell = (columnId: string, rental: RentalExpanded) => {
+    const status = calculateRentalStatus(
+      rental.rented_on,
+      rental.returned_on,
+      rental.expected_on,
+      rental.extended_on
+    );
+
+    switch (columnId) {
+      case 'customer':
+        return (
+          <td key="customer" className="px-4 py-3">
+            {rental.expand?.customer ? (
+              <span className="font-medium">
+                <span className="font-mono text-primary font-semibold mr-2">
+                  {String(rental.expand.customer.iid).padStart(4, '0')}
+                </span>
+                {rental.expand.customer.firstname}{' '}
+                {rental.expand.customer.lastname}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            )}
+          </td>
+        );
+      case 'items':
+        return (
+          <td key="items" className="px-4 py-3 text-sm">
+            {rental.expand?.items?.length > 0
+              ? rental.expand.items.map((item) => {
+                  const copyCount = getCopyCount(rental.requested_copies, item.id);
+                  return (
+                    <span key={item.id} className="inline-block mr-2">
+                      <span className="font-mono mr-1">
+                        <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-1.5 py-0.5 rounded text-xs">
+                          {String(item.iid).padStart(4, '0').substring(0, 2)}
+                        </span>
+                        <span className="ml-0.5">{String(item.iid).padStart(4, '0').substring(2, 4)}</span>
+                      </span>
+                      {item.name}
+                      {copyCount > 1 && (
+                        <span className="ml-1 text-xs text-muted-foreground font-medium">
+                          (×{copyCount})
+                        </span>
+                      )}
+                    </span>
+                  );
+                })
+              : `${rental.items.length} Gegenstände`}
+          </td>
+        );
+      case 'rented_on':
+        return (
+          <td key="rented_on" className="px-4 py-3 text-sm text-muted-foreground">
+            {formatDate(rental.rented_on)}
+          </td>
+        );
+      case 'expected_on':
+        return (
+          <td key="expected_on" className="px-4 py-3 text-sm text-muted-foreground">
+            {formatDate(rental.expected_on)}
+          </td>
+        );
+      case 'returned_on':
+        return (
+          <td key="returned_on" className="px-4 py-3 text-sm">
+            {rental.returned_on ? formatDate(rental.returned_on) : '—'}
+          </td>
+        );
+      case 'status':
+        return (
+          <td key="status" className="px-4 py-3">
+            <Badge variant="outline">
+              {getRentalStatusLabel(status)}
+            </Badge>
+          </td>
+        );
+      case 'extended_on':
+        return (
+          <td key="extended_on" className="px-4 py-3 text-sm text-muted-foreground">
+            {rental.extended_on ? formatDate(rental.extended_on) : '—'}
+          </td>
+        );
+      case 'deposit':
+        return (
+          <td key="deposit" className="px-4 py-3 text-sm">
+            {rental.deposit > 0 ? `${rental.deposit} €` : '—'}
+          </td>
+        );
+      case 'deposit_back':
+        return (
+          <td key="deposit_back" className="px-4 py-3 text-sm">
+            {rental.deposit_back > 0 ? `${rental.deposit_back} €` : '—'}
+          </td>
+        );
+      case 'remark':
+        return (
+          <td key="remark" className="px-4 py-3 text-sm">
+            {rental.remark || '—'}
+          </td>
+        );
+      case 'employee':
+        return (
+          <td key="employee" className="px-4 py-3 text-sm">
+            {rental.employee || '—'}
+          </td>
+        );
+      case 'employee_back':
+        return (
+          <td key="employee_back" className="px-4 py-3 text-sm">
+            {rental.employee_back || '—'}
+          </td>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="h-full flex flex-col">
       {/* Toolbar */}
@@ -269,6 +537,7 @@ export default function RentalsPage() {
             statusFilters={rentalsFilterConfig.statusFilters}
             dateFilters={rentalsFilterConfig.dateFilters}
             numericFilters={rentalsFilterConfig.numericFilters}
+            textFilters={rentalsFilterConfig.textFilters}
             activeFilters={filters.activeFilters}
             onAddFilter={filters.addFilter}
             onRemoveFilter={filters.removeFilter}
@@ -290,8 +559,11 @@ export default function RentalsPage() {
           <ColumnSelector
             columns={rentalsColumnConfig.columns}
             visibleColumns={columnVisibility.visibleColumns}
+            columnOrder={columnVisibility.columnOrder}
             onToggle={columnVisibility.toggleColumn}
             onReset={columnVisibility.resetColumns}
+            onResetOrder={columnVisibility.resetOrder}
+            onReorderColumns={columnVisibility.reorderColumns}
             hiddenCount={columnVisibility.hiddenCount}
           />
         </div>
@@ -321,125 +593,7 @@ export default function RentalsPage() {
             <table className="w-full">
                   <thead>
                     <tr className="border-b-2 border-primary">
-                      {columnVisibility.isColumnVisible('customer') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Kunde"
-                            sortDirection={getSortDirection('customer')}
-                            onSort={() => handleSort('customer')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('items') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Gegenstände"
-                            sortDirection={getSortDirection('items')}
-                            onSort={() => handleSort('items')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('rented_on') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Ausgeliehen"
-                            sortDirection={getSortDirection('rented_on')}
-                            onSort={() => handleSort('rented_on')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('expected_on') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Erwartet"
-                            sortDirection={getSortDirection('expected_on')}
-                            onSort={() => handleSort('expected_on')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('returned_on') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Zurück"
-                            sortDirection={getSortDirection('returned_on')}
-                            onSort={() => handleSort('returned_on')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('status') && (
-                        <th className="px-4 py-2 text-left" title="Status">
-                          <BadgeCheckIcon className="size-4" />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('extended_on') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Verlängert"
-                            sortDirection={getSortDirection('extended_on')}
-                            onSort={() => handleSort('extended_on')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('deposit') && (
-                        <th className="px-4 py-2 text-left">
-                          <button
-                            onClick={() => handleSort('deposit')}
-                            disabled={isLoading}
-                            className="flex items-center gap-1 hover:text-primary transition-colors"
-                            title="Kaution"
-                          >
-                            <CoinsIcon className="size-4" />
-                          </button>
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('deposit_back') && (
-                        <th className="px-4 py-2 text-left">
-                          <button
-                            onClick={() => handleSort('deposit_back')}
-                            disabled={isLoading}
-                            className="flex items-center gap-1 hover:text-primary transition-colors"
-                            title="Kaution zurück"
-                          >
-                            <WalletIcon className="size-4" />
-                          </button>
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('remark') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Bemerkung"
-                            sortDirection={getSortDirection('remark')}
-                            onSort={() => handleSort('remark')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('employee') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Mitarbeiter (Aus)"
-                            sortDirection={getSortDirection('employee')}
-                            onSort={() => handleSort('employee')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
-                      {columnVisibility.isColumnVisible('employee_back') && (
-                        <th className="px-4 py-2 text-left">
-                          <SortableHeader
-                            label="Mitarbeiter (Ein)"
-                            sortDirection={getSortDirection('employee_back')}
-                            onSort={() => handleSort('employee_back')}
-                            disabled={isLoading}
-                          />
-                        </th>
-                      )}
+                      {columnVisibility.getOrderedColumns(true).map(renderHeaderCell)}
                     </tr>
                   </thead>
                   <tbody>
@@ -459,98 +613,7 @@ export default function RentalsPage() {
                           className="border-b hover:bg-muted/50 transition-colors cursor-pointer"
                           style={{ backgroundColor: statusColor }}
                         >
-                          {columnVisibility.isColumnVisible('customer') && (
-                            <td className="px-4 py-3">
-                              {rental.expand?.customer ? (
-                                <span className="font-medium">
-                                  <span className="font-mono text-primary font-semibold mr-2">
-                                    {String(rental.expand.customer.iid).padStart(4, '0')}
-                                  </span>
-                                  {rental.expand.customer.firstname}{' '}
-                                  {rental.expand.customer.lastname}
-                                </span>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </td>
-                          )}
-                          {columnVisibility.isColumnVisible('items') && (
-                            <td className="px-4 py-3 text-sm">
-                              {rental.expand?.items?.length > 0
-                                ? rental.expand.items.map((item) => {
-                                    const copyCount = getCopyCount(rental.requested_copies, item.id);
-                                    return (
-                                      <span key={item.id} className="inline-block mr-2">
-                                        <span className="font-mono mr-1">
-                                          <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-1.5 py-0.5 rounded text-xs">
-                                            {String(item.iid).padStart(4, '0').substring(0, 2)}
-                                          </span>
-                                          <span className="ml-0.5">{String(item.iid).padStart(4, '0').substring(2, 4)}</span>
-                                        </span>
-                                        {item.name}
-                                        {copyCount > 1 && (
-                                          <span className="ml-1 text-xs text-muted-foreground font-medium">
-                                            (×{copyCount})
-                                          </span>
-                                        )}
-                                      </span>
-                                    );
-                                  })
-                                : `${rental.items.length} Gegenstände`}
-                            </td>
-                          )}
-                          {columnVisibility.isColumnVisible('rented_on') && (
-                            <td className="px-4 py-3 text-sm text-muted-foreground">
-                              {formatDate(rental.rented_on)}
-                            </td>
-                          )}
-                          {columnVisibility.isColumnVisible('expected_on') && (
-                            <td className="px-4 py-3 text-sm text-muted-foreground">
-                              {formatDate(rental.expected_on)}
-                            </td>
-                          )}
-                          {columnVisibility.isColumnVisible('returned_on') && (
-                            <td className="px-4 py-3 text-sm">
-                              {rental.returned_on ? formatDate(rental.returned_on) : '—'}
-                            </td>
-                          )}
-                          {columnVisibility.isColumnVisible('status') && (
-                            <td className="px-4 py-3">
-                              <Badge variant="outline">
-                                {getRentalStatusLabel(status)}
-                              </Badge>
-                            </td>
-                          )}
-                          {columnVisibility.isColumnVisible('extended_on') && (
-                            <td className="px-4 py-3 text-sm text-muted-foreground">
-                              {rental.extended_on ? formatDate(rental.extended_on) : '—'}
-                            </td>
-                          )}
-                          {columnVisibility.isColumnVisible('deposit') && (
-                            <td className="px-4 py-3 text-sm">
-                              {rental.deposit > 0 ? `${rental.deposit} €` : '—'}
-                            </td>
-                          )}
-                          {columnVisibility.isColumnVisible('deposit_back') && (
-                            <td className="px-4 py-3 text-sm">
-                              {rental.deposit_back > 0 ? `${rental.deposit_back} €` : '—'}
-                            </td>
-                          )}
-                          {columnVisibility.isColumnVisible('remark') && (
-                            <td className="px-4 py-3 text-sm">
-                              {rental.remark || '—'}
-                            </td>
-                          )}
-                          {columnVisibility.isColumnVisible('employee') && (
-                            <td className="px-4 py-3 text-sm">
-                              {rental.employee || '—'}
-                            </td>
-                          )}
-                          {columnVisibility.isColumnVisible('employee_back') && (
-                            <td className="px-4 py-3 text-sm">
-                              {rental.employee_back || '—'}
-                            </td>
-                          )}
+                          {columnVisibility.getOrderedColumns(true).map((columnId) => renderBodyCell(columnId, rental))}
                         </tr>
                       );
                 })}

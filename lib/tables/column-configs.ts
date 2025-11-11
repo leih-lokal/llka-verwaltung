@@ -42,8 +42,20 @@ export const customersColumnConfig: EntityColumnConfig = {
       sortable: true,
     },
     {
-      id: 'phone',
-      label: 'Telefon',
+      id: 'newsletter',
+      label: 'Newsletter',
+      defaultVisible: true,
+      sortable: true,
+    },
+    {
+      id: 'heard',
+      label: 'Gehört über',
+      defaultVisible: true,
+      sortable: true,
+    },
+    {
+      id: 'registered_on',
+      label: 'Registriert',
       defaultVisible: true,
       sortable: true,
     },
@@ -55,9 +67,15 @@ export const customersColumnConfig: EntityColumnConfig = {
     },
     {
       id: 'total_rentals',
-      label: 'Gesamt Ausleihen',
+      label: 'Alle Ausleihen',
       defaultVisible: true,
       sortable: false, // Computed from customer_rentals view
+    },
+    {
+      id: 'phone',
+      label: 'Telefon',
+      defaultVisible: false,
+      sortable: true,
     },
     {
       id: 'street',
@@ -78,26 +96,8 @@ export const customersColumnConfig: EntityColumnConfig = {
       sortable: true,
     },
     {
-      id: 'registered_on',
-      label: 'Registriert',
-      defaultVisible: false,
-      sortable: true,
-    },
-    {
       id: 'renewed_on',
       label: 'Verlängert',
-      defaultVisible: false,
-      sortable: true,
-    },
-    {
-      id: 'heard',
-      label: 'Gehört über',
-      defaultVisible: false,
-      sortable: true,
-    },
-    {
-      id: 'newsletter',
-      label: 'Newsletter',
       defaultVisible: false,
       sortable: true,
     },
@@ -108,7 +108,7 @@ export const customersColumnConfig: EntityColumnConfig = {
       sortable: true,
     },
   ],
-  defaultSort: '-created',
+  defaultSort: '-iid', // Sort by ID, highest to lowest
 };
 
 // ============================================================================
@@ -148,14 +148,8 @@ export const itemsColumnConfig: EntityColumnConfig = {
       sortable: true,
     },
     {
-      id: 'category',
-      label: 'Kategorie',
-      defaultVisible: true,
-      sortable: false, // Category is an array
-    },
-    {
       id: 'deposit',
-      label: 'Kaution/Tara',
+      label: 'Pfand',
       defaultVisible: true,
       sortable: true,
     },
@@ -173,7 +167,7 @@ export const itemsColumnConfig: EntityColumnConfig = {
     },
     {
       id: 'total_rentals',
-      label: 'Gesamt Ausleihen',
+      label: 'Alle Ausleihen',
       defaultVisible: true,
       sortable: false, // Computed client-side
     },
@@ -182,6 +176,12 @@ export const itemsColumnConfig: EntityColumnConfig = {
       label: 'Status',
       defaultVisible: true,
       sortable: true,
+    },
+    {
+      id: 'category',
+      label: 'Kategorie',
+      defaultVisible: false,
+      sortable: false, // Category is an array
     },
     {
       id: 'description',
@@ -214,7 +214,7 @@ export const itemsColumnConfig: EntityColumnConfig = {
       sortable: true,
     },
   ],
-  defaultSort: '-created',
+  defaultSort: 'name', // Sort by name, A to Z
 };
 
 // ============================================================================
@@ -225,7 +225,7 @@ export const rentalsColumnConfig: EntityColumnConfig = {
   columns: [
     {
       id: 'customer',
-      label: 'Kunde',
+      label: 'Nutzer:in',
       defaultVisible: true,
       sortable: true,
       sortField: 'customer.firstname',
@@ -243,6 +243,18 @@ export const rentalsColumnConfig: EntityColumnConfig = {
       sortable: true,
     },
     {
+      id: 'employee',
+      label: 'Mitarbeiter Ausgabe',
+      defaultVisible: true,
+      sortable: true,
+    },
+    {
+      id: 'deposit',
+      label: 'Pfand gegeben',
+      defaultVisible: true,
+      sortable: true,
+    },
+    {
       id: 'expected_on',
       label: 'Erwartet',
       defaultVisible: true,
@@ -251,6 +263,18 @@ export const rentalsColumnConfig: EntityColumnConfig = {
     {
       id: 'returned_on',
       label: 'Zurück',
+      defaultVisible: true,
+      sortable: true,
+    },
+    {
+      id: 'employee_back',
+      label: 'Mitarbeiter Rücknahme',
+      defaultVisible: true,
+      sortable: true,
+    },
+    {
+      id: 'deposit_back',
+      label: 'Pfand zurück',
       defaultVisible: true,
       sortable: true,
     },
@@ -267,37 +291,13 @@ export const rentalsColumnConfig: EntityColumnConfig = {
       sortable: true,
     },
     {
-      id: 'deposit',
-      label: 'Kaution',
-      defaultVisible: false,
-      sortable: true,
-    },
-    {
-      id: 'deposit_back',
-      label: 'Kaution zurück',
-      defaultVisible: false,
-      sortable: true,
-    },
-    {
       id: 'remark',
       label: 'Bemerkung',
       defaultVisible: false,
       sortable: true,
     },
-    {
-      id: 'employee',
-      label: 'Mitarbeiter (Aus)',
-      defaultVisible: false,
-      sortable: true,
-    },
-    {
-      id: 'employee_back',
-      label: 'Mitarbeiter (Ein)',
-      defaultVisible: false,
-      sortable: true,
-    },
   ],
-  defaultSort: '-created',
+  defaultSort: 'expected_on', // Sort by expected return date, closest to furthest
 };
 
 // ============================================================================
@@ -307,8 +307,14 @@ export const rentalsColumnConfig: EntityColumnConfig = {
 export const reservationsColumnConfig: EntityColumnConfig = {
   columns: [
     {
+      id: 'is_new_customer',
+      label: 'Neukunde?',
+      defaultVisible: true,
+      sortable: true,
+    },
+    {
       id: 'customer_name',
-      label: 'Kunde',
+      label: 'Nutzer:in',
       defaultVisible: true,
       sortable: true,
     },
@@ -319,14 +325,14 @@ export const reservationsColumnConfig: EntityColumnConfig = {
       sortable: false, // Array field
     },
     {
-      id: 'customer_phone',
-      label: 'Telefon',
+      id: 'pickup',
+      label: 'Abholdatum',
       defaultVisible: true,
       sortable: true,
     },
     {
-      id: 'pickup',
-      label: 'Wunschdatum',
+      id: 'comments',
+      label: 'Kommentare',
       defaultVisible: true,
       sortable: true,
     },
@@ -338,6 +344,12 @@ export const reservationsColumnConfig: EntityColumnConfig = {
       sortField: 'done',
     },
     {
+      id: 'customer_phone',
+      label: 'Telefon',
+      defaultVisible: false,
+      sortable: true,
+    },
+    {
       id: 'customer_email',
       label: 'Email',
       defaultVisible: false,
@@ -346,18 +358,6 @@ export const reservationsColumnConfig: EntityColumnConfig = {
     {
       id: 'customer_iid',
       label: 'Kunden-ID',
-      defaultVisible: false,
-      sortable: true,
-    },
-    {
-      id: 'is_new_customer',
-      label: 'Neukunde',
-      defaultVisible: false,
-      sortable: true,
-    },
-    {
-      id: 'comments',
-      label: 'Kommentare',
       defaultVisible: false,
       sortable: true,
     },
