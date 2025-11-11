@@ -11,8 +11,8 @@
 !.yarn/versions
 
 # old shit
-/!old-svelte-version
-/!database-settings
+# /!old-svelte-version
+# /!database-settings
 
 # testing
 /coverage
