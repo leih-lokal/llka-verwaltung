@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { pb } from '@/lib/pocketbase/client';
 import type {
   RealtimeEvent,
@@ -17,12 +17,15 @@ import { logRealtimeEvent, isCreateEvent, isUpdateEvent, isDeleteEvent } from '@
 /**
  * Subscribe to real-time updates for a PocketBase collection
  *
+ * Automatically pauses subscriptions when the page is hidden (tab not visible)
+ * to conserve resources and improve performance.
+ *
  * @param collection - Collection name to subscribe to
  * @param options - Subscription options and callbacks
  *
  * @example
  * ```tsx
- * useRealtimeSubscription<Customer>('customers', {
+ * useRealtimeSubscription<Customer>('customer', {
  *   onCreated: (record) => {
  *     setCustomers(prev => [record, ...prev]);
  *   },
@@ -48,6 +51,14 @@ export function useRealtimeSubscription<T extends BaseRecord>(
     enabled = true
   } = options;
 
+  // Track page visibility to pause subscriptions when hidden
+  const [isPageVisible, setIsPageVisible] = useState(() => {
+    if (typeof document !== 'undefined') {
+      return !document.hidden;
+    }
+    return true;
+  });
+
   // Use refs to avoid re-subscribing when callbacks change
   const onCreatedRef = useRef(onCreated);
   const onUpdatedRef = useRef(onUpdated);
@@ -60,24 +71,45 @@ export function useRealtimeSubscription<T extends BaseRecord>(
     onDeletedRef.current = onDeleted;
   }, [onCreated, onUpdated, onDeleted]);
 
+  // Listen for page visibility changes
   useEffect(() => {
-    // Don't subscribe if disabled or not authenticated
+    const handleVisibilityChange = () => {
+      setIsPageVisible(!document.hidden);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[Realtime] Page visibility: ${!document.hidden ? 'visible' : 'hidden'}`);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    // Don't subscribe if disabled, not authenticated, or page is hidden
     if (!enabled) {
-      console.log(`[Realtime] Subscription to ${collection} disabled`);
       return;
     }
 
     if (!pb.authStore.isValid) {
-      console.warn(`[Realtime] Cannot subscribe to ${collection} - not authenticated`);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`[Realtime] Cannot subscribe to ${collection} - not authenticated`);
+      }
       return;
     }
 
-    console.log(`[Realtime] Setting up subscription to collection: ${collection}`, {
-      filter,
-      hasOnCreated: !!onCreatedRef.current,
-      hasOnUpdated: !!onUpdatedRef.current,
-      hasOnDeleted: !!onDeletedRef.current,
-    });
+    if (!isPageVisible) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[Realtime] Pausing ${collection} subscription - page hidden`);
+      }
+      return;
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Realtime] Subscribing to ${collection}`);
+    }
 
     // Subscribe to all records in the collection
     const topic = filter ? undefined : '*';
@@ -85,26 +117,17 @@ export function useRealtimeSubscription<T extends BaseRecord>(
     const unsubscribe = pb.collection(collection).subscribe(
       topic || '*',
       async (event: RealtimeEvent<T>) => {
-        // Log event in development
-        console.log(`[Realtime] Event received:`, {
-          collection,
-          action: event.action,
-          recordId: event.record.id,
-          record: event.record,
-        });
+        // Log event in development only
         logRealtimeEvent(event, collection);
 
         // Route to appropriate callback
         if (isCreateEvent(event) && onCreatedRef.current) {
-          console.log(`[Realtime] Calling onCreated for ${collection}`);
           await onCreatedRef.current(event.record);
         } else if (isUpdateEvent(event) && onUpdatedRef.current) {
-          console.log(`[Realtime] Calling onUpdated for ${collection}`);
           await onUpdatedRef.current(event.record);
         } else if (isDeleteEvent(event) && onDeletedRef.current) {
-          console.log(`[Realtime] Calling onDeleted for ${collection}`);
           await onDeletedRef.current(event.record);
-        } else {
+        } else if (process.env.NODE_ENV === 'development') {
           console.warn(`[Realtime] No handler for ${event.action} event on ${collection}`);
         }
       },
@@ -114,30 +137,22 @@ export function useRealtimeSubscription<T extends BaseRecord>(
       }
     );
 
-    console.log(`[Realtime] Subscription promise created for ${collection}`);
-
-    // Verify subscription was successful
-    unsubscribe
-      .then(() => {
-        console.log(`[Realtime] Successfully subscribed to ${collection}`);
-      })
-      .catch((err) => {
-        console.error(`[Realtime] Failed to subscribe to ${collection}:`, err);
-      });
+    // Handle subscription errors
+    unsubscribe.catch((err) => {
+      console.error(`[Realtime] Failed to subscribe to ${collection}:`, err);
+    });
 
     // Cleanup: unsubscribe when component unmounts or dependencies change
     return () => {
-      console.log(`[Realtime] Cleaning up subscription to ${collection}`);
       unsubscribe.then(unsub => {
         if (typeof unsub === 'function') {
-          console.log(`[Realtime] Unsubscribing from ${collection}`);
           unsub();
         }
       }).catch(err => {
         console.error(`[Realtime] Error unsubscribing from ${collection}:`, err);
       });
     };
-  }, [collection, filter, enabled]);
+  }, [collection, filter, enabled, isPageVisible]);
 }
 
 /**
