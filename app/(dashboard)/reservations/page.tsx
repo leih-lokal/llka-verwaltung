@@ -114,7 +114,7 @@ export default function ReservationsPage() {
   });
 
   // Real-time subscription for live updates
-  useRealtimeSubscription<Reservation>('reservations', {
+  useRealtimeSubscription<Reservation>('reservation', {
     onCreated: async (reservation) => {
       // Fetch the reservation with expanded data
       try {

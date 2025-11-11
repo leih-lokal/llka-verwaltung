@@ -62,9 +62,22 @@ export function useRealtimeSubscription<T extends BaseRecord>(
 
   useEffect(() => {
     // Don't subscribe if disabled or not authenticated
-    if (!enabled || !pb.authStore.isValid) {
+    if (!enabled) {
+      console.log(`[Realtime] Subscription to ${collection} disabled`);
       return;
     }
+
+    if (!pb.authStore.isValid) {
+      console.warn(`[Realtime] Cannot subscribe to ${collection} - not authenticated`);
+      return;
+    }
+
+    console.log(`[Realtime] Setting up subscription to collection: ${collection}`, {
+      filter,
+      hasOnCreated: !!onCreatedRef.current,
+      hasOnUpdated: !!onUpdatedRef.current,
+      hasOnDeleted: !!onDeletedRef.current,
+    });
 
     // Subscribe to all records in the collection
     const topic = filter ? undefined : '*';
@@ -73,15 +86,26 @@ export function useRealtimeSubscription<T extends BaseRecord>(
       topic || '*',
       async (event: RealtimeEvent<T>) => {
         // Log event in development
+        console.log(`[Realtime] Event received:`, {
+          collection,
+          action: event.action,
+          recordId: event.record.id,
+          record: event.record,
+        });
         logRealtimeEvent(event, collection);
 
         // Route to appropriate callback
         if (isCreateEvent(event) && onCreatedRef.current) {
+          console.log(`[Realtime] Calling onCreated for ${collection}`);
           await onCreatedRef.current(event.record);
         } else if (isUpdateEvent(event) && onUpdatedRef.current) {
+          console.log(`[Realtime] Calling onUpdated for ${collection}`);
           await onUpdatedRef.current(event.record);
         } else if (isDeleteEvent(event) && onDeletedRef.current) {
+          console.log(`[Realtime] Calling onDeleted for ${collection}`);
           await onDeletedRef.current(event.record);
+        } else {
+          console.warn(`[Realtime] No handler for ${event.action} event on ${collection}`);
         }
       },
       {
@@ -90,10 +114,23 @@ export function useRealtimeSubscription<T extends BaseRecord>(
       }
     );
 
+    console.log(`[Realtime] Subscription promise created for ${collection}`);
+
+    // Verify subscription was successful
+    unsubscribe
+      .then(() => {
+        console.log(`[Realtime] Successfully subscribed to ${collection}`);
+      })
+      .catch((err) => {
+        console.error(`[Realtime] Failed to subscribe to ${collection}:`, err);
+      });
+
     // Cleanup: unsubscribe when component unmounts or dependencies change
     return () => {
+      console.log(`[Realtime] Cleaning up subscription to ${collection}`);
       unsubscribe.then(unsub => {
         if (typeof unsub === 'function') {
+          console.log(`[Realtime] Unsubscribing from ${collection}`);
           unsub();
         }
       }).catch(err => {

@@ -31,7 +31,7 @@ export function ActiveRentalsSection({ onRentalReturned }: ActiveRentalsSectionP
   }, []);
 
   // Real-time subscription for live updates
-  useRealtimeSubscription<Rental>('rentals', {
+  useRealtimeSubscription<Rental>('rental', {
     onCreated: async (rental) => {
       // Only handle active rentals (not returned)
       if (rental.returned_on) return;

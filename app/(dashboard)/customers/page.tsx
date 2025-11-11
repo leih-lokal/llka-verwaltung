@@ -57,7 +57,7 @@ export default function CustomersPage() {
   });
 
   // Real-time subscription for live updates
-  useRealtimeSubscription<Customer>('customers', {
+  useRealtimeSubscription<Customer>('customer', {
     onCreated: async (customer) => {
       // Enrich with stats and add to list
       const enriched = await enrichCustomersWithStats([customer]);

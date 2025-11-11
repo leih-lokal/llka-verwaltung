@@ -59,7 +59,7 @@ export default function RentalsPage() {
   });
 
   // Real-time subscription for live updates
-  useRealtimeSubscription<Rental>('rentals', {
+  useRealtimeSubscription<Rental>('rental', {
     onCreated: async (rental) => {
       // Fetch the rental with expanded data
       try {

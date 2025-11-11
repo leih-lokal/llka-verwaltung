@@ -59,7 +59,7 @@ export default function ItemsPage() {
   });
 
   // Real-time subscription for live updates
-  useRealtimeSubscription<Item>('items', {
+  useRealtimeSubscription<Item>('item', {
     onCreated: (item) => {
       setItems((prev) => {
         // Check if item already exists (avoid duplicates)

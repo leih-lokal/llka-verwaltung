@@ -32,7 +32,7 @@ export function TodaysReservationsSection({
   }, []);
 
   // Real-time subscription for live updates
-  useRealtimeSubscription<Reservation>('reservations', {
+  useRealtimeSubscription<Reservation>('reservation', {
     onCreated: async (reservation) => {
       // Check if reservation is for today and not done
       const today = new Date();

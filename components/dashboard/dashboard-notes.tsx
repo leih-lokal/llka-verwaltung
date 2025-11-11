@@ -132,7 +132,7 @@ export function DashboardNotes() {
   }, []);
 
   // Real-time subscription for live updates
-  useRealtimeSubscription<Note>('notes', {
+  useRealtimeSubscription<Note>('note', {
     onCreated: (note) => {
       setNotes((prev) => {
         // Check if note already exists (avoid duplicates)
