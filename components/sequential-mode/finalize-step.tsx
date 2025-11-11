@@ -18,7 +18,7 @@ import { collections } from '@/lib/pocketbase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { dateToLocalString } from '@/lib/utils/formatting';
-import { serializeInstanceData, type InstanceData } from '@/lib/utils/instance-data';
+import type { InstanceData } from '@/lib/utils/instance-data';
 import type { Rental } from '@/types';
 
 export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
@@ -103,12 +103,12 @@ export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
       const rentalData: Partial<Rental> = {
         customer: selectedCustomer.id,
         items: selectedItems.map(({ item }) => item.id),
+        requested_copies: Object.keys(instanceData).length > 0 ? instanceData : undefined,
         deposit: totalDeposit,
         deposit_back: 0,
         rented_on: dateToLocalString(new Date()),
         expected_on: dateToLocalString(expectedDate),
         employee: localEmployee.trim(),
-        remark: serializeInstanceData(instanceData, ''),
       };
 
       // Create rental
