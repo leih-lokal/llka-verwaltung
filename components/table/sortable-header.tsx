@@ -11,7 +11,7 @@ export type SortDirection = 'asc' | 'desc' | null;
 
 export interface SortableHeaderProps {
   /** Column label to display */
-  label: string;
+  label: React.ReactNode;
 
   /** Current sort direction for this column */
   sortDirection: SortDirection;
