@@ -560,9 +560,10 @@ export function RentalDetailSheet({
 
       // Validate that all items are available (instock or reserved)
       // Skip this check if we're returning a rental (returned_on is set)
+      // Also skip this check when editing an existing rental (the copy availability check below handles it)
       const isReturning = !!data.returned_on;
 
-      if (!isReturning) {
+      if (!isReturning && isNewRental) {
         const unavailableItems = items.filter(item =>
           item.status !== 'instock' && item.status !== 'reserved'
         );
