@@ -4,7 +4,7 @@
 
 import { collections } from '@/lib/pocketbase/client';
 import type { Item, RentalExpanded } from '@/types';
-import { parseInstanceData, getCopyCount } from './instance-data';
+import { getCopyCount } from './instance-data';
 
 /**
  * Result of availability check for an item
@@ -49,8 +49,7 @@ export async function getItemAvailability(
         continue;
       }
 
-      const instanceData = parseInstanceData(rental.remark);
-      rentedCopies += getCopyCount(instanceData, itemId);
+      rentedCopies += getCopyCount(rental.requested_copies, itemId);
     }
 
     const availableCopies = Math.max(0, totalCopies - rentedCopies);
@@ -120,12 +119,10 @@ export async function getMultipleItemAvailability(
         continue;
       }
 
-      const instanceData = parseInstanceData(rental.remark);
-
       for (const itemId of itemIds) {
         if (rental.items.includes(itemId)) {
           const currentCount = rentedCopiesMap.get(itemId) || 0;
-          rentedCopiesMap.set(itemId, currentCount + getCopyCount(instanceData, itemId));
+          rentedCopiesMap.set(itemId, currentCount + getCopyCount(rental.requested_copies, itemId));
         }
       }
     }

@@ -23,7 +23,7 @@ import { rentalsColumnConfig } from '@/lib/tables/column-configs';
 import type { Rental, RentalExpanded } from '@/types';
 import { formatDate, calculateRentalStatus } from '@/lib/utils/formatting';
 import { getRentalStatusLabel, RENTAL_STATUS_COLORS } from '@/lib/constants/statuses';
-import { parseInstanceData, getCopyCount } from '@/lib/utils/instance-data';
+import { getCopyCount } from '@/lib/utils/instance-data';
 
 export default function RentalsPage() {
   const searchParams = useSearchParams();
@@ -477,28 +477,25 @@ export default function RentalsPage() {
                           {columnVisibility.isColumnVisible('items') && (
                             <td className="px-4 py-3 text-sm">
                               {rental.expand?.items?.length > 0
-                                ? (() => {
-                                    const instanceData = parseInstanceData(rental.remark);
-                                    return rental.expand.items.map((item) => {
-                                      const copyCount = getCopyCount(instanceData, item.id);
-                                      return (
-                                        <span key={item.id} className="inline-block mr-2">
-                                          <span className="font-mono mr-1">
-                                            <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-1.5 py-0.5 rounded text-xs">
-                                              {String(item.iid).padStart(4, '0').substring(0, 2)}
-                                            </span>
-                                            <span className="ml-0.5">{String(item.iid).padStart(4, '0').substring(2, 4)}</span>
+                                ? rental.expand.items.map((item) => {
+                                    const copyCount = getCopyCount(rental.requested_copies, item.id);
+                                    return (
+                                      <span key={item.id} className="inline-block mr-2">
+                                        <span className="font-mono mr-1">
+                                          <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-1.5 py-0.5 rounded text-xs">
+                                            {String(item.iid).padStart(4, '0').substring(0, 2)}
                                           </span>
-                                          {item.name}
-                                          {copyCount > 1 && (
-                                            <span className="ml-1 text-xs text-muted-foreground font-medium">
-                                              (×{copyCount})
-                                            </span>
-                                          )}
+                                          <span className="ml-0.5">{String(item.iid).padStart(4, '0').substring(2, 4)}</span>
                                         </span>
-                                      );
-                                    });
-                                  })()
+                                        {item.name}
+                                        {copyCount > 1 && (
+                                          <span className="ml-1 text-xs text-muted-foreground font-medium">
+                                            (×{copyCount})
+                                          </span>
+                                        )}
+                                      </span>
+                                    );
+                                  })
                                 : `${rental.items.length} Gegenstände`}
                             </td>
                           )}

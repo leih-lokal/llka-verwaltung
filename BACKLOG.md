@@ -4,6 +4,13 @@ This document tracks future enhancements and features that have been identified 
 
 ---
 
+## Implementation Note
+
+**Instanced Items Feature** is now live using the `requested_copies` JSON field in the rental collection.
+Copy counts are stored as: `{"item_id": count}` and automatically tracked for availability.
+
+---
+
 ## Partial Returns for Instanced Items
 
 **Priority:** Medium
@@ -49,8 +56,8 @@ The current implementation requires all copies in a rental to be returned togeth
   - New rental: `deposit_remaining_copies = deposit_per_copy × remaining_copies`
   - Handle edge cases where deposits don't divide evenly
 
-- **Instance Data:**
-  - Update instance data in both rental remarks
+- **Copy Count Data:**
+  - Update `requested_copies` JSON field in both rental records
   - Ensure copy counts are accurate in both records
 
 #### Backend Changes
@@ -82,7 +89,7 @@ While the current implementation works without schema changes, partial returns w
 - `split_from_rental_id` field to track the original rental
 - `is_partial_return` boolean flag
 
-Alternatively, track this information in the `remark` field using structured data.
+Note: Copy counts are already tracked in the `requested_copies` JSON field.
 
 #### UI/UX Design
 

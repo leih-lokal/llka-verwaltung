@@ -51,7 +51,7 @@ import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, l
 import { cn } from '@/lib/utils';
 import { useIdentity } from '@/hooks/use-identity';
 import type { Rental, RentalExpanded, Customer, Item } from '@/types';
-import { parseInstanceData, serializeInstanceData, extractUserNotes, getCopyCount, setCopyCount, removeCopyCount, type InstanceData } from '@/lib/utils/instance-data';
+import { getCopyCount, setCopyCount, removeCopyCount, type InstanceData } from '@/lib/utils/instance-data';
 import { getMultipleItemAvailability, type ItemAvailability } from '@/lib/utils/item-availability';
 
 // Validation schema
@@ -186,9 +186,8 @@ export function RentalDetailSheet({
         setSelectedItems(rental.expand.items);
         setValue('item_iids', rental.expand.items.map(item => item.iid));
 
-        // Parse instance data from remark
-        const parsedInstanceData = parseInstanceData(rental.remark);
-        setInstanceData(parsedInstanceData);
+        // Load instance data from requested_copies field
+        setInstanceData(rental.requested_copies || {});
       }
 
       // Set form values - handle both 'T' and space separators in date strings
@@ -212,7 +211,7 @@ export function RentalDetailSheet({
         returned_on: returnedOnValue,
         expected_on: expectedOnValue,
         extended_on: extendedOnValue,
-        remark: extractUserNotes(rental.remark), // Extract only user notes, hide instance data
+        remark: rental.remark || '', // User notes are now separate from instance data
         employee: rental.employee || '',
         employee_back: rental.employee_back || '',
       });
@@ -594,19 +593,17 @@ export function RentalDetailSheet({
 
       const itemIds = items.map(item => item.id);
 
-      // Serialize instance data into remark field
-      const remarkWithInstanceData = serializeInstanceData(instanceData, data.remark || '');
-
       const formData: Partial<Rental> = {
         customer: customer.id,
         items: itemIds, // Multiple items per rental
+        requested_copies: instanceData, // Store copy counts in JSON field
         deposit: data.deposit,
         deposit_back: data.deposit_back,
         rented_on: data.rented_on,
         returned_on: data.returned_on || undefined,
         expected_on: data.expected_on,
         extended_on: data.extended_on || undefined,
-        remark: remarkWithInstanceData || undefined,
+        remark: data.remark || undefined, // User notes, no instance data
         employee: data.employee,
         employee_back: data.employee_back || undefined,
       };

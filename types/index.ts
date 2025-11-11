@@ -300,6 +300,9 @@ export interface Rental extends BaseRecord {
   /** Item ID references (multiple items per rental) */
   items: string[];
 
+  /** Number of copies requested for each item (JSON object: {item_id: count}) */
+  requested_copies?: Record<string, number>;
+
   /** Deposit amount given */
   deposit: number;
 
