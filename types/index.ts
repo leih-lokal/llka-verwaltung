@@ -628,3 +628,66 @@ export interface AsyncState<T> {
   loading: LoadingState;
   error: ApiError | null;
 }
+
+// ============================================================================
+// REAL-TIME SUBSCRIPTIONS
+// ============================================================================
+
+/**
+ * Real-time event action types from PocketBase
+ */
+export type RealtimeAction = 'create' | 'update' | 'delete';
+
+/**
+ * Real-time subscription event from PocketBase
+ */
+export interface RealtimeEvent<T = BaseRecord> {
+  /** Action that triggered the event */
+  action: RealtimeAction;
+  /** The affected record (base record, NOT expanded) */
+  record: T;
+}
+
+/**
+ * Real-time subscription callbacks
+ */
+export interface RealtimeCallbacks<T = BaseRecord> {
+  /** Called when a record is created */
+  onCreated?: (record: T) => void | Promise<void>;
+  /** Called when a record is updated */
+  onUpdated?: (record: T) => void | Promise<void>;
+  /** Called when a record is deleted */
+  onDeleted?: (record: T) => void | Promise<void>;
+}
+
+/**
+ * Real-time subscription options
+ */
+export interface RealtimeSubscriptionOptions<T = BaseRecord> extends RealtimeCallbacks<T> {
+  /** PocketBase filter string (optional) */
+  filter?: string;
+  /** Enable/disable subscription conditionally */
+  enabled?: boolean;
+}
+
+/**
+ * Connection state for real-time subscriptions
+ */
+export enum ConnectionState {
+  Connecting = 'connecting',
+  Connected = 'connected',
+  Disconnected = 'disconnected',
+  Error = 'error',
+}
+
+/**
+ * Real-time connection info
+ */
+export interface RealtimeConnectionInfo {
+  /** Current connection state */
+  state: ConnectionState;
+  /** Error message if state is Error */
+  error?: string;
+  /** Last connection time */
+  lastConnected?: Date;
+}

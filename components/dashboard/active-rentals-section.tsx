@@ -9,8 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ClipboardList, AlertCircle, Clock, ExternalLink } from 'lucide-react';
 import { collections } from '@/lib/pocketbase/client';
+import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
 import { calculateRentalStatus, formatDate, formatFullName } from '@/lib/utils/formatting';
-import type { RentalExpanded } from '@/types';
+import type { Rental, RentalExpanded } from '@/types';
 import { RentalStatus } from '@/types';
 import { toast } from 'sonner';
 import Link from 'next/link';
@@ -28,6 +29,93 @@ export function ActiveRentalsSection({ onRentalReturned }: ActiveRentalsSectionP
   useEffect(() => {
     loadRentals();
   }, []);
+
+  // Real-time subscription for live updates
+  useRealtimeSubscription<Rental>('rentals', {
+    onCreated: async (rental) => {
+      // Only handle active rentals (not returned)
+      if (rental.returned_on) return;
+
+      try {
+        const expandedRental = await collections.rentals().getOne<RentalExpanded>(
+          rental.id,
+          { expand: 'customer,items' }
+        );
+
+        const status = calculateRentalStatus(
+          expandedRental.rented_on,
+          expandedRental.returned_on,
+          expandedRental.expected_on,
+          expandedRental.extended_on
+        );
+
+        if (status === RentalStatus.Overdue) {
+          setOverdueRentals((prev) => {
+            if (prev.some((r) => r.id === rental.id)) return prev;
+            return [expandedRental, ...prev];
+          });
+        } else if (status === RentalStatus.DueToday) {
+          setDueTodayRentals((prev) => {
+            if (prev.some((r) => r.id === rental.id)) return prev;
+            return [expandedRental, ...prev];
+          });
+        } else {
+          setActiveRentals((prev) => {
+            if (prev.some((r) => r.id === rental.id)) return prev;
+            return [expandedRental, ...prev];
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching expanded rental:', err);
+      }
+    },
+    onUpdated: async (rental) => {
+      try {
+        const expandedRental = await collections.rentals().getOne<RentalExpanded>(
+          rental.id,
+          { expand: 'customer,items' }
+        );
+
+        // If returned, remove from all lists
+        if (expandedRental.returned_on) {
+          setOverdueRentals((prev) => prev.filter((r) => r.id !== rental.id));
+          setDueTodayRentals((prev) => prev.filter((r) => r.id !== rental.id));
+          setActiveRentals((prev) => prev.filter((r) => r.id !== rental.id));
+          return;
+        }
+
+        // Recalculate status and move to correct category
+        const status = calculateRentalStatus(
+          expandedRental.rented_on,
+          expandedRental.returned_on,
+          expandedRental.expected_on,
+          expandedRental.extended_on
+        );
+
+        // Remove from all lists first
+        setOverdueRentals((prev) => prev.filter((r) => r.id !== rental.id));
+        setDueTodayRentals((prev) => prev.filter((r) => r.id !== rental.id));
+        setActiveRentals((prev) => prev.filter((r) => r.id !== rental.id));
+
+        // Add to correct list
+        if (status === RentalStatus.Overdue) {
+          setOverdueRentals((prev) => [expandedRental, ...prev]);
+        } else if (status === RentalStatus.DueToday) {
+          setDueTodayRentals((prev) => [expandedRental, ...prev]);
+        } else {
+          setActiveRentals((prev) => [expandedRental, ...prev]);
+        }
+      } catch (err) {
+        console.error('Error fetching expanded rental:', err);
+      }
+    },
+    onDeleted: (rental) => {
+      // Remove from all lists
+      setOverdueRentals((prev) => prev.filter((r) => r.id !== rental.id));
+      setDueTodayRentals((prev) => prev.filter((r) => r.id !== rental.id));
+      setActiveRentals((prev) => prev.filter((r) => r.id !== rental.id));
+    },
+  });
 
   async function loadRentals() {
     try {

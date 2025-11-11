@@ -27,6 +27,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { StickyNote, Plus, Pencil, Trash2, GripVertical } from 'lucide-react';
 import { collections } from '@/lib/pocketbase/client';
+import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
 import type { Note } from '@/types';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
@@ -129,6 +130,31 @@ export function DashboardNotes() {
   useEffect(() => {
     loadNotes();
   }, []);
+
+  // Real-time subscription for live updates
+  useRealtimeSubscription<Note>('notes', {
+    onCreated: (note) => {
+      setNotes((prev) => {
+        // Check if note already exists (avoid duplicates)
+        if (prev.some((n) => n.id === note.id)) {
+          return prev;
+        }
+        // Add note and re-sort by order_index
+        const updated = [...prev, note];
+        return updated.sort((a, b) => a.order_index - b.order_index);
+      });
+    },
+    onUpdated: (note) => {
+      setNotes((prev) => {
+        // Update note and re-sort by order_index
+        const updated = prev.map((n) => (n.id === note.id ? note : n));
+        return updated.sort((a, b) => a.order_index - b.order_index);
+      });
+    },
+    onDeleted: (note) => {
+      setNotes((prev) => prev.filter((n) => n.id !== note.id));
+    },
+  });
 
   async function loadNotes() {
     try {

@@ -17,9 +17,10 @@ import { RentalDetailSheet } from '@/components/detail-sheets/rental-detail-shee
 import { collections } from '@/lib/pocketbase/client';
 import { useFilters } from '@/hooks/use-filters';
 import { useColumnVisibility } from '@/hooks/use-column-visibility';
+import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
 import { rentalsFilterConfig } from '@/lib/filters/filter-configs';
 import { rentalsColumnConfig } from '@/lib/tables/column-configs';
-import type { RentalExpanded } from '@/types';
+import type { Rental, RentalExpanded } from '@/types';
 import { formatDate, calculateRentalStatus } from '@/lib/utils/formatting';
 import { getRentalStatusLabel, RENTAL_STATUS_COLORS } from '@/lib/constants/statuses';
 import { parseInstanceData, getCopyCount } from '@/lib/utils/instance-data';
@@ -55,6 +56,47 @@ export default function RentalsPage() {
   const columnVisibility = useColumnVisibility({
     entity: 'rentals',
     config: rentalsColumnConfig,
+  });
+
+  // Real-time subscription for live updates
+  useRealtimeSubscription<Rental>('rentals', {
+    onCreated: async (rental) => {
+      // Fetch the rental with expanded data
+      try {
+        const expandedRental = await collections.rentals().getOne<RentalExpanded>(
+          rental.id,
+          { expand: 'customer,items' }
+        );
+        setRentals((prev) => {
+          // Check if rental already exists (avoid duplicates)
+          if (prev.some((r) => r.id === rental.id)) {
+            return prev;
+          }
+          // Add to beginning of list
+          return [expandedRental, ...prev];
+        });
+      } catch (err) {
+        console.error('Error fetching expanded rental:', err);
+      }
+    },
+    onUpdated: async (rental) => {
+      // Fetch the rental with expanded data
+      try {
+        const expandedRental = await collections.rentals().getOne<RentalExpanded>(
+          rental.id,
+          { expand: 'customer,items' }
+        );
+        setRentals((prev) =>
+          prev.map((r) => (r.id === rental.id ? expandedRental : r))
+        );
+      } catch (err) {
+        console.error('Error fetching expanded rental:', err);
+      }
+    },
+    onDeleted: (rental) => {
+      // Remove from list
+      setRentals((prev) => prev.filter((r) => r.id !== rental.id));
+    },
   });
 
   // Handle URL query parameters (action=new or view=id)

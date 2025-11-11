@@ -19,9 +19,10 @@ import { RentalDetailSheet } from '@/components/detail-sheets/rental-detail-shee
 import { collections } from '@/lib/pocketbase/client';
 import { useFilters } from '@/hooks/use-filters';
 import { useColumnVisibility } from '@/hooks/use-column-visibility';
+import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
 import { reservationsFilterConfig } from '@/lib/filters/filter-configs';
 import { reservationsColumnConfig } from '@/lib/tables/column-configs';
-import type { ReservationExpanded, RentalExpanded, Customer } from '@/types';
+import type { Reservation, ReservationExpanded, RentalExpanded, Customer } from '@/types';
 import { formatDateTime } from '@/lib/utils/formatting';
 
 export default function ReservationsPage() {
@@ -110,6 +111,47 @@ export default function ReservationsPage() {
   const columnVisibility = useColumnVisibility({
     entity: 'reservations',
     config: reservationsColumnConfig,
+  });
+
+  // Real-time subscription for live updates
+  useRealtimeSubscription<Reservation>('reservations', {
+    onCreated: async (reservation) => {
+      // Fetch the reservation with expanded data
+      try {
+        const expandedReservation = await collections.reservations().getOne<ReservationExpanded>(
+          reservation.id,
+          { expand: 'items' }
+        );
+        setReservations((prev) => {
+          // Check if reservation already exists (avoid duplicates)
+          if (prev.some((r) => r.id === reservation.id)) {
+            return prev;
+          }
+          // Add to beginning of list
+          return [expandedReservation, ...prev];
+        });
+      } catch (err) {
+        console.error('Error fetching expanded reservation:', err);
+      }
+    },
+    onUpdated: async (reservation) => {
+      // Fetch the reservation with expanded data
+      try {
+        const expandedReservation = await collections.reservations().getOne<ReservationExpanded>(
+          reservation.id,
+          { expand: 'items' }
+        );
+        setReservations((prev) =>
+          prev.map((r) => (r.id === reservation.id ? expandedReservation : r))
+        );
+      } catch (err) {
+        console.error('Error fetching expanded reservation:', err);
+      }
+    },
+    onDeleted: (reservation) => {
+      // Remove from list
+      setReservations((prev) => prev.filter((r) => r.id !== reservation.id));
+    },
   });
 
   // Debounce search input

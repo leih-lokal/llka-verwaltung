@@ -16,6 +16,7 @@ import { CustomerDetailSheet } from '@/components/detail-sheets/customer-detail-
 import { collections } from '@/lib/pocketbase/client';
 import { useFilters } from '@/hooks/use-filters';
 import { useColumnVisibility } from '@/hooks/use-column-visibility';
+import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
 import { customersFilterConfig } from '@/lib/filters/filter-configs';
 import { customersColumnConfig } from '@/lib/tables/column-configs';
 import { enrichCustomersWithStats } from '@/lib/utils/customer-stats';
@@ -53,6 +54,37 @@ export default function CustomersPage() {
   const columnVisibility = useColumnVisibility({
     entity: 'customers',
     config: customersColumnConfig,
+  });
+
+  // Real-time subscription for live updates
+  useRealtimeSubscription<Customer>('customers', {
+    onCreated: async (customer) => {
+      // Enrich with stats and add to list
+      const enriched = await enrichCustomersWithStats([customer]);
+      if (enriched.length > 0) {
+        setCustomers((prev) => {
+          // Check if customer already exists (avoid duplicates)
+          if (prev.some((c) => c.id === customer.id)) {
+            return prev;
+          }
+          // Add to beginning of list
+          return [enriched[0], ...prev];
+        });
+      }
+    },
+    onUpdated: async (customer) => {
+      // Enrich with stats and update in list
+      const enriched = await enrichCustomersWithStats([customer]);
+      if (enriched.length > 0) {
+        setCustomers((prev) =>
+          prev.map((c) => (c.id === customer.id ? enriched[0] : c))
+        );
+      }
+    },
+    onDeleted: (customer) => {
+      // Remove from list
+      setCustomers((prev) => prev.filter((c) => c.id !== customer.id));
+    },
   });
 
   // Handle URL query parameters (action=new or view=id)

@@ -9,8 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, CheckCircle2, ExternalLink, ArrowRight } from 'lucide-react';
 import { collections } from '@/lib/pocketbase/client';
+import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
 import { formatDate, formatDateTime } from '@/lib/utils/formatting';
-import type { ReservationExpanded } from '@/types';
+import type { Reservation, ReservationExpanded } from '@/types';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { parseISO, startOfDay, endOfDay } from 'date-fns';
@@ -29,6 +30,64 @@ export function TodaysReservationsSection({
   useEffect(() => {
     loadReservations();
   }, []);
+
+  // Real-time subscription for live updates
+  useRealtimeSubscription<Reservation>('reservations', {
+    onCreated: async (reservation) => {
+      // Check if reservation is for today and not done
+      const today = new Date();
+      const startOfToday = startOfDay(today);
+      const endOfToday = endOfDay(today);
+      const pickupDate = parseISO(reservation.pickup);
+
+      if (!reservation.done && pickupDate >= startOfToday && pickupDate <= endOfToday) {
+        try {
+          const expandedReservation = await collections.reservations().getOne<ReservationExpanded>(
+            reservation.id,
+            { expand: 'items' }
+          );
+          setReservations((prev) => {
+            if (prev.some((r) => r.id === reservation.id)) return prev;
+            return [...prev, expandedReservation].sort((a, b) =>
+              new Date(a.pickup).getTime() - new Date(b.pickup).getTime()
+            );
+          });
+        } catch (err) {
+          console.error('Error fetching expanded reservation:', err);
+        }
+      }
+    },
+    onUpdated: async (reservation) => {
+      // Check if reservation is for today and not done
+      const today = new Date();
+      const startOfToday = startOfDay(today);
+      const endOfToday = endOfDay(today);
+      const pickupDate = parseISO(reservation.pickup);
+
+      if (!reservation.done && pickupDate >= startOfToday && pickupDate <= endOfToday) {
+        try {
+          const expandedReservation = await collections.reservations().getOne<ReservationExpanded>(
+            reservation.id,
+            { expand: 'items' }
+          );
+          setReservations((prev) => {
+            const updated = prev.map((r) => (r.id === reservation.id ? expandedReservation : r));
+            return updated.sort((a, b) =>
+              new Date(a.pickup).getTime() - new Date(b.pickup).getTime()
+            );
+          });
+        } catch (err) {
+          console.error('Error fetching expanded reservation:', err);
+        }
+      } else {
+        // Remove from list if marked as done or not for today
+        setReservations((prev) => prev.filter((r) => r.id !== reservation.id));
+      }
+    },
+    onDeleted: (reservation) => {
+      setReservations((prev) => prev.filter((r) => r.id !== reservation.id));
+    },
+  });
 
   async function loadReservations() {
     try {

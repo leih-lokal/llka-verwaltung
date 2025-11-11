@@ -7,6 +7,7 @@
 import { Navbar } from '@/components/layout/navbar';
 import { GlobalCommandMenu } from '@/components/search/global-command-menu';
 import { QuickFindModal } from '@/components/search/quick-find-modal';
+import { RealtimeStatus } from '@/components/ui/realtime-status';
 import { QuickFindProvider } from '@/hooks/use-quick-find';
 import { IdentityProvider } from '@/hooks/use-identity';
 import { useRequireAuth } from '@/hooks/use-auth';
@@ -39,6 +40,7 @@ export default function DashboardLayout({
           </main>
           <GlobalCommandMenu />
           <QuickFindModal />
+          <RealtimeStatus />
         </div>
       </QuickFindProvider>
     </IdentityProvider>

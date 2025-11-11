@@ -18,6 +18,7 @@ import { ItemDetailSheet } from '@/components/detail-sheets/item-detail-sheet';
 import { collections, pb } from '@/lib/pocketbase/client';
 import { useFilters } from '@/hooks/use-filters';
 import { useColumnVisibility } from '@/hooks/use-column-visibility';
+import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
 import { itemsFilterConfig } from '@/lib/filters/filter-configs';
 import { itemsColumnConfig } from '@/lib/tables/column-configs';
 import type { Item } from '@/types';
@@ -55,6 +56,30 @@ export default function ItemsPage() {
   const columnVisibility = useColumnVisibility({
     entity: 'items',
     config: itemsColumnConfig,
+  });
+
+  // Real-time subscription for live updates
+  useRealtimeSubscription<Item>('items', {
+    onCreated: (item) => {
+      setItems((prev) => {
+        // Check if item already exists (avoid duplicates)
+        if (prev.some((i) => i.id === item.id)) {
+          return prev;
+        }
+        // Add to beginning of list
+        return [item, ...prev];
+      });
+    },
+    onUpdated: (item) => {
+      // Update item in list
+      setItems((prev) =>
+        prev.map((i) => (i.id === item.id ? item : i))
+      );
+    },
+    onDeleted: (item) => {
+      // Remove from list
+      setItems((prev) => prev.filter((i) => i.id !== item.id));
+    },
   });
 
   // Handle URL query parameters (action=new or view=id)
