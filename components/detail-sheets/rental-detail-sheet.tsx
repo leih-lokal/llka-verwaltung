@@ -11,7 +11,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { SaveIcon, XIcon, CheckIcon, ChevronsUpDownIcon, CalendarIcon, TrashIcon, MinusIcon, PlusIcon } from 'lucide-react';
+import { SaveIcon, XIcon, CheckIcon, ChevronsUpDownIcon, CalendarIcon, TrashIcon, MinusIcon, PlusIcon, PrinterIcon } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -673,6 +673,306 @@ export function RentalDetailSheet({
 
     // Submit the form
     form.handleSubmit(handleSave)();
+  };
+
+  const handlePrint = () => {
+    if (!rental || !selectedCustomer) return;
+
+    // Format date for display
+    const formatPrintDate = (dateStr: string | undefined) => {
+      if (!dateStr) return '-';
+      try {
+        const date = localStringToDate(dateStr.split(/[T\s]/)[0]);
+        return date.toLocaleDateString('de-DE', {
+          day: '2-digit',
+          month: 'long',
+          year: 'numeric',
+        });
+      } catch {
+        return dateStr;
+      }
+    };
+
+    // Calculate total copies
+    const totalCopies = selectedItems.reduce((sum, item) => {
+      return sum + getCopyCount(instanceData, item.id);
+    }, 0);
+
+    // Generate items HTML
+    const itemsHtml = selectedItems.map((item) => {
+      const copyCount = getCopyCount(instanceData, item.id);
+      const depositPerCopy = item.deposit || 0;
+      const totalDeposit = depositPerCopy * copyCount;
+      const hasCopies = copyCount > 1;
+
+      return `
+        <tr>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e5e5; font-family: monospace; font-weight: 600; color: #0066cc;">
+            #${String(item.iid).padStart(4, '0')}
+          </td>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e5e5;">
+            <strong>${item.name}</strong>
+            ${item.brand ? `<br><span style="color: #666; font-size: 0.9em;">Marke: ${item.brand}</span>` : ''}
+            ${item.model ? `<br><span style="color: #666; font-size: 0.9em;">Modell: ${item.model}</span>` : ''}
+          </td>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e5e5; text-align: center;">
+            ${copyCount}${hasCopies ? ' Stück' : ''}
+          </td>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e5e5; text-align: right; font-weight: 600;">
+            ${formatCurrency(totalDeposit)}
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html lang="de">
+      <head>
+        <meta charset="UTF-8">
+        <title>Leihbeleg - LeihLokal</title>
+        <style>
+          * {
+            box-sizing: border-box;
+          }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 3px solid #0066cc;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+          }
+          .header h1 {
+            margin: 0 0 5px 0;
+            color: #0066cc;
+            font-size: 28px;
+          }
+          .header .subtitle {
+            color: #666;
+            font-size: 14px;
+          }
+          .section {
+            margin-bottom: 25px;
+          }
+          .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #0066cc;
+            border-bottom: 2px solid #e5e5e5;
+            padding-bottom: 8px;
+            margin-bottom: 15px;
+          }
+          .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+          }
+          .info-item {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 6px;
+          }
+          .info-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+          }
+          .info-value {
+            font-weight: 600;
+            font-size: 14px;
+          }
+          .customer-box {
+            background: #f0f7ff;
+            border: 1px solid #cce0ff;
+            border-radius: 8px;
+            padding: 15px;
+          }
+          .customer-id {
+            font-family: monospace;
+            font-weight: 600;
+            color: #0066cc;
+            font-size: 16px;
+          }
+          .customer-name {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 5px 0;
+          }
+          .customer-details {
+            color: #666;
+            font-size: 13px;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+          }
+          th {
+            background: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #e5e5e5;
+          }
+          th:last-child {
+            text-align: right;
+          }
+          .total-row {
+            background: #f0f7ff;
+            font-weight: 600;
+          }
+          .total-row td {
+            padding: 15px 12px;
+            border-top: 2px solid #0066cc;
+          }
+          .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e5e5;
+            text-align: center;
+            color: #999;
+            font-size: 12px;
+          }
+          .note-box {
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 10px;
+          }
+          .note-label {
+            font-weight: 600;
+            color: #92400e;
+            margin-bottom: 5px;
+          }
+          @media print {
+            body {
+              padding: 0;
+            }
+            .no-print {
+              display: none;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Leihbeleg</h1>
+          <div class="subtitle">Kundenexemplar • LeihLokal</div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Nutzer:in</div>
+          <div class="customer-box">
+            <div class="customer-id">#${String(selectedCustomer.iid).padStart(4, '0')}</div>
+            <div class="customer-name">${selectedCustomer.firstname} ${selectedCustomer.lastname}</div>
+            <div class="customer-details">
+              ${selectedCustomer.email ? `${selectedCustomer.email}<br>` : ''}
+              ${selectedCustomer.phone ? `Tel: ${selectedCustomer.phone}<br>` : ''}
+              ${selectedCustomer.street ? `${selectedCustomer.street}, ${selectedCustomer.postal_code} ${selectedCustomer.city}` : ''}
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Leihzeitraum</div>
+          <div class="info-grid">
+            <div class="info-item">
+              <div class="info-label">Ausgeliehen am</div>
+              <div class="info-value">${formatPrintDate(rental.rented_on)}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Zurückerwartet am</div>
+              <div class="info-value">${formatPrintDate(rental.expected_on)}</div>
+            </div>
+            ${rental.extended_on ? `
+              <div class="info-item">
+                <div class="info-label">Verlängert am</div>
+                <div class="info-value">${formatPrintDate(rental.extended_on)}</div>
+              </div>
+            ` : ''}
+            ${rental.returned_on ? `
+              <div class="info-item">
+                <div class="info-label">Zurückgegeben am</div>
+                <div class="info-value">${formatPrintDate(rental.returned_on)}</div>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Ausgeliehene Gegenstände (${totalCopies} ${totalCopies === 1 ? 'Stück' : 'Stück'})</div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 80px;">Nr.</th>
+                <th>Bezeichnung</th>
+                <th style="width: 80px; text-align: center;">Anzahl</th>
+                <th style="width: 100px; text-align: right;">Pfand</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+              <tr class="total-row">
+                <td colspan="3" style="text-align: right;">Gesamt Pfand:</td>
+                <td style="text-align: right; font-size: 16px;">${formatCurrency(form.getValues('deposit'))}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        ${rental.remark ? `
+          <div class="section">
+            <div class="note-box">
+              <div class="note-label">Bemerkung:</div>
+              <div>${rental.remark}</div>
+            </div>
+          </div>
+        ` : ''}
+
+        <div class="section">
+          <div class="section-title">Mitarbeiter</div>
+          <div class="info-grid">
+            <div class="info-item">
+              <div class="info-label">Ausgabe</div>
+              <div class="info-value">${rental.employee || '-'}</div>
+            </div>
+            ${rental.employee_back ? `
+              <div class="info-item">
+                <div class="info-label">Rücknahme</div>
+                <div class="info-value">${rental.employee_back}</div>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <div class="footer">
+          <p>Gedruckt am ${new Date().toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+          <p>Dies ist eine Kundenquittung und dient nur zur Information.</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.focus();
+      // Small delay to ensure content is loaded
+      setTimeout(() => {
+        printWindow.print();
+      }, 250);
+    } else {
+      toast.error('Druckfenster konnte nicht geöffnet werden. Bitte Popup-Blocker überprüfen.');
+    }
   };
 
   const handleCancel = () => {
@@ -1441,6 +1741,19 @@ export function RentalDetailSheet({
                   >
                     <TrashIcon className="size-5 mr-2" />
                     Löschen
+                  </Button>
+                )}
+                {!isNewRental && selectedCustomer && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handlePrint}
+                    disabled={isLoading}
+                    size="lg"
+                    className="min-w-[120px]"
+                  >
+                    <PrinterIcon className="size-5 mr-2" />
+                    Drucken
                   </Button>
                 )}
               </div>
