@@ -366,6 +366,40 @@ export const reservationsColumnConfig: EntityColumnConfig = {
 };
 
 // ============================================================================
+// LOGS
+// ============================================================================
+
+export const logsColumnConfig: EntityColumnConfig = {
+  columns: [
+    {
+      id: 'created',
+      label: 'Zeitstempel',
+      defaultVisible: true,
+      sortable: true,
+    },
+    {
+      id: 'level',
+      label: 'Level',
+      defaultVisible: false,
+      sortable: true,
+    },
+    {
+      id: 'method',
+      label: 'Request-Typ',
+      defaultVisible: true,
+      sortable: false, // Field is nested in data object
+    },
+    {
+      id: 'message',
+      label: 'Nachricht',
+      defaultVisible: true,
+      sortable: false, // Text field, not useful to sort
+    },
+  ],
+  defaultSort: '-created', // Sort by created, newest to oldest
+};
+
+// ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
@@ -373,7 +407,7 @@ export const reservationsColumnConfig: EntityColumnConfig = {
  * Get column config for entity type
  */
 export function getColumnConfig(
-  entity: 'customers' | 'items' | 'rentals' | 'reservations'
+  entity: 'customers' | 'items' | 'rentals' | 'reservations' | 'logs'
 ): EntityColumnConfig {
   switch (entity) {
     case 'customers':
@@ -384,5 +418,7 @@ export function getColumnConfig(
       return rentalsColumnConfig;
     case 'reservations':
       return reservationsColumnConfig;
+    case 'logs':
+      return logsColumnConfig;
   }
 }

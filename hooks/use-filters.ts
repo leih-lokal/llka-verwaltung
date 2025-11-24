@@ -11,7 +11,7 @@ import type { EntityFilterConfig } from '@/lib/filters/filter-configs';
 
 export interface UseFiltersOptions {
   /** Entity type for localStorage key */
-  entity: 'customers' | 'items' | 'rentals' | 'reservations';
+  entity: 'customers' | 'items' | 'rentals' | 'reservations' | 'logs';
 
   /** Filter configuration */
   config: EntityFilterConfig;

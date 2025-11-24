@@ -9,7 +9,7 @@ import type { EntityColumnConfig } from '@/lib/tables/column-configs';
 
 export interface UseColumnVisibilityOptions {
   /** Entity type for localStorage key */
-  entity: 'customers' | 'items' | 'rentals' | 'reservations';
+  entity: 'customers' | 'items' | 'rentals' | 'reservations' | 'logs';
 
   /** Column configuration */
   config: EntityColumnConfig;

@@ -585,23 +585,53 @@ export interface AppSettings {
 // ============================================================================
 
 /**
- * Log entry
+ * Log level enum matching PocketBase numeric levels
  */
-export interface LogEntry extends BaseRecord {
-  /** Log level */
-  level: 'info' | 'warn' | 'error';
+export enum LogLevel {
+  Info = 0,
+  Warning = 4,
+  Error = 8,
+}
+
+/**
+ * Log level type as string
+ */
+export type LogLevelString = 'info' | 'warn' | 'error';
+
+/**
+ * Log entry from PocketBase API (with numeric level)
+ */
+export interface LogEntryRaw extends BaseRecord {
+  /** Log level (numeric: 0=info, 4=warn, 8=error) */
+  level: number;
 
   /** Log message */
   message: string;
 
-  /** User who triggered the action */
-  user?: string;
+  /** Additional data including type, method, etc. */
+  data?: {
+    type?: string;
+    method?: string;
+    [key: string]: unknown;
+  };
+}
 
-  /** Action type */
-  action?: string;
+/**
+ * Log entry (normalized with string level)
+ */
+export interface LogEntry extends BaseRecord {
+  /** Log level */
+  level: LogLevelString;
 
-  /** Additional metadata */
-  metadata?: Record<string, unknown>;
+  /** Log message */
+  message: string;
+
+  /** Additional data including type, method, etc. */
+  data?: {
+    type?: string;
+    method?: string;
+    [key: string]: unknown;
+  };
 }
 
 // ============================================================================

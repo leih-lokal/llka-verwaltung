@@ -11,7 +11,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { SaveIcon, XIcon, CheckIcon, ChevronsUpDownIcon, CalendarIcon, TrashIcon, MinusIcon, PlusIcon } from 'lucide-react';
+import { SaveIcon, XIcon, CheckIcon, ChevronsUpDownIcon, CalendarIcon, TrashIcon, MinusIcon, PlusIcon, PrinterIcon } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -53,6 +53,7 @@ import { useIdentity } from '@/hooks/use-identity';
 import type { Rental, RentalExpanded, Customer, Item } from '@/types';
 import { getCopyCount, setCopyCount, removeCopyCount, type InstanceData } from '@/lib/utils/instance-data';
 import { getMultipleItemAvailability, type ItemAvailability } from '@/lib/utils/item-availability';
+import { generateRentalPrintContent } from '@/components/print/rental-print-content';
 
 // Validation schema
 const rentalSchema = z.object({
@@ -673,6 +674,31 @@ export function RentalDetailSheet({
 
     // Submit the form
     form.handleSubmit(handleSave)();
+  };
+
+  const handlePrint = () => {
+    if (!rental || !selectedCustomer) return;
+
+    const printContent = generateRentalPrintContent({
+      rental,
+      customer: selectedCustomer,
+      items: selectedItems,
+      instanceData,
+      deposit: form.getValues('deposit'),
+    });
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.focus();
+      // Small delay to ensure content is loaded
+      setTimeout(() => {
+        printWindow.print();
+      }, 250);
+    } else {
+      toast.error('Druckfenster konnte nicht geöffnet werden. Bitte Popup-Blocker überprüfen.');
+    }
   };
 
   const handleCancel = () => {
@@ -1441,6 +1467,19 @@ export function RentalDetailSheet({
                   >
                     <TrashIcon className="size-5 mr-2" />
                     Löschen
+                  </Button>
+                )}
+                {!isNewRental && selectedCustomer && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handlePrint}
+                    disabled={isLoading}
+                    size="lg"
+                    className="min-w-[120px]"
+                  >
+                    <PrinterIcon className="size-5 mr-2" />
+                    Drucken
                   </Button>
                 )}
               </div>

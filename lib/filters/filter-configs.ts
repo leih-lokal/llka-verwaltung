@@ -264,6 +264,55 @@ export const reservationsFilterConfig: EntityFilterConfig = {
 };
 
 // ============================================================================
+// LOGS
+// ============================================================================
+
+export const logsFilterConfig: EntityFilterConfig = {
+  searchFields: ['message'],
+
+  statusFilters: [
+    {
+      id: 'level',
+      label: 'Level',
+      type: 'status',
+      field: 'level',
+      options: [
+        { value: '0', label: 'Info' },
+        { value: '4', label: 'Warnung' },
+        { value: '8', label: 'Fehler' },
+      ],
+    },
+  ],
+
+  categoryFilters: [
+    {
+      id: 'request_method',
+      label: 'Request-Typ',
+      type: 'category',
+      field: 'data.method',
+      options: [
+        { value: 'GET', label: 'GET' },
+        { value: 'POST', label: 'POST' },
+        { value: 'PATCH', label: 'PATCH' },
+        { value: 'PUT', label: 'PUT' },
+        { value: 'DELETE', label: 'DELETE' },
+        { value: '__none__', label: 'Keine (Nicht-REST)' },
+      ],
+    },
+  ],
+
+  dateFilters: [
+    {
+      id: 'created',
+      label: 'Erstellt',
+      type: 'date',
+      field: 'created',
+      placeholder: 'Datum auswählen',
+    },
+  ],
+};
+
+// ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
@@ -271,7 +320,7 @@ export const reservationsFilterConfig: EntityFilterConfig = {
  * Get filter config for entity type
  */
 export function getFilterConfig(
-  entity: 'customers' | 'items' | 'rentals' | 'reservations'
+  entity: 'customers' | 'items' | 'rentals' | 'reservations' | 'logs'
 ): EntityFilterConfig {
   switch (entity) {
     case 'customers':
@@ -282,5 +331,7 @@ export function getFilterConfig(
       return rentalsFilterConfig;
     case 'reservations':
       return reservationsFilterConfig;
+    case 'logs':
+      return logsFilterConfig;
   }
 }
