@@ -230,7 +230,7 @@ export function generateRentalPrintContent({
     <body>
       <div class="header">
         <h1>Leihbeleg</h1>
-        <div class="subtitle">Kundenexemplar &bull; LeihLokal</div>
+        <div class="subtitle">Nutzerkopie &bull; leih.lokal Karlsruhe</div>
       </div>
 
       <div class="section">
