@@ -4,7 +4,7 @@
 
 'use client';
 
-import { Search, SlidersHorizontal, Command } from 'lucide-react';
+import { Search, SlidersHorizontal } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { FilterChip } from './filter-chip';
@@ -116,19 +116,9 @@ export function SearchBar({
             flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0
             bg-transparent py-2
             ${showFilterChips ? 'pl-2' : 'pl-9'}
-            pr-[90px]
+            pr-[75px]
           `}
         />
-
-        {/* Keyboard shortcut hint (when not focused and empty) */}
-        {!isFocused && !value && !showFilterChips && (
-          <div className="absolute right-[75px] top-1/2 -translate-y-1/2 pointer-events-none flex items-center gap-0.5 text-xs text-muted-foreground">
-            <kbd className="px-1.5 py-0.5 text-[10px] font-medium bg-muted border border-border rounded">
-              <Command className="h-2.5 w-2.5 inline" />
-              <span className="ml-0.5">K</span>
-            </kbd>
-          </div>
-        )}
 
         {/* Filter button */}
         <Button

@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -35,18 +35,83 @@ import { NavLink } from './nav-link';
 import { IdentityPicker } from './identity-picker';
 import { Button } from '@/components/ui/button';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from '@/components/ui/popover';
 import { useAuth } from '@/hooks/use-auth';
 import { useQuickFind } from '@/hooks/use-quick-find';
 import { useSequentialMode } from '@/hooks/use-sequential-mode';
 import { useCommandMenu } from '@/hooks/use-command-menu';
 import { useKeyboardShortcutsReferenceContext } from '@/components/keyboard-shortcuts/keyboard-shortcuts-reference';
+
+interface MenuTileProps {
+  icon: React.ReactNode;
+  label: string;
+  description: string;
+  shortcut?: { keys: string[] };
+  onClick?: () => void;
+  href?: string;
+}
+
+function MenuTile({ icon, label, description, shortcut, onClick, href }: MenuTileProps) {
+  const content = (
+    <>
+      {/* Icon */}
+      <div className="text-primary group-hover:text-accent-foreground transition-colors mb-2">
+        {icon}
+      </div>
+
+      {/* Label */}
+      <div className="font-semibold text-sm mb-1 group-hover:text-accent-foreground transition-colors">
+        {label}
+      </div>
+
+      {/* Description */}
+      <div className="text-xs text-muted-foreground group-hover:text-accent-foreground/80 transition-colors mb-2 hyphens-auto">
+        {description}
+      </div>
+
+      {/* Keyboard Shortcut */}
+      {shortcut && (
+        <div className="flex items-center gap-0.5 mt-auto">
+          {shortcut.keys.map((key, idx) => (
+            <React.Fragment key={idx}>
+              {idx > 0 && <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-accent-foreground/60 transition-colors" />}
+              <kbd className="px-1.5 py-0.5 text-[12px] font-mono font-medium bg-muted group-hover:bg-accent-foreground/10 group-hover:text-accent-foreground transition-colors rounded">
+                {key}
+              </kbd>
+            </React.Fragment>
+          ))}
+        </div>
+      )}
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className="group flex flex-col p-3 rounded-lg border bg-card hover:bg-accent transition-colors cursor-pointer h-full"
+        role="menuitem"
+        aria-label={`${label}: ${description}`}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      onClick={onClick}
+      className="group flex flex-col p-3 rounded-lg border bg-card hover:bg-accent transition-colors cursor-pointer text-left h-full w-full"
+      role="menuitem"
+      aria-label={`${label}: ${description}`}
+    >
+      {content}
+    </button>
+  );
+}
 
 const navigationItems = [
   {
@@ -187,125 +252,118 @@ export function Navbar() {
 
         {/* Overflow Menu */}
         <div className="flex items-center">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="Mehr Optionen">
                 <MoreVertical className="h-5 w-5" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Mehr</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setCommandMenuOpen(true)}>
-                <Search className="mr-2 h-4 w-4" />
-                <span>Suche</span>
-                <kbd className="ml-auto inline-flex items-center gap-0.5 px-1.5 py-0.5 font-mono text-xs font-medium text-muted-foreground rounded border border-border">
-                  <span>O</span>
-                  <ArrowRight className="h-3 w-3" />
-                  <span>S</span>
-                </kbd>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setOpen(true)}>
-                <Zap className="mr-2 h-4 w-4" />
-                <span>Finden</span>
-                <kbd className="ml-auto inline-flex items-center gap-0.5 px-1.5 py-0.5 font-mono text-xs font-medium text-muted-foreground rounded border border-border">
-                  <span>O</span>
-                  <ArrowRight className="h-3 w-3" />
-                  <span>F</span>
-                </kbd>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setSequentialModeOpen(true)}>
-                <Layers className="mr-2 h-4 w-4" />
-                <span>Eintragen</span>
-                <kbd className="ml-auto inline-flex items-center gap-0.5 px-1.5 py-0.5 font-mono text-xs font-medium text-muted-foreground rounded border border-border">
-                  <span>O</span>
-                  <ArrowRight className="h-3 w-3" />
-                  <span>O</span>
-                </kbd>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/overdue" className="flex items-center justify-between cursor-pointer">
-                  <div className="flex items-center">
-                    <AlertCircle className="mr-2 h-4 w-4" />
-                    <span>Überfällige Ausleihen</span>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              sideOffset={8}
+              className="w-[calc(100vw-2rem)] max-w-[520px] p-0"
+              role="menu"
+              aria-label="Navigations-Menü"
+            >
+              <div className="p-4 space-y-4">
+                {/* Actions Category */}
+                <section>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 px-1">
+                    Mehr Aktionen
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <MenuTile
+                      icon={<Search className="h-4 w-4" />}
+                      label="Suche"
+                      description="Suche nach Nutzer, Gegenstand, oder Leihvorgang."
+                      shortcut={{ keys: ['O', 'S'] }}
+                      onClick={() => setCommandMenuOpen(true)}
+                    />
+                    <MenuTile
+                      icon={<Zap className="h-4 w-4" />}
+                      label="Finden"
+                      description="Finde eine ID-Nummer im System."
+                      shortcut={{ keys: ['O', 'F'] }}
+                      onClick={() => setOpen(true)}
+                    />
+                    <MenuTile
+                      icon={<Layers className="h-4 w-4" />}
+                      label="Eintragen"
+                      description="Trage einen neuen Leihvorgang schnell ein."
+                      shortcut={{ keys: ['O', 'O'] }}
+                      onClick={() => setSequentialModeOpen(true)}
+                    />
                   </div>
-                  <kbd className="inline-flex items-center gap-0.5 px-1.5 py-0.5 font-mono text-xs font-medium text-muted-foreground rounded border border-border">
-                    <span>G</span>
-                    <ArrowRight className="h-3 w-3" />
-                    <span>O</span>
-                  </kbd>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/items/analytics" className="flex items-center justify-between cursor-pointer">
-                  <div className="flex items-center">
-                    <BarChart3 className="mr-2 h-4 w-4" />
-                    <span>Inventaranalyse</span>
-                  </div>
-                  <kbd className="inline-flex items-center gap-0.5 px-1.5 py-0.5 font-mono text-xs font-medium text-muted-foreground rounded border border-border">
-                    <span>G</span>
-                    <ArrowRight className="h-3 w-3" />
-                    <span>I</span>
-                  </kbd>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/system-check" className="flex items-center justify-between cursor-pointer">
-                  <div className="flex items-center">
-                    <ClipboardCheck className="mr-2 h-4 w-4" />
-                    <span>Systemcheck</span>
-                  </div>
-                  <kbd className="inline-flex items-center gap-0.5 px-1.5 py-0.5 font-mono text-xs font-medium text-muted-foreground rounded border border-border">
-                    <span>G</span>
-                    <ArrowRight className="h-3 w-3" />
-                    <span>S</span>
-                  </kbd>
-                </Link>
-              </DropdownMenuItem>
+                </section>
 
-              <DropdownMenuItem asChild>
-                <Link href="/label-designer" className="flex items-center justify-between cursor-pointer">
-                  <div className="flex items-center">
-                    <Tag className="mr-2 h-4 w-4" />
-                    <span>Label Designer</span>
+                {/* Tools Category */}
+                <section>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 px-1">
+                    Werkzeuge
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <MenuTile
+                      icon={<AlertCircle className="h-4 w-4" />}
+                      label="Überfällige Ausleihen"
+                      description="Sieh dir schnell alle überfälligen Ausleihen an."
+                      shortcut={{ keys: ['G', 'O'] }}
+                      href="/overdue"
+                    />
+                    <MenuTile
+                      icon={<BarChart3 className="h-4 w-4" />}
+                      label="Inventaranalyse"
+                      description="Sieh dir an, welche Gegenstände beliebt sind, und welche nicht genutzt werden."
+                      shortcut={{ keys: ['G', 'I'] }}
+                      href="/items/analytics"
+                    />
+                    <MenuTile
+                      icon={<ClipboardCheck className="h-4 w-4" />}
+                      label="Systemcheck"
+                      description="Prüfe die Leihumschläge gegen die Informationen in der Datenbank."
+                      shortcut={{ keys: ['G', 'S'] }}
+                      href="/system-check"
+                    />
+                    <MenuTile
+                      icon={<Tag className="h-4 w-4" />}
+                      label="Label Designer"
+                      description="Erstelle und drucke Etiketten für Gegenstände."
+                      shortcut={{ keys: ['G', 'P'] }}
+                      href="/label-designer"
+                    />
                   </div>
-                  <kbd className="inline-flex items-center gap-0.5 px-1.5 py-0.5 font-mono text-xs font-medium text-muted-foreground rounded border border-border">
-                    <span>G</span>
-                    <ArrowRight className="h-3 w-3" />
-                    <span>P</span>
-                  </kbd>
-                </Link>
-              </DropdownMenuItem>
+                </section>
 
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/logs" className="flex items-center justify-between cursor-pointer">
-                  <div className="flex items-center">
-                    <FileText className="mr-2 h-4 w-4" />
-                    <span>Logs</span>
+                {/* System Category */}
+                <section>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 px-1">
+                    System
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <MenuTile
+                      icon={<FileText className="h-4 w-4" />}
+                      label="Logs"
+                      description="Sieh dir alle Kommunikation mit dem Server an."
+                      shortcut={{ keys: ['G', 'L'] }}
+                      href="/logs"
+                    />
+                    <MenuTile
+                      icon={<Keyboard className="h-4 w-4" />}
+                      label="Tastaturkürzel"
+                      description="Sieh eine Liste aller Kurzbefehle an."
+                      shortcut={{ keys: ['/'] }}
+                      onClick={() => setKeyboardShortcutsOpen(true)}
+                    />
+                    <MenuTile
+                      icon={<LogOut className="h-4 w-4" />}
+                      label="Trennen"
+                      description="Trenne LLKA-V2 vom Server."
+                      onClick={logout}
+                    />
                   </div>
-                  <kbd className="inline-flex items-center gap-0.5 px-1.5 py-0.5 font-mono text-xs font-medium text-muted-foreground rounded border border-border">
-                    <span>G</span>
-                    <ArrowRight className="h-3 w-3" />
-                    <span>L</span>
-                  </kbd>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setKeyboardShortcutsOpen(true)}>
-                <Keyboard className="mr-2 h-4 w-4" />
-                <span>Tastaturkürzel</span>
-                <kbd className="ml-auto inline-flex items-center gap-0.5 px-1.5 py-0.5 font-mono text-xs font-medium text-muted-foreground rounded border border-border">
-                  <span>/</span>
-                </kbd>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={logout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Abmelden</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                </section>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
     </nav>

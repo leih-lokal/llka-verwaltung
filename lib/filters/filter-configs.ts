@@ -80,6 +80,18 @@ export const customersFilterConfig: EntityFilterConfig = {
         { value: 'false', label: 'Nein' },
       ],
     },
+    {
+      id: 'highlight_color',
+      label: 'Markierung',
+      type: 'category',
+      field: 'highlight_color',
+      options: [
+        { value: 'green', label: 'Grün (Team-Mitglied)' },
+        { value: 'blue', label: 'Blau' },
+        { value: 'yellow', label: 'Gelb' },
+        { value: 'red', label: 'Rot' },
+      ],
+    },
   ],
 };
 
