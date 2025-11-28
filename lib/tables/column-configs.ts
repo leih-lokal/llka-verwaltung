@@ -48,12 +48,6 @@ export const customersColumnConfig: EntityColumnConfig = {
       sortable: true,
     },
     {
-      id: 'heard',
-      label: 'Gehört über',
-      defaultVisible: true,
-      sortable: true,
-    },
-    {
       id: 'registered_on',
       label: 'Registriert',
       defaultVisible: true,

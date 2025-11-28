@@ -6,11 +6,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { PencilIcon, SaveIcon, XIcon, MailIcon, PhoneIcon, MapPinIcon, CalendarIcon, Trash2Icon } from 'lucide-react';
+import { PencilIcon, SaveIcon, XIcon, MailIcon, PhoneIcon, MapPinIcon, CalendarIcon, Trash2Icon, UserIcon, PaletteIcon, Heart } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -18,6 +18,7 @@ import {
   SheetTitle,
   SheetFooter,
 } from '@/components/ui/sheet';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -32,7 +33,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { collections } from '@/lib/pocketbase/client';
-import { formatDate, formatCurrency, calculateRentalStatus } from '@/lib/utils/formatting';
+import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate } from '@/lib/utils/formatting';
 import { getRentalStatusLabel } from '@/lib/constants/statuses';
 import type { Customer, CustomerFormData, Rental, RentalExpanded, Reservation, ReservationExpanded, HighlightColor } from '@/types';
 
@@ -48,7 +49,6 @@ const customerSchema = z.object({
   city: z.string().optional(),
   registered_on: z.string(),
   renewed_on: z.string().optional(),
-  heard: z.string().optional(),
   newsletter: z.boolean(),
   remark: z.string().optional(),
   highlight_color: z.enum(['green', 'blue', 'yellow', 'red', '']).optional(),
@@ -92,9 +92,8 @@ export function CustomerDetailSheet({
       street: '',
       postal_code: '',
       city: '',
-      registered_on: new Date().toISOString().split('T')[0],
+      registered_on: dateToLocalString(new Date()),
       renewed_on: '',
-      heard: '',
       newsletter: false,
       remark: '',
       highlight_color: '',
@@ -107,7 +106,7 @@ export function CustomerDetailSheet({
   useEffect(() => {
     if (customer && customer.id) {
       // Existing customer - load all data
-      form.reset({
+      const formData = {
         iid: customer.iid,
         firstname: customer.firstname,
         lastname: customer.lastname,
@@ -116,13 +115,14 @@ export function CustomerDetailSheet({
         street: customer.street || '',
         postal_code: customer.postal_code || '',
         city: customer.city || '',
-        registered_on: customer.registered_on.split('T')[0],
-        renewed_on: customer.renewed_on?.split('T')[0] || '',
-        heard: customer.heard || '',
+        // Extract just the date part (YYYY-MM-DD) from PocketBase format (YYYY-MM-DD HH:MM:SS.000Z)
+        registered_on: customer.registered_on.split(' ')[0],
+        renewed_on: customer.renewed_on ? customer.renewed_on.split(' ')[0] : '',
         newsletter: customer.newsletter,
         remark: customer.remark || '',
         highlight_color: (customer.highlight_color || '') as '' | 'green' | 'blue' | 'yellow' | 'red',
-      });
+      };
+      form.reset(formData);
       setIsEditMode(false);
     } else if (customer && !customer.id) {
       // Partial customer data (e.g., from reservation) - pre-fill what we have
@@ -142,9 +142,8 @@ export function CustomerDetailSheet({
             street: customer.street || '',
             postal_code: customer.postal_code || '',
             city: customer.city || '',
-            registered_on: new Date().toISOString().split('T')[0],
+            registered_on: dateToLocalString(new Date()),
             renewed_on: '',
-            heard: '',
             newsletter: false,
             remark: '',
             highlight_color: '',
@@ -170,9 +169,8 @@ export function CustomerDetailSheet({
             street: '',
             postal_code: '',
             city: '',
-            registered_on: new Date().toISOString().split('T')[0],
+            registered_on: dateToLocalString(new Date()),
             renewed_on: '',
-            heard: '',
             newsletter: false,
             remark: '',
             highlight_color: '',
@@ -188,9 +186,8 @@ export function CustomerDetailSheet({
             street: '',
             postal_code: '',
             city: '',
-            registered_on: new Date().toISOString().split('T')[0],
+            registered_on: dateToLocalString(new Date()),
             renewed_on: '',
-            heard: '',
             newsletter: false,
             remark: '',
             highlight_color: '',
@@ -250,10 +247,9 @@ export function CustomerDetailSheet({
         city: data.city || undefined,
         registered_on: data.registered_on,
         renewed_on: data.renewed_on || undefined,
-        heard: data.heard || undefined,
         newsletter: data.newsletter,
         remark: data.remark || undefined,
-        highlight_color: (data.highlight_color as HighlightColor) || undefined,
+        highlight_color: data.highlight_color ? (data.highlight_color as HighlightColor) : ('' as any),
       };
 
       let savedCustomer: Customer;
@@ -428,11 +424,12 @@ export function CustomerDetailSheet({
 
           <form onSubmit={form.handleSubmit(handleSave)} className={isEditMode ? "space-y-6 px-6" : "space-y-4 px-6"}>
             {isEditMode ? (
-              /* Edit Mode - Traditional Form Layout */
+              /* Edit Mode - Card-Based Layout */
               <>
                 {/* Basic Information */}
-                <section className="space-y-3">
-                  <div className="border-b pb-1 mb-2">
+                <section className="rounded-lg border bg-muted/30 p-4 space-y-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <UserIcon className="size-4 text-muted-foreground" />
                     <h3 className="font-semibold text-base">Basisdaten</h3>
                   </div>
                   <div className="space-y-3">
@@ -443,7 +440,7 @@ export function CustomerDetailSheet({
                         id="iid"
                         type="number"
                         {...form.register('iid', { valueAsNumber: true })}
-                        className="mt-1"
+                        className="mt-1.5"
                       />
                       {form.formState.errors.iid && (
                         <p className="text-sm text-destructive mt-1">
@@ -459,7 +456,7 @@ export function CustomerDetailSheet({
                         <Input
                           id="firstname"
                           {...form.register('firstname')}
-                          className="mt-1"
+                          className="mt-1.5"
                         />
                         {form.formState.errors.firstname && (
                           <p className="text-sm text-destructive mt-1">
@@ -473,7 +470,7 @@ export function CustomerDetailSheet({
                         <Input
                           id="lastname"
                           {...form.register('lastname')}
-                          className="mt-1"
+                          className="mt-1.5"
                         />
                         {form.formState.errors.lastname && (
                           <p className="text-sm text-destructive mt-1">
@@ -491,7 +488,7 @@ export function CustomerDetailSheet({
                           id="email"
                           type="email"
                           {...form.register('email')}
-                          className="mt-1"
+                          className="mt-1.5"
                         />
                         {form.formState.errors.email && (
                           <p className="text-sm text-destructive mt-1">
@@ -505,7 +502,7 @@ export function CustomerDetailSheet({
                         <Input
                           id="phone"
                           {...form.register('phone')}
-                          className="mt-1"
+                          className="mt-1.5"
                         />
                       </div>
                     </div>
@@ -513,8 +510,9 @@ export function CustomerDetailSheet({
                 </section>
 
                 {/* Address */}
-                <section className="space-y-3">
-                  <div className="border-b pb-1 mb-2">
+                <section className="rounded-lg border bg-muted/30 p-4 space-y-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <MapPinIcon className="size-4 text-muted-foreground" />
                     <h3 className="font-semibold text-base">Adresse</h3>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -523,7 +521,7 @@ export function CustomerDetailSheet({
                       <Input
                         id="street"
                         {...form.register('street')}
-                        className="mt-1"
+                        className="mt-1.5"
                       />
                     </div>
 
@@ -532,7 +530,7 @@ export function CustomerDetailSheet({
                       <Input
                         id="postal_code"
                         {...form.register('postal_code')}
-                        className="mt-1"
+                        className="mt-1.5"
                       />
                     </div>
 
@@ -541,81 +539,152 @@ export function CustomerDetailSheet({
                       <Input
                         id="city"
                         {...form.register('city')}
-                        className="mt-1"
+                        className="mt-1.5"
                       />
                     </div>
                   </div>
                 </section>
 
                 {/* Registration Details */}
-                <section className="space-y-3">
-                  <div className="border-b pb-1 mb-2">
+                <section className="rounded-lg border bg-muted/30 p-4 space-y-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <CalendarIcon className="size-4 text-muted-foreground" />
                     <h3 className="font-semibold text-base">Registrierung</h3>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor="registered_on">Registriert am</Label>
-                      <Input
-                        id="registered_on"
-                        type="date"
-                        {...form.register('registered_on')}
-                        className="mt-1"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="renewed_on">Verlängert am</Label>
-                      <Input
-                        id="renewed_on"
-                        type="date"
-                        {...form.register('renewed_on')}
-                        className="mt-1"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="heard">Gehört über</Label>
-                      <Input
-                        id="heard"
-                        {...form.register('heard')}
-                        className="mt-1"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="newsletter">Newsletter</Label>
-                      <div className="flex items-center mt-1">
-                        <input
-                          id="newsletter"
-                          type="checkbox"
-                          {...form.register('newsletter')}
-                          className="mr-2"
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="registered_on">Registriert am</Label>
+                        <Controller
+                          name="registered_on"
+                          control={form.control}
+                          render={({ field }) => (
+                            <Input
+                              id="registered_on"
+                              type="date"
+                              value={field.value || ''}
+                              onChange={field.onChange}
+                              onBlur={field.onBlur}
+                              name={field.name}
+                              ref={field.ref}
+                              className="mt-1.5"
+                            />
+                          )}
                         />
-                        <span className="text-sm">Abonniert</span>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="renewed_on">Verlängert am</Label>
+                        <div className="flex gap-2 mt-1.5">
+                          <Controller
+                            name="renewed_on"
+                            control={form.control}
+                            render={({ field }) => (
+                              <Input
+                                id="renewed_on"
+                                type="date"
+                                value={field.value || ''}
+                                onChange={field.onChange}
+                                onBlur={field.onBlur}
+                                name={field.name}
+                                ref={field.ref}
+                                className="flex-1"
+                              />
+                            )}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => form.setValue('renewed_on', dateToLocalString(new Date()), { shouldDirty: true })}
+                            className="px-3"
+                            title="Heute"
+                          >
+                            Heute
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="newsletter" className="text-sm font-medium">Newsletter</Label>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Checkbox
+                          id="newsletter"
+                          checked={form.watch('newsletter')}
+                          onCheckedChange={(checked) => form.setValue('newsletter', checked as boolean)}
+                        />
+                        <span className="text-sm text-muted-foreground">Newsletter abonniert</span>
                       </div>
                     </div>
                   </div>
                 </section>
 
                 {/* Additional Information */}
-                <section className="space-y-3">
-                  <div className="border-b pb-1 mb-2">
+                <section className="rounded-lg border bg-muted/30 p-4 space-y-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <PaletteIcon className="size-4 text-muted-foreground" />
                     <h3 className="font-semibold text-base">Zusätzliche Informationen</h3>
                   </div>
                   <div className="space-y-3">
                     <div>
-                      <Label htmlFor="highlight_color">Markierungsfarbe</Label>
-                      <select
-                        id="highlight_color"
-                        {...form.register('highlight_color')}
-                        className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      >
-                        <option value="">Keine</option>
-                        <option value="green">Grün</option>
-                        <option value="blue">Blau</option>
-                        <option value="yellow">Gelb</option>
-                        <option value="red">Rot</option>
-                      </select>
+                      <Label className="text-sm font-medium mb-2 block">Markierungsfarbe</Label>
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          type="button"
+                          onClick={() => form.setValue('highlight_color', '')}
+                          className={`w-12 h-12 rounded-md border-2 transition-all bg-muted hover:bg-muted/80 flex items-center justify-center ${
+                            !form.watch('highlight_color')
+                              ? 'border-primary ring-2 ring-primary/20 scale-105'
+                              : 'border-border hover:border-primary/50'
+                          }`}
+                          title="Keine Markierung"
+                        >
+                          <span className="text-xs text-muted-foreground font-medium">—</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => form.setValue('highlight_color', 'green')}
+                          className={`w-12 h-12 rounded-md border-2 transition-all bg-green-100 dark:bg-green-950/30 flex items-center justify-center ${
+                            form.watch('highlight_color') === 'green'
+                              ? 'border-green-500 ring-2 ring-green-500/20 scale-105'
+                              : 'border-green-300 dark:border-green-800 hover:border-green-500'
+                          }`}
+                          title="Grün"
+                        >
+                          <Heart className="h-5 w-5 text-green-600 dark:text-green-400 fill-green-600 dark:fill-green-400" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => form.setValue('highlight_color', 'blue')}
+                          className={`w-12 h-12 rounded-md border-2 transition-all bg-blue-100 dark:bg-blue-950/30 ${
+                            form.watch('highlight_color') === 'blue'
+                              ? 'border-blue-500 ring-2 ring-blue-500/20 scale-105'
+                              : 'border-blue-300 dark:border-blue-800 hover:border-blue-500'
+                          }`}
+                          title="Blau"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => form.setValue('highlight_color', 'yellow')}
+                          className={`w-12 h-12 rounded-md border-2 transition-all bg-yellow-100 dark:bg-yellow-950/30 ${
+                            form.watch('highlight_color') === 'yellow'
+                              ? 'border-yellow-500 ring-2 ring-yellow-500/20 scale-105'
+                              : 'border-yellow-300 dark:border-yellow-800 hover:border-yellow-500'
+                          }`}
+                          title="Gelb"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => form.setValue('highlight_color', 'red')}
+                          className={`w-12 h-12 rounded-md border-2 transition-all bg-red-100 dark:bg-red-950/30 ${
+                            form.watch('highlight_color') === 'red'
+                              ? 'border-red-500 ring-2 ring-red-500/20 scale-105'
+                              : 'border-red-300 dark:border-red-800 hover:border-red-500'
+                          }`}
+                          title="Rot"
+                        />
+                      </div>
                     </div>
 
                     <div>
@@ -623,7 +692,7 @@ export function CustomerDetailSheet({
                       <Textarea
                         id="remark"
                         {...form.register('remark')}
-                        className="mt-1"
+                        className="mt-1.5"
                         rows={3}
                       />
                     </div>

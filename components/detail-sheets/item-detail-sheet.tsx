@@ -33,7 +33,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { collections, pb } from '@/lib/pocketbase/client';
-import { formatDate, formatCurrency, calculateRentalStatus } from '@/lib/utils/formatting';
+import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate } from '@/lib/utils/formatting';
 import type { Item, ItemFormData, RentalExpanded, ItemCategory, ItemStatus, HighlightColor } from '@/types';
 import { CATEGORY_OPTIONS, GERMAN_CATEGORY_VALUES } from '@/lib/constants/categories';
 import { RentalDetailSheet } from './rental-detail-sheet';
@@ -109,7 +109,7 @@ export function ItemDetailSheet({
       status: 'instock',
       highlight_color: '',
       internal_note: '',
-      added_on: new Date().toISOString().split('T')[0],
+      added_on: dateToLocalString(new Date()),
     },
   });
 
@@ -134,7 +134,8 @@ export function ItemDetailSheet({
         status: item.status,
         highlight_color: (item.highlight_color || '') as '' | 'green' | 'blue' | 'yellow' | 'red',
         internal_note: item.internal_note || '',
-        added_on: item.added_on.split('T')[0],
+        // Extract just the date part (YYYY-MM-DD) from PocketBase format (YYYY-MM-DD HH:MM:SS.000Z)
+        added_on: item.added_on.split(' ')[0],
       });
       // Load existing images
       setExistingImages(item.images || []);
@@ -163,7 +164,7 @@ export function ItemDetailSheet({
             status: 'instock',
             highlight_color: '',
             internal_note: '',
-            added_on: new Date().toISOString().split('T')[0],
+            added_on: dateToLocalString(new Date()),
           });
         } catch (err) {
           // If no items exist yet, start with 1
@@ -183,7 +184,7 @@ export function ItemDetailSheet({
             status: 'instock',
             highlight_color: '',
             internal_note: '',
-            added_on: new Date().toISOString().split('T')[0],
+            added_on: dateToLocalString(new Date()),
           });
         }
       };

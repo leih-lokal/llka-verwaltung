@@ -365,18 +365,7 @@ export default function CustomersPage() {
             />
           </th>
         );
-      case 'heard':
-        return (
-          <th key="heard" className="px-4 py-2 text-left">
-            <SortableHeader
-              label="Gehört über"
-              sortDirection={getSortDirection('heard')}
-              onSort={() => handleSort('heard')}
-              disabled={isLoading}
-            />
-          </th>
-        );
-        case 'newsletter':
+      case 'newsletter':
           return (
             <th key="newsletter" className="px-4 py-2 text-left" title="Newsletter">
               <SortableHeader
@@ -492,12 +481,6 @@ export default function CustomersPage() {
             {customer.renewed_on
               ? new Date(customer.renewed_on).toLocaleDateString('de-DE')
               : '—'}
-          </td>
-        );
-      case 'heard':
-        return (
-          <td key="heard" className="px-4 py-3 text-sm">
-            {customer.heard || '—'}
           </td>
         );
       case 'newsletter':
