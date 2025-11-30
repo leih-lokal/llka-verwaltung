@@ -413,6 +413,12 @@ export interface Reservation extends BaseRecord {
 
   /** Pickup date/time */
   pickup: string;
+
+  /** Server-generated 6-digit OTP (read-only) */
+  otp?: string;
+
+  /** Whether customer is picking up on premises */
+  on_premises: boolean;
 }
 
 /**
@@ -436,6 +442,7 @@ export interface ReservationFormData {
   comments?: string;
   item_ids: string[];
   pickup: Date;
+  on_premises: boolean;
 }
 
 // ============================================================================

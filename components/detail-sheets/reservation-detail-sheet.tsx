@@ -61,6 +61,7 @@ const reservationSchema = z.object({
   pickup: z.string(),
   comments: z.string().optional(),
   done: z.boolean(),
+  on_premises: z.boolean(),
 });
 
 type ReservationFormValues = z.infer<typeof reservationSchema>;
@@ -104,6 +105,7 @@ export function ReservationDetailSheet({
       pickup: new Date().toISOString().slice(0, 16), // YYYY-MM-DDTHH:MM
       comments: '',
       done: false,
+      on_premises: false,
     },
   });
 
@@ -167,6 +169,7 @@ export function ReservationDetailSheet({
         pickup: reservation.pickup.slice(0, 16), // Convert to datetime-local format
         comments: reservation.comments || '',
         done: reservation.done,
+        on_premises: reservation.on_premises,
       });
     } else if (isNewReservation) {
       form.reset({
@@ -179,6 +182,7 @@ export function ReservationDetailSheet({
         pickup: new Date().toISOString().slice(0, 16),
         comments: '',
         done: false,
+        on_premises: false,
       });
     }
   }, [reservation, isNewReservation, form]);
@@ -215,6 +219,7 @@ export function ReservationDetailSheet({
         pickup: pickupISO,
         comments: data.comments || undefined,
         done: data.done,
+        on_premises: data.on_premises,
       };
 
       let savedReservation: Reservation;
@@ -327,6 +332,25 @@ export function ReservationDetailSheet({
               )}
             </div>
           </SheetHeader>
+
+          {/* OTP Display - Prominent Section */}
+          {!isNewReservation && reservation?.otp && (
+            <div className="mx-6 mb-6 bg-gradient-to-r from-red-50 to-indigo-50 border-2 border-red-300 rounded-lg p-6 shadow-sm">
+              <div className="text-center">
+                <p className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-2">
+                  Abholcode
+                </p>
+                <div className="bg-white rounded-lg px-6 py-4 inline-block shadow-sm">
+                  <p className="text-5xl font-bold font-mono tracking-widest text-red-600">
+                    {reservation.otp}
+                  </p>
+                </div>
+                <p className="text-xs text-red-600 mt-3">
+                  Diesen Code mit der Email des Nutzers vergleichen
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="flex-1 overflow-y-auto">
             <form onSubmit={form.handleSubmit(handleSave)} className="space-y-8 px-6">
@@ -642,6 +666,17 @@ export function ReservationDetailSheet({
                   />
                   <Label htmlFor="done" className="cursor-pointer">
                     Reservierung erledigt
+                  </Label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    id="on_premises"
+                    type="checkbox"
+                    {...form.register('on_premises')}
+                  />
+                  <Label htmlFor="on_premises" className="cursor-pointer">
+                    Abholung vor Ort
                   </Label>
                 </div>
               </div>

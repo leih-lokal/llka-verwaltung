@@ -338,6 +338,24 @@ export const reservationsColumnConfig: EntityColumnConfig = {
       sortField: 'done',
     },
     {
+      id: 'actions',
+      label: 'Aktionen',
+      defaultVisible: true,
+      sortable: false,
+    },
+    {
+      id: 'on_premises',
+      label: 'Vor Ort',
+      defaultVisible: true,
+      sortable: true,
+    },
+    {
+      id: 'otp',
+      label: 'OTP',
+      defaultVisible: false,
+      sortable: false,
+    },
+    {
       id: 'customer_phone',
       label: 'Telefon',
       defaultVisible: false,

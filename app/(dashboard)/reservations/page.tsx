@@ -7,7 +7,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { PlusIcon, CheckCircle2Icon, UserPlus, Check, X } from 'lucide-react';
+import { PlusIcon, CheckCircle2Icon, UserPlus, Check, X, ArrowRightIcon } from 'lucide-react';
 import { SearchBar } from '@/components/search/search-bar';
 import { FilterPopover } from '@/components/search/filter-popover';
 import { SortableHeader, type SortDirection } from '@/components/table/sortable-header';
@@ -451,6 +451,29 @@ export default function ReservationsPage() {
             />
           </th>
         );
+      case 'on_premises':
+        return (
+          <th key="on_premises" className="px-4 py-2 text-left">
+            <SortableHeader
+              label="Vor Ort"
+              sortDirection={getSortDirection('on_premises')}
+              onSort={() => handleSort('on_premises')}
+              disabled={isLoading}
+            />
+          </th>
+        );
+      case 'otp':
+        return (
+          <th key="otp" className="px-4 py-2 text-left">
+            <span className="text-sm font-medium">OTP</span>
+          </th>
+        );
+      case 'actions':
+        return (
+          <th key="actions" className="px-4 py-2 text-center">
+            <span className="text-sm font-medium">Aktionen</span>
+          </th>
+        );
       default:
         return null;
     }
@@ -538,6 +561,41 @@ export default function ReservationsPage() {
         return (
           <td key="comments" className="px-4 py-3 text-sm">
             {reservation.comments || '—'}
+          </td>
+        );
+      case 'on_premises':
+        return (
+          <td key="on_premises" className="px-4 py-3 text-sm">
+            {reservation.on_premises ? (
+              <Check className="size-4 text-green-600" />
+            ) : (
+              <X className="size-4 text-muted-foreground" />
+            )}
+          </td>
+        );
+      case 'otp':
+        return (
+          <td key="otp" className="px-4 py-3 text-sm font-mono">
+            {reservation.otp || '—'}
+          </td>
+        );
+      case 'actions':
+        return (
+          <td key="actions" className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-center">
+              <Button
+                size="sm"
+                variant="default"
+                className="h-8"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleConvertToRental(reservation);
+                }}
+                title="In Ausleihe umwandeln"
+              >
+                <ArrowRightIcon className="h-4 w-4" />
+              </Button>
+            </div>
           </td>
         );
       default:

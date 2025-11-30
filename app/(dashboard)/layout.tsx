@@ -10,6 +10,7 @@ import { GlobalCommandMenu } from '@/components/search/global-command-menu';
 import { QuickFindModal } from '@/components/search/quick-find-modal';
 import { SequentialModeModal } from '@/components/sequential-mode/sequential-mode-modal';
 import { RealtimeStatus } from '@/components/ui/realtime-status';
+import { OnPremisesNotification } from '@/components/notifications/on-premises-notification';
 import { QuickFindProvider, useQuickFind } from '@/hooks/use-quick-find';
 import { IdentityProvider, useIdentity } from '@/hooks/use-identity';
 import { SequentialModeProvider, useSequentialMode } from '@/hooks/use-sequential-mode';
@@ -77,6 +78,7 @@ export default function DashboardLayout({
                   <QuickFindModal />
                   <SequentialModeModal />
                   <RealtimeStatus />
+                  <OnPremisesNotification />
                   <KeyboardShortcutBridge />
                 </div>
               </QuickFindProvider>

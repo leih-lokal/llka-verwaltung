@@ -1,5 +1,7 @@
 # leih.lokal Verwaltung
 
+![Screenshot](sshot.png)
+
 Modern library management system built with Next.js 15, React 19, and PocketBase.
 
 ## Tech Stack

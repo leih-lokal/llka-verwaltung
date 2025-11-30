@@ -163,6 +163,22 @@ export function TodaysReservationsSection({
 
     return (
       <div className="p-3 rounded-lg border bg-muted/50">
+        {/* OTP Display - Prominent */}
+        {reservation.otp && (
+          <div className="mb-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-300 rounded-md p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-blue-600 uppercase">
+                Abholcode
+              </span>
+              <div className="bg-white rounded px-3 py-1 shadow-sm">
+                <span className="text-2xl font-bold font-mono tracking-wider text-blue-600">
+                  {reservation.otp}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
@@ -304,6 +320,21 @@ export function TodaysReservationsSection({
                       </span>
                     )}
                   </div>
+
+                  {/* OTP Display - Prominent in Print */}
+                  {reservation.otp && (
+                    <div className="my-2 border-2 border-blue-300 bg-blue-50 rounded p-3 inline-block">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-semibold text-blue-600 uppercase">
+                          Abholcode:
+                        </span>
+                        <span className="text-3xl font-bold font-mono tracking-widest text-blue-600">
+                          {reservation.otp}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   <p className="text-sm text-gray-600 mb-1">
                     Abholung: {formatDateTime(reservation.pickup)}
                   </p>
