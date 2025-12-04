@@ -113,7 +113,7 @@ export function generateCustomerPrintContent({
     <html lang="de">
     <head>
       <meta charset="UTF-8">
-      <title>Kundendetails - ${customer.firstname} ${customer.lastname}</title>
+      <title>Nutzerdetails - ${customer.firstname} ${customer.lastname}</title>
       <style>
         * {
           box-sizing: border-box;
@@ -297,7 +297,7 @@ export function generateCustomerPrintContent({
     </head>
     <body>
       <div class="header">
-        <h1>Kundendetails</h1>
+        <h1>Nutzerdetails</h1>
         <div class="subtitle">leih.lokal Karlsruhe</div>
       </div>
 
@@ -332,7 +332,7 @@ export function generateCustomerPrintContent({
         <div class="section">
           <div class="alert-box">
             <div class="alert-title">⚠️ Überfällige Leihvorgänge: ${overdueRentals.length}</div>
-            <div>Dieser Kunde hat überfällige Rückgaben. Bitte kontaktieren.</div>
+            <div>Dieser Nutzer hat überfällige Rückgaben. Bitte kontaktieren.</div>
           </div>
         </div>
       ` : ''}
@@ -347,7 +347,7 @@ export function generateCustomerPrintContent({
       ` : ''}
 
       <div class="section">
-        <div class="section-title">Kundeninformation</div>
+        <div class="section-title">Nutzerinformation</div>
         <div class="info-grid">
           <div class="info-item">
             <span class="info-label">Registriert am:</span>

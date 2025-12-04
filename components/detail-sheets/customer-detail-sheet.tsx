@@ -256,20 +256,23 @@ export function CustomerDetailSheet({
       let savedCustomer: Customer;
       if (isNewCustomer) {
         savedCustomer = await collections.customers().create<Customer>(formData);
-        toast.success('Kunde erfolgreich erstellt');
+        toast.success('Nutzer:in erfolgreich erstellt');
+        // Force reload after creating new customer to ensure clean state
+        onSave?.(savedCustomer);
+        onOpenChange(false);
+        window.location.reload();
       } else if (customer) {
         savedCustomer = await collections.customers().update<Customer>(customer.id, formData);
-        toast.success('Kunde erfolgreich aktualisiert');
+        toast.success('Nutzer:in erfolgreich aktualisiert');
+        onSave?.(savedCustomer);
+        setIsEditMode(false);
+        onOpenChange(false);
       } else {
         return;
       }
-
-      onSave?.(savedCustomer);
-      setIsEditMode(false);
-      onOpenChange(false);
     } catch (err) {
       console.error('Error saving customer:', err);
-      toast.error('Fehler beim Speichern des Kunden');
+      toast.error('Fehler beim Speichern des Nutzers');
     } finally {
       setIsLoading(false);
     }
@@ -303,13 +306,13 @@ export function CustomerDetailSheet({
     setIsLoading(true);
     try {
       await collections.customers().delete(customer.id);
-      toast.success('Kunde erfolgreich gelöscht');
+      toast.success('Nutzer:in erfolgreich gelöscht');
       setShowDeleteDialog(false);
       onSave?.(customer);
       onOpenChange(false);
     } catch (err) {
       console.error('Error deleting customer:', err);
-      toast.error('Fehler beim Löschen des Kunden');
+      toast.error('Fehler beim Löschen des Nutzers');
     } finally {
       setIsLoading(false);
     }
@@ -375,7 +378,7 @@ export function CustomerDetailSheet({
                 <div className="flex items-baseline gap-3 mb-2">
                   <SheetTitle className="text-2xl">
                     {isNewCustomer
-                      ? 'Neuer Kunde'
+                      ? 'Neuer Nutzer'
                       : `${customer?.firstname} ${customer?.lastname}`
                     }
                   </SheetTitle>
@@ -433,7 +436,7 @@ export function CustomerDetailSheet({
                 }`}>
                   <div className="flex items-center gap-2">
                     {getHighlightColorBadge(customer.highlight_color)}
-                    <span className="text-sm font-medium">Markierter Kunde</span>
+                    <span className="text-sm font-medium">Markierter Nutzer</span>
                   </div>
                 </div>
               )}
@@ -1035,7 +1038,7 @@ export function CustomerDetailSheet({
           <DialogHeader>
             <DialogTitle>Kunde löschen?</DialogTitle>
             <DialogDescription>
-              Möchten Sie diesen Kunden wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
+              Möchten Sie diesen Nutzer wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

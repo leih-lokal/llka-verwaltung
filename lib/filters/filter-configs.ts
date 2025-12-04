@@ -254,12 +254,12 @@ export const reservationsFilterConfig: EntityFilterConfig = {
   categoryFilters: [
     {
       id: 'is_new_customer',
-      label: 'Kundentyp',
+      label: 'Nutzertyp',
       type: 'boolean',
       field: 'is_new_customer',
       options: [
-        { value: 'true', label: 'Neukunde' },
-        { value: 'false', label: 'Bestandskunde' },
+        { value: 'true', label: 'Townie' },
+        { value: 'false', label: 'Bestandsnutzer' },
       ],
     },
   ],

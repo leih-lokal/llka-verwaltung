@@ -302,7 +302,7 @@ export const reservationsColumnConfig: EntityColumnConfig = {
   columns: [
     {
       id: 'is_new_customer',
-      label: 'Neukunde?',
+      label: 'Neunutzer?',
       defaultVisible: true,
       sortable: true,
     },
@@ -369,7 +369,7 @@ export const reservationsColumnConfig: EntityColumnConfig = {
     },
     {
       id: 'customer_iid',
-      label: 'Kunden-ID',
+      label: 'Nutzer-ID',
       defaultVisible: false,
       sortable: true,
     },

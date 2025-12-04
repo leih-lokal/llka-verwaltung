@@ -53,7 +53,7 @@ import { CustomerDetailSheet } from './customer-detail-sheet';
 // Validation schema
 const reservationSchema = z.object({
   customer_iid: z.number().optional(),
-  customer_name: z.string().min(1, 'Kundenname ist erforderlich'),
+  customer_name: z.string().min(1, 'Nutzername ist erforderlich'),
   customer_phone: z.string().optional(),
   customer_email: z.string().email('Ungültige E-Mail-Adresse').optional().or(z.literal('')),
   is_new_customer: z.boolean(),
@@ -298,7 +298,7 @@ export function ReservationDetailSheet({
     setValue('customer_iid', savedCustomer.iid, { shouldDirty: true });
     setValue('is_new_customer', false, { shouldDirty: true });
 
-    toast.success(`Kunde ${savedCustomer.firstname} ${savedCustomer.lastname} wurde erstellt`);
+    toast.success(`Nutzer ${savedCustomer.firstname} ${savedCustomer.lastname} wurde erstellt`);
   };
 
   return (
@@ -370,7 +370,7 @@ export function ReservationDetailSheet({
                     {isNewCustomer && <CheckIcon className="h-3 w-3 text-primary" />}
                   </div>
                   <span className="text-base font-medium">
-                    Neuer Kunde (noch nicht registriert)
+                    Neuer Nutzer (noch nicht registriert)
                   </span>
                 </div>
               </Button>
@@ -379,14 +379,14 @@ export function ReservationDetailSheet({
             {/* Customer and Items Selection */}
             <section className="space-y-4">
               <div className="border-b pb-2 mb-4">
-                <h3 className="font-semibold text-lg">Kunde & Artikel</h3>
+                <h3 className="font-semibold text-lg">Nutzer & Artikel</h3>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 {/* Customer Selection */}
                 <div className="space-y-4">
               {!isNewCustomer && (
                 <div>
-                  <Label>Bestehenden Kunden auswählen</Label>
+                  <Label>Bestehenden Nutzer auswählen</Label>
                   <Popover open={customerSearchOpen} onOpenChange={setCustomerSearchOpen}>
                     <PopoverTrigger asChild>
                       <Button
@@ -398,15 +398,15 @@ export function ReservationDetailSheet({
                       >
                         {selectedCustomer
                           ? `#${String(selectedCustomer.iid).padStart(4, '0')} - ${selectedCustomer.firstname} ${selectedCustomer.lastname}`
-                          : "Kunde auswählen..."}
+                          : "Nutzer auswählen..."}
                         <ChevronsUpDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-full p-0" align="start">
                       <Command>
-                        <CommandInput placeholder="Kunde suchen..." />
+                        <CommandInput placeholder="Nutzer suchen..." />
                         <CommandList>
-                          <CommandEmpty>Kein Kunde gefunden.</CommandEmpty>
+                          <CommandEmpty>Kein Nutzer gefunden.</CommandEmpty>
                           <CommandGroup>
                             {customers.map((customer) => (
                               <CommandItem
@@ -520,10 +520,10 @@ export function ReservationDetailSheet({
                     disabled={!form.watch('customer_name')}
                   >
                     <UserPlusIcon className="size-4 mr-2" />
-                    Als neuen Kunden anlegen
+                    Als neuen Nutzer anlegen
                   </Button>
                   <p className="text-xs text-muted-foreground mt-2 text-center">
-                    Kundendaten in die Datenbank übernehmen
+                    Nutzerdaten in die Datenbank übernehmen
                   </p>
                 </div>
               )}

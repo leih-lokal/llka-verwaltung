@@ -57,7 +57,7 @@ import { generateRentalPrintContent } from '@/components/print/rental-print-cont
 
 // Validation schema
 const rentalSchema = z.object({
-  customer_iid: z.number().min(1, 'Kunde ist erforderlich'),
+  customer_iid: z.number().min(1, 'Nutzer ist erforderlich'),
   item_iids: z.array(z.number()).min(1, 'Mindestens ein Artikel ist erforderlich'),
   deposit: z.number().min(0, 'Kaution muss positiv sein'),
   deposit_back: z.number().min(0, 'Rückkaution muss positiv sein'),

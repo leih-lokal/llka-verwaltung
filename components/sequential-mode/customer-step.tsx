@@ -138,7 +138,7 @@ export function CustomerStep() {
 
         {!isSearching && searchQuery.length >= 2 && results.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
-            Kein/e Kunde/Kundin gefunden
+            Kein/e Nutzer:in gefunden
           </div>
         )}
 

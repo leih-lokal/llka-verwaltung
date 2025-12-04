@@ -284,16 +284,19 @@ export function ItemDetailSheet({
       if (isNewItem) {
         savedItem = await collections.items().create<Item>(formData);
         toast.success('Artikel erfolgreich erstellt');
+        // Force reload after creating new item to ensure clean state
+        onSave?.(savedItem);
+        onOpenChange(false);
+        window.location.reload();
       } else if (item) {
         savedItem = await collections.items().update<Item>(item.id, formData);
         toast.success('Artikel erfolgreich aktualisiert');
+        onSave?.(savedItem);
+        setIsEditMode(false);
+        onOpenChange(false);
       } else {
         return;
       }
-
-      onSave?.(savedItem);
-      setIsEditMode(false);
-      onOpenChange(false);
     } catch (err) {
       console.error('Error saving item:', err);
       toast.error('Fehler beim Speichern des Artikels');
@@ -858,7 +861,7 @@ export function ItemDetailSheet({
                     <table className="w-full text-sm">
                       <thead className="bg-muted/70">
                         <tr className="border-b">
-                          <th className="px-4 py-3 text-left font-semibold">Kunde</th>
+                          <th className="px-4 py-3 text-left font-semibold">Nutzer</th>
                           <th className="px-4 py-3 text-left font-semibold">Ausgeliehen</th>
                           <th className="px-4 py-3 text-left font-semibold">Erwartet</th>
                           <th className="px-4 py-3 text-left font-semibold">Zurückgegeben</th>
@@ -1048,7 +1051,7 @@ export function ItemDetailSheet({
                       <thead className="bg-muted/50">
                         <tr>
                           <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wide px-4 py-3">
-                            Kunde
+                            Nutzer
                           </th>
                           <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wide px-4 py-3">
                             Ausgeliehen

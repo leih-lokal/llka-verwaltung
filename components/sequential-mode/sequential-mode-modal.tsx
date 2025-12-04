@@ -17,7 +17,7 @@ import { CheckCircle2 } from 'lucide-react';
 
 function ProgressIndicator({ currentStep }: { currentStep: 1 | 2 | 3 | 4 }) {
   const steps = [
-    { num: 1, label: 'Kunde' },
+    { num: 1, label: 'Nutzer' },
     { num: 2, label: 'Artikel' },
     { num: 3, label: 'Finalisieren' },
     { num: 4, label: 'Fertig' },
@@ -119,7 +119,7 @@ export function SequentialModeModal() {
   const getStepTitle = () => {
     switch (step) {
       case 1:
-        return 'Kunde auswählen';
+        return 'Nutzer auswählen';
       case 2:
         return 'Artikel hinzufügen';
       case 3:

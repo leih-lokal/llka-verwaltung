@@ -147,7 +147,7 @@ export function OnPremisesNotification() {
                 </div>
                 {notification.is_new_customer && (
                   <Badge className="bg-yellow-400 text-yellow-900 border-0">
-                    Neukunde
+                    Neunutzer
                   </Badge>
                 )}
               </div>

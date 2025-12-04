@@ -67,7 +67,7 @@ export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
   const handleCreateRental = async () => {
     // Validation
     if (!selectedCustomer) {
-      toast.error('Bitte Kunde auswählen');
+      toast.error('Bitte Nutzer auswählen');
       return;
     }
 
@@ -250,7 +250,7 @@ export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
         {/* Summary info */}
         <div className="p-4 rounded-lg bg-muted/50 space-y-2">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Kunde:</span>
+            <span className="text-muted-foreground">Nutzer:</span>
             <span className="font-semibold">
               #{String(selectedCustomer?.iid).padStart(4, '0')} {selectedCustomer?.firstname}{' '}
               {selectedCustomer?.lastname}

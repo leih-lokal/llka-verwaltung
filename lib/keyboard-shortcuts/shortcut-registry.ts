@@ -36,7 +36,7 @@ export const SHORTCUT_REGISTRY: Record<string, ShortcutDefinition[]> = {
   n: [
     {
       sequence: ['n', 'n'],
-      description: 'Neuer Kunde',
+      description: 'Neuer Nutzer',
       category: 'create',
       handler: ({ router }) => router.push('/customers?action=new'),
     },

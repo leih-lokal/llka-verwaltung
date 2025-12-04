@@ -66,7 +66,7 @@ export function SummaryStep() {
       {/* Summary Details */}
       <div className="w-full max-w-md space-y-4 bg-muted/30 rounded-lg p-6">
         <div className="flex justify-between items-center py-2 border-b border-border">
-          <span className="text-muted-foreground font-medium">Kunde:</span>
+          <span className="text-muted-foreground font-medium">Nutzer:</span>
           <span className="font-semibold text-lg">
             #{String(selectedCustomer?.iid).padStart(4, '0')} {selectedCustomer?.firstname}{' '}
             {selectedCustomer?.lastname}

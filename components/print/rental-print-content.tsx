@@ -320,7 +320,7 @@ export function generateRentalPrintContent({
 
       <div class="footer">
         <p>Gedruckt am ${new Date().toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-        <p>Dies ist eine Kundenquittung und dient nur zur Information.</p>
+        <p>Dies ist eine Nutzerquittung und dient nur zur Information.</p>
       </div>
     </body>
     </html>

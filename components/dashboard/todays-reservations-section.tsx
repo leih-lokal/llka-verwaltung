@@ -337,7 +337,7 @@ export function TodaysReservationsSection({
                     </span>
                     {reservation.is_new_customer && (
                       <span className="text-xs px-2 py-1 bg-gray-100 rounded">
-                        Neukunde
+                        Neunutzer:in
                       </span>
                     )}
                   </div>
