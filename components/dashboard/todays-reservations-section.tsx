@@ -1,20 +1,26 @@
 /**
  * Today's reservations section with complete-to-rental functionality
  */
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Calendar, CheckCircle2, ExternalLink, ArrowRight, Printer } from 'lucide-react';
-import { collections } from '@/lib/pocketbase/client';
-import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
-import { formatDate, formatDateTime } from '@/lib/utils/formatting';
-import type { Reservation, ReservationExpanded } from '@/types';
-import { toast } from 'sonner';
-import Link from 'next/link';
-import { parseISO, startOfDay, endOfDay } from 'date-fns';
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Calendar,
+  CheckCircle2,
+  ExternalLink,
+  ArrowRight,
+  Printer,
+} from "lucide-react";
+import { collections } from "@/lib/pocketbase/client";
+import { useRealtimeSubscription } from "@/hooks/use-realtime-subscription";
+import { formatDate, formatDateTime } from "@/lib/utils/formatting";
+import type { Reservation, ReservationExpanded } from "@/types";
+import { toast } from "sonner";
+import Link from "next/link";
+import { parseISO, startOfDay, endOfDay } from "date-fns";
 
 interface TodaysReservationsSectionProps {
   onReservationCompleted?: () => void;
@@ -32,7 +38,7 @@ export function TodaysReservationsSection({
   }, []);
 
   // Real-time subscription for live updates
-  useRealtimeSubscription<Reservation>('reservation', {
+  useRealtimeSubscription<Reservation>("reservation", {
     onCreated: async (reservation) => {
       // Check if reservation is for today and not done
       const today = new Date();
@@ -40,20 +46,24 @@ export function TodaysReservationsSection({
       const endOfToday = endOfDay(today);
       const pickupDate = parseISO(reservation.pickup);
 
-      if (!reservation.done && pickupDate >= startOfToday && pickupDate <= endOfToday) {
+      if (
+        !reservation.done &&
+        pickupDate >= startOfToday &&
+        pickupDate <= endOfToday
+      ) {
         try {
-          const expandedReservation = await collections.reservations().getOne<ReservationExpanded>(
-            reservation.id,
-            { expand: 'items' }
-          );
+          const expandedReservation = await collections
+            .reservations()
+            .getOne<ReservationExpanded>(reservation.id, { expand: "items" });
           setReservations((prev) => {
             if (prev.some((r) => r.id === reservation.id)) return prev;
-            return [...prev, expandedReservation].sort((a, b) =>
-              new Date(a.pickup).getTime() - new Date(b.pickup).getTime()
+            return [...prev, expandedReservation].sort(
+              (a, b) =>
+                new Date(a.pickup).getTime() - new Date(b.pickup).getTime(),
             );
           });
         } catch (err) {
-          console.error('Error fetching expanded reservation:', err);
+          console.error("Error fetching expanded reservation:", err);
         }
       }
     },
@@ -64,20 +74,26 @@ export function TodaysReservationsSection({
       const endOfToday = endOfDay(today);
       const pickupDate = parseISO(reservation.pickup);
 
-      if (!reservation.done && pickupDate >= startOfToday && pickupDate <= endOfToday) {
+      if (
+        !reservation.done &&
+        pickupDate >= startOfToday &&
+        pickupDate <= endOfToday
+      ) {
         try {
-          const expandedReservation = await collections.reservations().getOne<ReservationExpanded>(
-            reservation.id,
-            { expand: 'items' }
-          );
+          const expandedReservation = await collections
+            .reservations()
+            .getOne<ReservationExpanded>(reservation.id, { expand: "items" });
           setReservations((prev) => {
-            const updated = prev.map((r) => (r.id === reservation.id ? expandedReservation : r));
-            return updated.sort((a, b) =>
-              new Date(a.pickup).getTime() - new Date(b.pickup).getTime()
+            const updated = prev.map((r) =>
+              r.id === reservation.id ? expandedReservation : r,
+            );
+            return updated.sort(
+              (a, b) =>
+                new Date(a.pickup).getTime() - new Date(b.pickup).getTime(),
             );
           });
         } catch (err) {
-          console.error('Error fetching expanded reservation:', err);
+          console.error("Error fetching expanded reservation:", err);
         }
       } else {
         // Remove from list if marked as done or not for today
@@ -98,16 +114,18 @@ export function TodaysReservationsSection({
       const endOfToday = endOfDay(today);
 
       // Get reservations for today that are not done
-      const result = await collections.reservations().getFullList<ReservationExpanded>({
-        expand: 'items',
-        filter: `done = false && pickup >= "${startOfToday.toISOString()}" && pickup <= "${endOfToday.toISOString()}"`,
-        sort: 'pickup',
-      });
+      const result = await collections
+        .reservations()
+        .getFullList<ReservationExpanded>({
+          expand: "items",
+          filter: `done = false && pickup >= "${startOfToday.toISOString()}" && pickup <= "${endOfToday.toISOString()}"`,
+          sort: "pickup",
+        });
 
       setReservations(result);
     } catch (error) {
-      console.error('Failed to load reservations:', error);
-      toast.error('Fehler beim Laden der Reservierungen');
+      console.error("Failed to load reservations:", error);
+      toast.error("Fehler beim Laden der Reservierungen");
     } finally {
       setLoading(false);
     }
@@ -116,33 +134,33 @@ export function TodaysReservationsSection({
   async function handleCompleteReservation(reservation: ReservationExpanded) {
     // Redirect to rentals page with pre-filled data from reservation
     const params = new URLSearchParams({
-      action: 'new',
+      action: "new",
       from_reservation: reservation.id,
     });
 
     if (reservation.customer_iid) {
-      params.set('customer_iid', reservation.customer_iid.toString());
+      params.set("customer_iid", reservation.customer_iid.toString());
     }
 
     if (reservation.items && reservation.items.length > 0) {
-      params.set('item_ids', reservation.items.join(','));
+      params.set("item_ids", reservation.items.join(","));
     }
 
     window.location.href = `/rentals?${params.toString()}`;
   }
 
   async function handleMarkAsDone(reservationId: string) {
-    if (!confirm('Reservierung als erledigt markieren?')) return;
+    if (!confirm("Reservierung als erledigt markieren?")) return;
 
     try {
       setCompletingId(reservationId);
       await collections.reservations().update(reservationId, { done: true });
-      toast.success('Reservierung als erledigt markiert');
+      toast.success("Reservierung als erledigt markiert");
       loadReservations();
       onReservationCompleted?.();
     } catch (error) {
-      console.error('Failed to mark reservation as done:', error);
-      toast.error('Fehler beim Aktualisieren der Reservierung');
+      console.error("Failed to mark reservation as done:", error);
+      toast.error("Fehler beim Aktualisieren der Reservierung");
     } finally {
       setCompletingId(null);
     }
@@ -152,26 +170,30 @@ export function TodaysReservationsSection({
     window.print();
   }
 
-  function ReservationItem({ reservation }: { reservation: ReservationExpanded }) {
+  function ReservationItem({
+    reservation,
+  }: {
+    reservation: ReservationExpanded;
+  }) {
     const itemCount = reservation.items?.length || 0;
 
     // Get first item info
     const firstItem = reservation.expand?.items?.[0];
     const itemsText = firstItem
-      ? `${String(firstItem.iid).padStart(4, '0')} ${firstItem.name}${itemCount > 1 ? ` +${itemCount - 1}` : ''}`
-      : `${itemCount} ${itemCount === 1 ? 'Gegenstand' : 'Gegenstände'}`;
+      ? `${String(firstItem.iid).padStart(4, "0")} ${firstItem.name}${itemCount > 1 ? ` +${itemCount - 1}` : ""}`
+      : `${itemCount} ${itemCount === 1 ? "Gegenstand" : "Gegenstände"}`;
 
     return (
       <div className="p-3 rounded-lg border bg-muted/50">
         {/* OTP Display - Prominent */}
         {reservation.otp && (
-          <div className="mb-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-300 rounded-md p-3">
+          <div className="mb-3 bg-gradient-to-r from-red-50 to-indigo-50 border border-red-300 rounded-md p-3">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold text-blue-600 uppercase">
+              <span className="text-xs font-semibold text-red-600 uppercase">
                 Abholcode
               </span>
               <div className="bg-white rounded px-3 py-1 shadow-sm">
-                <span className="text-2xl font-bold font-mono tracking-wider text-blue-600">
+                <span className="text-2xl font-bold font-mono tracking-wider text-red-600">
                   {reservation.otp}
                 </span>
               </div>
@@ -186,23 +208,18 @@ export function TodaysReservationsSection({
                 {reservation.customer_name}
               </span>
               {reservation.is_new_customer && (
-                <Badge className="text-xs">
-                  Neu
-                </Badge>
+                <Badge className="text-xs">Neu</Badge>
               )}
             </div>
             <p className="text-xs text-muted-foreground mb-1">
               Abholung: {formatDateTime(reservation.pickup)}
             </p>
-            <p className="text-xs truncate">
-              {itemsText}
-            </p>
+            <p className="text-xs truncate">{itemsText}</p>
             {reservation.comments && (
               <p className="text-xs text-muted-foreground mt-1 italic">
                 "{reservation.comments}"
               </p>
             )}
-
           </div>
         </div>
         <div className="flex gap-2">
@@ -237,8 +254,9 @@ export function TodaysReservationsSection({
   return (
     <>
       {/* Print styles to hide everything except our print layout */}
-      <style dangerouslySetInnerHTML={{
-        __html: `
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
           @media print {
             body * {
               visibility: hidden !important;
@@ -253,8 +271,9 @@ export function TodaysReservationsSection({
               top: 0 !important;
             }
           }
-        `
-      }} />
+        `,
+        }}
+      />
 
       {/* Regular display (hidden during print) */}
       <Card className="print:hidden">
@@ -265,11 +284,7 @@ export function TodaysReservationsSection({
               <span>Heutige Reservierungen</span>
             </CardTitle>
             {!loading && reservations.length > 0 && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handlePrint}
-              >
+              <Button size="sm" variant="outline" onClick={handlePrint}>
                 <Printer className="h-4 w-4 mr-2" />
                 Drucken
               </Button>
@@ -286,7 +301,10 @@ export function TodaysReservationsSection({
           ) : (
             <div className="space-y-3">
               {reservations.map((reservation) => (
-                <ReservationItem key={reservation.id} reservation={reservation} />
+                <ReservationItem
+                  key={reservation.id}
+                  reservation={reservation}
+                />
               ))}
             </div>
           )}
@@ -294,7 +312,10 @@ export function TodaysReservationsSection({
       </Card>
 
       {/* Print-only layout */}
-      <div id="reservation-print-root" className="hidden print:block fixed inset-0 bg-white p-8 z-[9999]">
+      <div
+        id="reservation-print-root"
+        className="hidden print:block fixed inset-0 bg-white p-8 z-[9999]"
+      >
         <div className="mb-6">
           <h1 className="text-2xl font-bold mb-2">Heutige Reservierungen</h1>
           <p className="text-sm text-gray-600">{formatDate(new Date())}</p>
@@ -323,12 +344,12 @@ export function TodaysReservationsSection({
 
                   {/* OTP Display - Prominent in Print */}
                   {reservation.otp && (
-                    <div className="my-2 border-2 border-blue-300 bg-blue-50 rounded p-3 inline-block">
+                    <div className="my-2 border-2 border-red-300 bg-red-50 rounded p-3 inline-block">
                       <div className="flex items-center gap-3">
-                        <span className="text-xs font-semibold text-blue-600 uppercase">
+                        <span className="text-xs font-semibold text-red-600 uppercase">
                           Abholcode:
                         </span>
-                        <span className="text-3xl font-bold font-mono tracking-widest text-blue-600">
+                        <span className="text-3xl font-bold font-mono tracking-widest text-red-600">
                           {reservation.otp}
                         </span>
                       </div>
@@ -345,23 +366,24 @@ export function TodaysReservationsSection({
                   )}
 
                   {/* Items checklist */}
-                  {reservation.expand?.items && reservation.expand.items.length > 0 && (
-                    <div className="ml-8 mt-2 space-y-1">
-                      <p className="text-sm font-medium mb-2">Gegenstände:</p>
-                      {reservation.expand.items.map((item) => (
-                        <div key={item.id} className="flex items-start gap-2">
-                          <input
-                            type="checkbox"
-                            className="mt-0.5 h-4 w-4 print:appearance-auto"
-                            disabled
-                          />
-                          <span className="text-sm">
-                            {String(item.iid).padStart(4, '0')} - {item.name}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {reservation.expand?.items &&
+                    reservation.expand.items.length > 0 && (
+                      <div className="ml-8 mt-2 space-y-1">
+                        <p className="text-sm font-medium mb-2">Gegenstände:</p>
+                        {reservation.expand.items.map((item) => (
+                          <div key={item.id} className="flex items-start gap-2">
+                            <input
+                              type="checkbox"
+                              className="mt-0.5 h-4 w-4 print:appearance-auto"
+                              disabled
+                            />
+                            <span className="text-sm">
+                              {String(item.iid).padStart(4, "0")} - {item.name}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                 </div>
               </div>
             </div>
@@ -369,7 +391,9 @@ export function TodaysReservationsSection({
         </div>
 
         {reservations.length === 0 && (
-          <p className="text-gray-500">Keine Reservierungen für heute geplant.</p>
+          <p className="text-gray-500">
+            Keine Reservierungen für heute geplant.
+          </p>
         )}
       </div>
     </>

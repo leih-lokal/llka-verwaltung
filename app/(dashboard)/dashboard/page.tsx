@@ -87,9 +87,9 @@ export default function DashboardPage() {
             Überfälliges
           </Link>
         </Button>
-        <Button variant="outline" asChild size="lg" className="flex-2 shadow-sm transition-shadow border-blue-200 hover:border-blue-300 hover:bg-blue-500">
+        <Button variant="outline" asChild size="lg" className="flex-2 shadow-sm transition-shadow border-red-200 hover:border-red-300 hover:bg-red-500">
           <Link href="/items/analytics">
-            <BarChart3 className="mr-2 h-4 w-4  hover:text-white text-blue-500" />
+            <BarChart3 className="mr-2 h-4 w-4  hover:text-white text-red-500" />
             Inventaranalyse
           </Link>
         </Button>
