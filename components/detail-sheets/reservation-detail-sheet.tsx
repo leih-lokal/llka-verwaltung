@@ -83,6 +83,7 @@ export function ReservationDetailSheet({
 }: ReservationDetailSheetProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
@@ -255,6 +256,23 @@ export function ReservationDetailSheet({
     setShowCancelDialog(false);
     form.reset();
     onOpenChange(false);
+  };
+
+  const handleDelete = async () => {
+    if (!reservation?.id) return;
+    setIsLoading(true);
+    try {
+      await collections.reservations().delete(reservation.id);
+      toast.success('Reservierung erfolgreich gelöscht');
+      setShowDeleteDialog(false);
+      onSave?.(reservation);
+      onOpenChange(false);
+    } catch (err) {
+      console.error('Error deleting reservation:', err);
+      toast.error('Fehler beim Löschen der Reservierung');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const selectedCustomer = customers.find((c) => c.iid === selectedCustomerIid);
@@ -686,15 +704,28 @@ export function ReservationDetailSheet({
 
           <SheetFooter className="border-t pt-4 px-6 shrink-0 bg-background">
             <div className="flex justify-between w-full gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCancel}
-                disabled={isLoading}
-              >
-                <XIcon className="size-4 mr-2" />
-                Abbrechen
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCancel}
+                  disabled={isLoading}
+                >
+                  <XIcon className="size-4 mr-2" />
+                  Abbrechen
+                </Button>
+                {!isNewReservation && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => setShowDeleteDialog(true)}
+                    disabled={isLoading}
+                  >
+                    <Trash2Icon className="size-4 mr-2" />
+                    Löschen
+                  </Button>
+                )}
+              </div>
               <div className="flex gap-2">
                 {!isNewReservation && reservation && onConvertToRental && (
                   <Button
@@ -736,6 +767,34 @@ export function ReservationDetailSheet({
             </Button>
             <Button variant="destructive" onClick={handleConfirmCancel}>
               Verwerfen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reservierung löschen?</DialogTitle>
+            <DialogDescription>
+              Möchten Sie diese Reservierung wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+              disabled={isLoading}
+            >
+              Abbrechen
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isLoading}
+            >
+              {isLoading ? 'Wird gelöscht...' : 'Löschen'}
             </Button>
           </DialogFooter>
         </DialogContent>
