@@ -274,7 +274,7 @@ export function Navbar() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     <MenuTile
                       icon={<Search className="h-4 w-4" />}
-                      label="Suche"
+                      label="Suchen"
                       description="Suche nach Nutzer, Gegenstand, oder Leihvorgang."
                       shortcut={{ keys: ['O', 'S'] }}
                       onClick={() => setCommandMenuOpen(true)}
