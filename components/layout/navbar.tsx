@@ -30,6 +30,7 @@ import {
   Search,
   Keyboard,
   ArrowRight,
+  Menu,
 } from 'lucide-react';
 import { NavLink } from './nav-link';
 import { IdentityPicker } from './identity-picker';
@@ -234,28 +235,12 @@ export function Navbar() {
         {/* Identity Picker */}
         <IdentityPicker />
 
-        {/* Quick Find Button */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setOpen(true)}
-          className="mr-2 h-7 px-2 gap-1.5 hover:bg-accent transition-colors"
-          title="Quick Find (O → F)"
-        >
-          <Zap className="h-3 w-3" />
-          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1 py-0.5 font-medium bg-muted border border-border rounded text-xs">
-            <span>O</span>
-            <ArrowRight className="h-2.5 w-2.5" />
-            <span>F</span>
-          </kbd>
-        </Button>
-
         {/* Overflow Menu */}
-        <div className="flex items-center">
+        <div className="flex ml-2 items-center">
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="icon" aria-label="Mehr Optionen">
-                <MoreVertical className="h-5 w-5" />
+                <Menu className="h-5 w-5" />
               </Button>
             </PopoverTrigger>
             <PopoverContent

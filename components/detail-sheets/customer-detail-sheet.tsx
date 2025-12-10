@@ -1036,7 +1036,7 @@ export function CustomerDetailSheet({
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Kunde löschen?</DialogTitle>
+            <DialogTitle>Nutzer löschen?</DialogTitle>
             <DialogDescription>
               Möchten Sie diesen Nutzer wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
             </DialogDescription>

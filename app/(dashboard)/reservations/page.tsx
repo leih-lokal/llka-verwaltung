@@ -394,7 +394,7 @@ export default function ReservationsPage() {
         return (
           <th key="customer_name" className="px-4 py-2 text-left">
             <SortableHeader
-              label="Kunde"
+              label="Nutzer"
               sortDirection={getSortDirection("customer_name")}
               onSort={() => handleSort("customer_name")}
               disabled={isLoading}
@@ -462,7 +462,7 @@ export default function ReservationsPage() {
         return (
           <th key="customer_iid" className="px-4 py-2 text-left">
             <SortableHeader
-              label="Kunden-ID"
+              label="Nutzer-ID"
               sortDirection={getSortDirection("customer_iid")}
               onSort={() => handleSort("customer_iid")}
               disabled={isLoading}

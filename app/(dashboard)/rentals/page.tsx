@@ -261,7 +261,7 @@ export default function RentalsPage() {
         return (
           <th key="customer" className="px-4 py-2 text-left">
             <SortableHeader
-              label="Kunde"
+              label="Nutzer"
               sortDirection={getSortDirection('customer')}
               onSort={() => handleSort('customer')}
               disabled={isLoading}

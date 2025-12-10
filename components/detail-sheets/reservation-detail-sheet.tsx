@@ -84,13 +84,22 @@ export function ReservationDetailSheet({
   const [isLoading, setIsLoading] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [items, setItems] = useState<Item[]>([]);
-  const [isLoadingData, setIsLoadingData] = useState(false);
-  const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
-  const [itemSearchOpen, setItemSearchOpen] = useState(false);
   const [showCustomerSheet, setShowCustomerSheet] = useState(false);
   const [newCustomerData, setNewCustomerData] = useState<Partial<Customer> | null>(null);
+
+  // Customer search state
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerResults, setCustomerResults] = useState<Customer[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
+  const [isSearchingCustomers, setIsSearchingCustomers] = useState(false);
+
+  // Item search state
+  const [itemSearch, setItemSearch] = useState('');
+  const [itemResults, setItemResults] = useState<Item[]>([]);
+  const [selectedItems, setSelectedItems] = useState<Item[]>([]);
+  const [itemSearchOpen, setItemSearchOpen] = useState(false);
+  const [isSearchingItems, setIsSearchingItems] = useState(false);
 
   const isNewReservation = !reservation?.id;
 
@@ -112,88 +121,181 @@ export function ReservationDetailSheet({
 
   const { formState: { isDirty }, watch, setValue } = form;
   const isNewCustomer = watch('is_new_customer');
-  const selectedCustomerIid = watch('customer_iid');
   const selectedItemIds = watch('item_ids');
 
-  // Load customers and items for dropdowns
+  // Search customers
   useEffect(() => {
-    if (open) {
-      loadData();
+    if (!customerSearch || customerSearch.length < 2) {
+      setCustomerResults([]);
+      return;
     }
-  }, [open]);
 
-  const loadData = async () => {
-    setIsLoadingData(true);
-    try {
-      // Load customers
-      const customersResult = await collections.customers().getList<Customer>(1, 500, {
-        sort: 'lastname,firstname',
-      });
-      setCustomers(customersResult.items);
+    const searchCustomers = async () => {
+      setIsSearchingCustomers(true);
+      try {
+        const filters = [];
+        let sortBy = 'lastname,firstname';
 
-      // Load items (only show available or reserved items)
-      const itemsResult = await collections.items().getList<Item>(1, 500, {
-        sort: 'name',
-        filter: 'status="instock" || status="reserved"',
-      });
-      setItems(itemsResult.items);
-    } catch (err) {
-      console.error('Error loading data:', err);
-      toast.error('Fehler beim Laden der Daten');
-    } finally {
-      setIsLoadingData(false);
+        // If search is numeric, search by iid
+        if (/^\d+$/.test(customerSearch)) {
+          filters.push(`iid~'${customerSearch}'`);
+          sortBy = 'iid'; // Sort by iid when searching numerically
+        } else {
+          // Check if search contains a space (possible full name search)
+          const trimmedSearch = customerSearch.trim();
+          if (trimmedSearch.includes(' ')) {
+            // Split into parts for full name search
+            const parts = trimmedSearch.split(/\s+/);
+            const firstName = parts[0];
+            const lastName = parts.slice(1).join(' ');
+
+            // Search for firstname AND lastname match
+            filters.push(`(firstname~'${firstName}' && lastname~'${lastName}')`);
+            // Also try reversed (lastname firstname)
+            filters.push(`(firstname~'${lastName}' && lastname~'${firstName}')`);
+          }
+
+          // Always search individual fields
+          filters.push(`firstname~'${trimmedSearch}'`);
+          filters.push(`lastname~'${trimmedSearch}'`);
+        }
+
+        const filter = filters.join(' || ');
+
+        const result = await collections.customers().getList<Customer>(1, 20, {
+          filter,
+          sort: sortBy,
+        });
+
+        setCustomerResults(result.items);
+      } catch (err) {
+        console.error('Error searching customers:', err);
+      } finally {
+        setIsSearchingCustomers(false);
+      }
+    };
+
+    const timer = setTimeout(searchCustomers, 300);
+    return () => clearTimeout(timer);
+  }, [customerSearch]);
+
+  // Search items
+  useEffect(() => {
+    if (!itemSearch || itemSearch.length < 2) {
+      setItemResults([]);
+      return;
     }
-  };
+
+    const searchItems = async () => {
+      setIsSearchingItems(true);
+      try {
+        const filters = [];
+
+        // If search is numeric, search by iid
+        if (/^\d+$/.test(itemSearch)) {
+          filters.push(`iid~'${itemSearch}'`);
+        }
+
+        // Always search by name
+        filters.push(`name~'${itemSearch}'`);
+        filters.push(`brand~'${itemSearch}'`);
+        filters.push(`model~'${itemSearch}'`);
+
+        // Only show items that are available (instock only, not reserved)
+        const filter = `(${filters.join(' || ')}) && status='instock'`;
+
+        const result = await collections.items().getList<Item>(1, 20, {
+          filter,
+          sort: 'name',
+        });
+
+        setItemResults(result.items);
+      } catch (err) {
+        console.error('Error searching items:', err);
+      } finally {
+        setIsSearchingItems(false);
+      }
+    };
+
+    const timer = setTimeout(searchItems, 300);
+    return () => clearTimeout(timer);
+  }, [itemSearch]);
 
   // Auto-fill customer name when selecting existing customer
   useEffect(() => {
-    if (!isNewCustomer && selectedCustomerIid) {
-      const customer = customers.find((c) => c.iid === selectedCustomerIid);
-      if (customer) {
-        form.setValue('customer_name', `${customer.firstname} ${customer.lastname}`);
-        form.setValue('customer_phone', customer.phone || '');
-        form.setValue('customer_email', customer.email || '');
-      }
+    if (!isNewCustomer && selectedCustomer) {
+      form.setValue('customer_name', `${selectedCustomer.firstname} ${selectedCustomer.lastname}`);
+      form.setValue('customer_phone', selectedCustomer.phone || '');
+      form.setValue('customer_email', selectedCustomer.email || '');
     }
-  }, [selectedCustomerIid, isNewCustomer, customers, form]);
+  }, [selectedCustomer, isNewCustomer, form]);
 
   // Load reservation data when reservation changes
   useEffect(() => {
-    if (reservation) {
-      form.reset({
-        customer_iid: reservation.customer_iid || undefined,
-        customer_name: reservation.customer_name,
-        customer_phone: reservation.customer_phone || '',
-        customer_email: reservation.customer_email || '',
-        is_new_customer: reservation.is_new_customer,
-        item_ids: reservation.items,
-        pickup: reservation.pickup.slice(0, 16), // Convert to datetime-local format
-        comments: reservation.comments || '',
-        done: reservation.done,
-        on_premises: reservation.on_premises,
-      });
-    } else if (isNewReservation) {
-      form.reset({
-        customer_iid: undefined,
-        customer_name: '',
-        customer_phone: '',
-        customer_email: '',
-        is_new_customer: false,
-        item_ids: [],
-        pickup: new Date().toISOString().slice(0, 16),
-        comments: '',
-        done: false,
-        on_premises: false,
-      });
-    }
-  }, [reservation, isNewReservation, form]);
+    const loadReservationData = async () => {
+      if (reservation && open) {
+        // Fetch customer by iid if it exists
+        if (reservation.customer_iid && !reservation.is_new_customer) {
+          try {
+            const customer = await collections.customers().getFirstListItem<Customer>(
+              `iid=${reservation.customer_iid}`
+            );
+            setSelectedCustomer(customer);
+          } catch (err) {
+            console.error('Error loading customer:', err);
+            setSelectedCustomer(null);
+          }
+        } else {
+          setSelectedCustomer(null);
+        }
+
+        // Set items if expanded
+        if (reservation.expand?.items && reservation.expand.items.length > 0) {
+          setSelectedItems(reservation.expand.items);
+        } else {
+          setSelectedItems([]);
+        }
+
+        form.reset({
+          customer_iid: reservation.customer_iid || undefined,
+          customer_name: reservation.customer_name,
+          customer_phone: reservation.customer_phone || '',
+          customer_email: reservation.customer_email || '',
+          is_new_customer: reservation.is_new_customer,
+          item_ids: reservation.items,
+          pickup: reservation.pickup.slice(0, 16), // Convert to datetime-local format
+          comments: reservation.comments || '',
+          done: reservation.done,
+          on_premises: reservation.on_premises,
+        });
+      } else if (isNewReservation && open) {
+        // Reset for new reservation
+        setSelectedCustomer(null);
+        setSelectedItems([]);
+
+        form.reset({
+          customer_iid: undefined,
+          customer_name: '',
+          customer_phone: '',
+          customer_email: '',
+          is_new_customer: false,
+          item_ids: [],
+          pickup: new Date().toISOString().slice(0, 16),
+          comments: '',
+          done: false,
+          on_premises: false,
+        });
+      }
+    };
+
+    loadReservationData();
+  }, [reservation, isNewReservation, form, open]);
 
   const handleSave = async (data: ReservationFormValues) => {
     setIsLoading(true);
     try {
       // Validate that all selected items are available (instock or reserved)
-      const itemsToValidate = items.filter(item => data.item_ids.includes(item.id));
-      const unavailableItems = itemsToValidate.filter(item =>
+      const unavailableItems = selectedItems.filter(item =>
         item.status !== 'instock' && item.status !== 'reserved'
       );
 
@@ -275,18 +377,24 @@ export function ReservationDetailSheet({
     }
   };
 
-  const selectedCustomer = customers.find((c) => c.iid === selectedCustomerIid);
-  const selectedItems = items.filter((i) => selectedItemIds.includes(i.id));
-
-  const handleAddItem = (itemId: string) => {
-    if (!selectedItemIds.includes(itemId)) {
-      setValue('item_ids', [...selectedItemIds, itemId], { shouldDirty: true });
+  const handleAddItem = (item: Item) => {
+    // Check if item is already selected
+    if (selectedItems.some(i => i.id === item.id)) {
+      toast.warning('Dieser Artikel wurde bereits hinzugefügt');
+      return;
     }
+
+    const newSelectedItems = [...selectedItems, item];
+    setSelectedItems(newSelectedItems);
+    setValue('item_ids', newSelectedItems.map(i => i.id), { shouldDirty: true });
     setItemSearchOpen(false);
+    setItemSearch('');
   };
 
   const handleRemoveItem = (itemId: string) => {
-    setValue('item_ids', selectedItemIds.filter((id) => id !== itemId), { shouldDirty: true });
+    const newSelectedItems = selectedItems.filter(i => i.id !== itemId);
+    setSelectedItems(newSelectedItems);
+    setValue('item_ids', newSelectedItems.map(i => i.id), { shouldDirty: true });
   };
 
   const handleCreateCustomer = () => {
@@ -309,10 +417,8 @@ export function ReservationDetailSheet({
   };
 
   const handleCustomerSaved = (savedCustomer: Customer) => {
-    // Update the customer list
-    setCustomers([...customers, savedCustomer]);
-
     // Auto-select the new customer and turn off new customer mode
+    setSelectedCustomer(savedCustomer);
     setValue('customer_iid', savedCustomer.iid, { shouldDirty: true });
     setValue('is_new_customer', false, { shouldDirty: true });
 
@@ -412,7 +518,6 @@ export function ReservationDetailSheet({
                         role="combobox"
                         aria-expanded={customerSearchOpen}
                         className="w-full justify-between mt-1"
-                        disabled={isLoadingData}
                       >
                         {selectedCustomer
                           ? `#${String(selectedCustomer.iid).padStart(4, '0')} - ${selectedCustomer.firstname} ${selectedCustomer.lastname}`
@@ -421,38 +526,54 @@ export function ReservationDetailSheet({
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-full p-0" align="start">
-                      <Command>
-                        <CommandInput placeholder="Nutzer suchen..." />
+                      <Command shouldFilter={false}>
+                        <CommandInput
+                          placeholder="Nutzer suchen (Name, Nr)..."
+                          value={customerSearch}
+                          onValueChange={setCustomerSearch}
+                        />
                         <CommandList>
-                          <CommandEmpty>Kein Nutzer gefunden.</CommandEmpty>
-                          <CommandGroup>
-                            {customers.map((customer) => (
-                              <CommandItem
-                                key={customer.id}
-                                value={`${customer.iid} ${customer.firstname} ${customer.lastname} ${customer.email || ''}`}
-                                onSelect={() => {
-                                  setValue('customer_iid', customer.iid, { shouldDirty: true });
-                                  setCustomerSearchOpen(false);
-                                }}
-                              >
-                                <CheckIcon
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    selectedCustomerIid === customer.iid ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                <span className="font-mono text-primary font-semibold mr-2">
-                                  #{String(customer.iid).padStart(4, '0')}
-                                </span>
-                                <span>{customer.firstname} {customer.lastname}</span>
-                                {customer.email && (
-                                  <span className="ml-2 text-muted-foreground text-xs">
-                                    {customer.email}
+                          {isSearchingCustomers ? (
+                            <div className="py-6 text-center text-sm">Suche...</div>
+                          ) : customerResults.length === 0 && customerSearch.length >= 2 ? (
+                            <CommandEmpty>Kein/e Nutzer:in gefunden.</CommandEmpty>
+                          ) : customerResults.length === 0 ? (
+                            <div className="py-6 text-center text-sm text-muted-foreground">
+                              Tippen Sie, um zu suchen...
+                            </div>
+                          ) : (
+                            <CommandGroup>
+                              {customerResults.map((customer) => (
+                                <CommandItem
+                                  key={customer.id}
+                                  value={customer.id}
+                                  onSelect={() => {
+                                    setSelectedCustomer(customer);
+                                    setValue('customer_iid', customer.iid, { shouldDirty: true });
+                                    setCustomerSearchOpen(false);
+                                    setCustomerSearch('');
+                                  }}
+                                  className="group"
+                                >
+                                  <CheckIcon
+                                    className={cn(
+                                      "mr-2 h-4 w-4 group-aria-selected:text-white",
+                                      selectedCustomer?.id === customer.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  <span className="font-mono text-primary font-semibold mr-2 group-aria-selected:text-white">
+                                    #{String(customer.iid).padStart(4, '0')}
                                   </span>
-                                )}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
+                                  <span className="group-aria-selected:text-white">{customer.firstname} {customer.lastname}</span>
+                                  {customer.email && (
+                                    <span className="ml-2 text-muted-foreground text-xs group-aria-selected:text-white">
+                                      {customer.email}
+                                    </span>
+                                  )}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          )}
                         </CommandList>
                       </Command>
                     </PopoverContent>
@@ -491,7 +612,7 @@ export function ReservationDetailSheet({
                   id="customer_name"
                   {...form.register('customer_name')}
                   className="mt-1"
-                  readOnly={!isNewCustomer && !!selectedCustomerIid}
+                  readOnly={!isNewCustomer && !!selectedCustomer}
                 />
                 {form.formState.errors.customer_name && (
                   <p className="text-sm text-destructive mt-1">
@@ -507,7 +628,7 @@ export function ReservationDetailSheet({
                     id="customer_phone"
                     {...form.register('customer_phone')}
                     className="mt-1"
-                    readOnly={!isNewCustomer && !!selectedCustomerIid}
+                    readOnly={!isNewCustomer && !!selectedCustomer}
                   />
                 </div>
 
@@ -518,7 +639,7 @@ export function ReservationDetailSheet({
                     type="email"
                     {...form.register('customer_email')}
                     className="mt-1"
-                    readOnly={!isNewCustomer && !!selectedCustomerIid}
+                    readOnly={!isNewCustomer && !!selectedCustomer}
                   />
                   {form.formState.errors.customer_email && (
                     <p className="text-sm text-destructive mt-1">
@@ -558,7 +679,6 @@ export function ReservationDetailSheet({
                       role="combobox"
                       aria-expanded={itemSearchOpen}
                       className="w-full justify-between mt-1"
-                      disabled={isLoadingData}
                     >
                       <span className="flex items-center gap-2">
                         <PlusIcon className="h-4 w-4" />
@@ -568,34 +688,48 @@ export function ReservationDetailSheet({
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-full p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Artikel suchen..." />
+                    <Command shouldFilter={false}>
+                      <CommandInput
+                        placeholder="Gegenstand suchen (Name, Nr, Marke)..."
+                        value={itemSearch}
+                        onValueChange={setItemSearch}
+                      />
                       <CommandList>
-                        <CommandEmpty>Kein Artikel gefunden.</CommandEmpty>
-                        <CommandGroup>
-                          {items.map((item) => (
-                            <CommandItem
-                              key={item.id}
-                              value={`${item.iid} ${item.name} ${item.brand || ''} ${item.model || ''}`}
-                              onSelect={() => handleAddItem(item.id)}
-                              disabled={selectedItemIds.includes(item.id)}
-                            >
-                              <CheckIcon
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  selectedItemIds.includes(item.id) ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              <span className="font-mono text-primary font-semibold mr-2">
-                                #{String(item.iid).padStart(4, '0')}
-                              </span>
-                              <span className="flex-1">{item.name}</span>
-                              <span className="text-muted-foreground text-xs ml-2">
-                                {formatCurrency(item.deposit)}
-                              </span>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
+                        {isSearchingItems ? (
+                          <div className="py-6 text-center text-sm">Suche...</div>
+                        ) : itemResults.length === 0 && itemSearch.length >= 2 ? (
+                          <CommandEmpty>Kein Gegenstand gefunden.</CommandEmpty>
+                        ) : itemResults.length === 0 ? (
+                          <div className="py-6 text-center text-sm text-muted-foreground">
+                            Tippen Sie, um zu suchen...
+                          </div>
+                        ) : (
+                          <CommandGroup>
+                            {itemResults.map((item) => (
+                              <CommandItem
+                                key={item.id}
+                                value={item.id}
+                                onSelect={() => handleAddItem(item)}
+                                disabled={selectedItems.some(i => i.id === item.id)}
+                                className="group"
+                              >
+                                <CheckIcon
+                                  className={cn(
+                                    "mr-2 h-4 w-4 group-aria-selected:text-white",
+                                    selectedItems.some(i => i.id === item.id) ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <span className="font-mono text-primary font-semibold mr-2 group-aria-selected:text-white">
+                                  #{String(item.iid).padStart(4, '0')}
+                                </span>
+                                <span className="flex-1 group-aria-selected:text-white">{item.name}</span>
+                                <span className="text-muted-foreground text-xs ml-2 group-aria-selected:text-white">
+                                  {formatCurrency(item.deposit)}
+                                </span>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        )}
                       </CommandList>
                     </Command>
                   </PopoverContent>
@@ -732,7 +866,7 @@ export function ReservationDetailSheet({
                     type="button"
                     variant="secondary"
                     onClick={() => onConvertToRental(reservation)}
-                    disabled={isLoading || isLoadingData}
+                    disabled={isLoading}
                   >
                     <ArrowRightIcon className="size-4 mr-2" />
                     In Ausleihe umwandeln
@@ -741,7 +875,7 @@ export function ReservationDetailSheet({
                 <Button
                   type="submit"
                   onClick={form.handleSubmit(handleSave)}
-                  disabled={isLoading || isLoadingData}
+                  disabled={isLoading}
                 >
                   <SaveIcon className="size-4 mr-2" />
                   {isLoading ? 'Speichern...' : 'Speichern'}

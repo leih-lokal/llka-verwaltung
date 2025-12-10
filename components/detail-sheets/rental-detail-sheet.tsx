@@ -313,22 +313,37 @@ export function RentalDetailSheet({
       setIsSearchingCustomers(true);
       try {
         const filters = [];
+        let sortBy = 'lastname,firstname';
 
         // If search is numeric, search by iid
         if (/^\d+$/.test(customerSearch)) {
           filters.push(`iid~'${customerSearch}'`);
-        }
+          sortBy = 'iid'; // Sort by iid when searching numerically
+        } else {
+          // Check if search contains a space (possible full name search)
+          const trimmedSearch = customerSearch.trim();
+          if (trimmedSearch.includes(' ')) {
+            // Split into parts for full name search
+            const parts = trimmedSearch.split(/\s+/);
+            const firstName = parts[0];
+            const lastName = parts.slice(1).join(' ');
 
-        // Always search by name
-        filters.push(`firstname~'${customerSearch}'`);
-        filters.push(`lastname~'${customerSearch}'`);
-        filters.push(`email~'${customerSearch}'`);
+            // Search for firstname AND lastname match
+            filters.push(`(firstname~'${firstName}' && lastname~'${lastName}')`);
+            // Also try reversed (lastname firstname)
+            filters.push(`(firstname~'${lastName}' && lastname~'${firstName}')`);
+          }
+
+          // Always search individual fields
+          filters.push(`firstname~'${trimmedSearch}'`);
+          filters.push(`lastname~'${trimmedSearch}'`);
+        }
 
         const filter = filters.join(' || ');
 
         const result = await collections.customers().getList<Customer>(1, 20, {
           filter,
-          sort: 'lastname,firstname',
+          sort: sortBy,
         });
 
         setCustomerResults(result.items);
@@ -818,7 +833,7 @@ export function RentalDetailSheet({
                       <PopoverContent className="w-full p-0" align="start">
                         <Command shouldFilter={false}>
                           <CommandInput
-                            placeholder="Nutzer:in suchen (Name, Nr, E-Mail)..."
+                            placeholder="Nutzer:in suchen (Name, Nr)..."
                             value={customerSearch}
                             onValueChange={setCustomerSearch}
                           />
@@ -838,19 +853,20 @@ export function RentalDetailSheet({
                                     key={customer.id}
                                     value={customer.id}
                                     onSelect={() => handleCustomerSelect(customer)}
+                                    className="group"
                                   >
                                     <CheckIcon
                                       className={cn(
-                                        "mr-2 h-4 w-4",
+                                        "mr-2 h-4 w-4 group-aria-selected:text-white",
                                         selectedCustomer?.id === customer.id ? "opacity-100" : "opacity-0"
                                       )}
                                     />
-                                    <span className="font-mono text-primary font-semibold mr-2">
+                                    <span className="font-mono text-primary font-semibold mr-2 group-aria-selected:text-white">
                                       #{String(customer.iid).padStart(4, '0')}
                                     </span>
-                                    <span>{customer.firstname} {customer.lastname}</span>
+                                    <span className="group-aria-selected:text-white">{customer.firstname} {customer.lastname}</span>
                                     {customer.email && (
-                                      <span className="ml-2 text-muted-foreground text-xs">
+                                      <span className="ml-2 text-muted-foreground text-xs group-aria-selected:text-white">
                                         {customer.email}
                                       </span>
                                     )}
@@ -946,18 +962,19 @@ export function RentalDetailSheet({
                                     key={item.id}
                                     value={item.id}
                                     onSelect={() => handleItemSelect(item)}
+                                    className="group"
                                   >
                                     <CheckIcon
                                       className={cn(
-                                        "mr-2 h-4 w-4",
+                                        "mr-2 h-4 w-4 group-aria-selected:text-white",
                                         selectedItems.some(i => i.id === item.id) ? "opacity-100" : "opacity-0"
                                       )}
                                     />
-                                    <span className="font-mono text-primary font-semibold mr-2">
+                                    <span className="font-mono text-primary font-semibold mr-2 group-aria-selected:text-white">
                                       #{String(item.iid).padStart(4, '0')}
                                     </span>
-                                    <span className="flex-1">{item.name}</span>
-                                    <span className="text-muted-foreground text-xs ml-2">
+                                    <span className="flex-1 group-aria-selected:text-white">{item.name}</span>
+                                    <span className="text-muted-foreground text-xs ml-2 group-aria-selected:text-white">
                                       {formatCurrency(item.deposit)}
                                     </span>
                                   </CommandItem>

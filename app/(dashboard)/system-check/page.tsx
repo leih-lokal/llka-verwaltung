@@ -316,7 +316,7 @@ export default function SystemCheckPage() {
                 {/* Customer */}
                 <div>
                   <h3 className="text-xs font-mono uppercase tracking-[0.2em] text-white/60 mb-3">
-                    &gt; Kunde
+                    &gt; Nutzer
                   </h3>
                   {currentRental.expand?.customer ? (
                     <div className="text-2xl font-bold text-white">
@@ -327,7 +327,7 @@ export default function SystemCheckPage() {
                       {currentRental.expand.customer.lastname}
                     </div>
                   ) : (
-                    <p className="text-xl text-red-400">Kunde nicht gefunden</p>
+                    <p className="text-xl text-red-400">Nutzer nicht gefunden</p>
                   )}
                 </div>
 
