@@ -216,3 +216,146 @@
     font-style: italic;
   }
 }
+
+/* ============================================
+   CRT System Check Mode Styles
+   ============================================ */
+
+/* Override global shadow removal for CRT effects */
+.crt-allow-shadow,
+.crt-allow-shadow * {
+  box-shadow: revert !important;
+}
+
+/* CRT Custom Properties */
+:root {
+  --amber-crt-primary: #fb923c;
+  --amber-crt-glow: #f59e0baa;
+  --amber-crt-dark: #d97706;
+  --phosphor-glow: rgba(251, 146, 60, 0.3);
+}
+
+/* CRT Animations */
+@keyframes crt-flicker {
+  0% { opacity: 0.98; }
+  5% { opacity: 1; }
+  10% { opacity: 0.99; }
+  15% { opacity: 1; }
+  20% { opacity: 0.98; }
+  100% { opacity: 0.99; }
+}
+
+@keyframes crt-refresh {
+  0% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 0.995;
+    filter: brightness(0.98);
+  }
+  100% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+}
+
+@keyframes crt-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 10px rgba(251, 146, 60, 0.4),
+      0 0 20px rgba(251, 146, 60, 0.3),
+      0 0 30px rgba(251, 146, 60, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 15px rgba(251, 146, 60, 0.6),
+      0 0 30px rgba(251, 146, 60, 0.5),
+      0 0 45px rgba(251, 146, 60, 0.3);
+  }
+}
+
+/* CRT Screen Container */
+.crt-screen {
+  animation:
+    crt-flicker 0.15s infinite,
+    crt-refresh 4s ease-in-out infinite;
+  perspective: 1000px;
+  perspective-origin: 50% 50%;
+}
+
+/* CRT Scanlines Overlay */
+.crt-scanlines {
+  position: relative;
+}
+
+.crt-scanlines::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.15) 0px,
+    rgba(0, 0, 0, 0.15) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* CRT Text Glow */
+.crt-text-glow {
+  text-shadow:
+    0 0 2px var(--phosphor-glow),
+    0 0 4px var(--phosphor-glow),
+    0 0 6px var(--amber-crt-glow),
+    0 0 10px var(--amber-crt-glow),
+    0 0 15px rgba(251, 146, 60, 0.5);
+}
+
+/* CRT Border Glow */
+.crt-border-glow {
+  box-shadow:
+    0 0 10px rgba(251, 146, 60, 0.4),
+    0 0 20px rgba(251, 146, 60, 0.3),
+    0 0 30px rgba(251, 146, 60, 0.2),
+    inset 0 0 10px rgba(251, 146, 60, 0.1);
+}
+
+/* CRT Pulsing Glow */
+.crt-pulse-glow {
+  animation: crt-pulse 2s ease-in-out infinite;
+}
+
+/* CRT Custom Scrollbar */
+.crt-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.crt-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--amber-crt-dark);
+}
+
+.crt-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--amber-crt-glow);
+  box-shadow: 0 0 6px var(--phosphor-glow);
+}
+
+.crt-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--amber-crt-primary);
+}
+
+/* Terminal Cursor Blink Animation */
+@keyframes cursor-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.cursor-blink {
+  animation: cursor-blink 1s infinite;
+}

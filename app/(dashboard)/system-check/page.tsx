@@ -11,6 +11,7 @@ import { ArrowLeftIcon, CheckIcon, XIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RentalDetailSheet } from '@/components/detail-sheets/rental-detail-sheet';
+import { RentalQueueItem } from '@/components/system-check/rental-queue-item';
 import { collections } from '@/lib/pocketbase/client';
 import { formatDate, calculateRentalStatus } from '@/lib/utils/formatting';
 import { getRentalStatusLabel } from '@/lib/constants/statuses';
@@ -28,10 +29,30 @@ export default function SystemCheckPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [selectedRental, setSelectedRental] = useState<RentalExpanded | null>(null);
+  const [currentTime, setCurrentTime] = useState('');
+  const [currentDate, setCurrentDate] = useState('');
 
   // Fetch active rentals on mount
   useEffect(() => {
     fetchActiveRentals();
+  }, []);
+
+  // Update date/time every second
+  useEffect(() => {
+    const updateDateTime = () => {
+      const now = new Date();
+      setCurrentDate(now.toLocaleDateString('de-DE'));
+      setCurrentTime(now.toLocaleTimeString('de-DE', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }));
+    };
+
+    updateDateTime();
+    const interval = setInterval(updateDateTime, 1000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const fetchActiveRentals = async () => {
@@ -43,7 +64,7 @@ export default function SystemCheckPage() {
         500, // Get up to 500 active rentals
         {
           filter: 'returned_on=""',
-          sort: 'rented_on',
+          sort: '-customer.iid', // Sort by customer ID, newest first (descending)
           expand: 'customer,items',
         }
       );
@@ -80,6 +101,16 @@ export default function SystemCheckPage() {
       }
     }
     return null;
+  };
+
+  const getQueueItemStatus = (index: number): 'processed' | 'current' | 'pending' => {
+    if (processedRentalIds.has(activeRentals[index]?.id)) {
+      return 'processed';
+    }
+    if (index === currentIndex) {
+      return 'current';
+    }
+    return 'pending';
   };
 
   const handleAccept = () => {
@@ -165,11 +196,12 @@ export default function SystemCheckPage() {
     : '';
 
   return (
-    <div className="h-full flex flex-col relative overflow-hidden bg-black">
+    <div className="h-full flex flex-col relative overflow-hidden bg-black crt-allow-shadow">
+      <div className="h-full flex flex-col crt-screen crt-scanlines">
       {/* Background Effects */}
       <div className="absolute inset-0 opacity-20">
         <div className="absolute inset-0" style={{
-          backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255, 0, 0, 0.03) 2px, rgba(255, 0, 0, 0.03) 4px)',
+          backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(251, 146, 60, 0.03) 2px, rgba(251, 146, 60, 0.03) 4px)',
         }} />
         <div className="absolute inset-0" style={{
           backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(255, 255, 255, 0.03) 2px, rgba(255, 255, 255, 0.03) 4px)',
@@ -177,135 +209,102 @@ export default function SystemCheckPage() {
       </div>
 
       {/* Animated Corner Brackets */}
-      <div className="absolute top-4 left-4 w-16 h-16 border-l-2 border-t-2 border-red-500 opacity-60 animate-pulse" />
-      <div className="absolute top-4 right-4 w-16 h-16 border-r-2 border-t-2 border-red-500 opacity-60 animate-pulse" />
-      <div className="absolute bottom-4 left-4 w-16 h-16 border-l-2 border-b-2 border-red-500 opacity-60 animate-pulse" />
-      <div className="absolute bottom-4 right-4 w-16 h-16 border-r-2 border-b-2 border-red-500 opacity-60 animate-pulse" />
+      <div className="absolute top-4 left-4 w-16 h-16 border-l-2 border-t-2 border-amber-500 opacity-60 animate-pulse" />
+      <div className="absolute top-4 right-4 w-16 h-16 border-r-2 border-t-2 border-amber-500 opacity-60 animate-pulse" />
+      <div className="absolute bottom-4 left-4 w-16 h-16 border-l-2 border-b-2 border-amber-500 opacity-60 animate-pulse" />
+      <div className="absolute bottom-4 right-4 w-16 h-16 border-r-2 border-b-2 border-amber-500 opacity-60 animate-pulse" />
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-8 relative z-10">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="relative">
-              <div className="h-20 w-20 animate-spin border-4 border-red-500 border-t-transparent rounded-full" />
-              <div className="absolute inset-0 h-20 w-20 animate-ping border-4 border-red-500 border-t-transparent rounded-full opacity-20" />
+              <div className="h-20 w-20 animate-spin border-4 border-amber-500 border-t-transparent rounded-full" />
+              <div className="absolute inset-0 h-20 w-20 animate-ping border-4 border-amber-500 border-t-transparent rounded-full opacity-20" />
             </div>
           </div>
         ) : error ? (
           <div className="flex items-center justify-center h-full">
-            <div className="max-w-md text-center space-y-6 p-8 border-2 border-red-500 bg-black rounded-lg shadow-[0_0_30px_rgba(239,68,68,0.5)]">
-              <p className="text-red-500 font-mono text-lg uppercase tracking-wider">System Error</p>
+            <div className="max-w-md text-center space-y-6 p-8 border-2 border-amber-500 bg-black rounded-lg shadow-[0_0_30px_rgba(251,146,60,0.5)]">
+              <p className="text-amber-500 font-mono text-lg uppercase tracking-wider">System Error</p>
               <p className="text-white font-medium">{error}</p>
               <p className="text-sm text-white/60">
                 Bitte überprüfen Sie Ihre PocketBase-Verbindung
               </p>
               <Button
                 onClick={fetchActiveRentals}
-                className="mt-4 bg-black hover:bg-red-950 border-2 border-red-500 text-red-500 shadow-[0_0_20px_rgba(239,68,68,0.5)]"
+                className="mt-4 bg-black hover:bg-amber-950 border-2 border-amber-500 text-amber-500 shadow-[0_0_20px_rgba(251,146,60,0.5)]"
               >
                 Erneut versuchen
               </Button>
             </div>
           </div>
         ) : state === 'idle' ? (
-          // IDLE STATE
-          <div className="flex items-center justify-center min-h-full">
-            <div className="w-full max-w-5xl space-y-12">
-              {/* ASCII Art Logo with Glow */}
-              <div className="flex justify-center relative">
-                <img
-                  src="/SCM.svg"
-                  alt="System Check Mode"
-                  className="w-full max-w-3xl h-auto drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]"
-                />
-              </div>
+          // IDLE STATE - TUI SIMPLE
+          <div className="h-full flex flex-col items-center justify-center p-8 font-mono text-amber-500">
+            {/* ASCII Logo */}
+            <div className="mb-12 w-full max-w-3xl">
+              <img
+                src="/SCM.svg"
+                alt="System Check Mode"
+                className="w-full opacity-90"
+              />
+            </div>
 
-              {/* Stats Display */}
-              <div className="text-center space-y-8">
-                <div className="inline-block relative">
-                  <div className="absolute inset-0 bg-red-500 blur-3xl opacity-30 animate-pulse" />
-                  <div className="relative space-y-3 p-8 border-2 border-red-500 bg-black rounded-lg">
-                    <p className="text-sm font-mono uppercase tracking-[0.3em] text-white">
-                      Aktive Leihvorgänge
-                    </p>
-                    <div className="relative">
-                      <p className="text-8xl md:text-9xl font-black tabular-nums text-white">
-                        {activeRentals.length}
-                      </p>
-                      <div className="absolute inset-0 text-8xl md:text-9xl font-black tabular-nums text-red-500 opacity-20 blur-md">
-                        {activeRentals.length}
-                      </div>
-                    </div>
-                    <div className="h-1 w-full bg-gradient-to-r from-transparent via-red-500 to-transparent" />
-                  </div>
-                </div>
-
-                {/* Action Button */}
-                {activeRentals.length === 0 ? (
-                  <div className="space-y-6">
-                    <p className="text-lg text-white/80 font-mono">
-                      Keine aktiven Leihvorgänge gefunden.
-                    </p>
-                    <p className="text-sm text-white/50 font-mono">
-                      Alle Systeme nominal.
-                    </p>
-                    <Button
-                      onClick={handleReturnToDashboard}
-                      size="lg"
-                      className="text-lg px-8 py-6 bg-black hover:bg-red-950 border-2 border-white text-white shadow-[0_0_30px_rgba(255,255,255,0.3)] font-mono uppercase tracking-wider transition-all hover:scale-105"
-                    >
-                      &lt; Zurück zum Dashboard
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="relative inline-block group">
-                    <div className="absolute -inset-1 bg-red-500 rounded-lg blur-lg opacity-75 group-hover:opacity-100 transition duration-300 animate-pulse" />
-                    <Button
-                      onClick={handleStart}
-                      size="lg"
-                      className="relative text-3xl px-16 py-10 h-auto bg-black border-2 border-red-500 text-white hover:bg-red-950 font-black uppercase tracking-[0.2em] shadow-[0_0_40px_rgba(239,68,68,0.6)] transition-all hover:scale-105 hover:shadow-[0_0_60px_rgba(239,68,68,0.9)]"
-                    >
-                      <span className="relative z-10">&gt;&gt; Start System Check</span>
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              {/* Bottom Status Bar */}
-              <div className="flex justify-center items-center gap-6 text-xs font-mono text-white/60 uppercase tracking-wider">
-                <span className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.8)]" />
-                  System Online
-                </span>
-                <span>|</span>
-                <span>Database Connected</span>
-                <span>|</span>
-                <span className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.8)]" />
-                  Ready
-                </span>
+            {/* Active Rentals Count */}
+            <div className="mb-12 text-center">
+              <div className="text-sm text-amber-700 mb-2 tracking-widest">ACTIVE RENTALS</div>
+              <div className="text-8xl font-bold tabular-nums crt-text-glow">
+                {activeRentals.length}
               </div>
             </div>
+
+            {/* Start Button */}
+            {activeRentals.length > 0 ? (
+              <Button
+                onClick={handleStart}
+                className="border-2 border-amber-500 bg-black hover:bg-amber-950 text-amber-500 px-12 py-6 font-mono text-xl tracking-wider transition-all hover:scale-105"
+              >
+                [ START SYSTEM CHECK ]
+              </Button>
+            ) : (
+              <Button
+                onClick={handleReturnToDashboard}
+                className="border-2 border-amber-700 bg-black hover:bg-amber-950/50 text-amber-700 px-12 py-6 font-mono text-lg tracking-wider transition-all hover:scale-105"
+              >
+                [ RETURN TO DASHBOARD ]
+              </Button>
+            )}
           </div>
         ) : state === 'running' && currentRental ? (
-          // RUNNING STATE
-          <div className="max-w-4xl mx-auto space-y-8">
-            {/* Progress Bar */}
-            <div className="relative">
-              <div className="text-center mb-4">
-                <p className="text-sm font-mono uppercase tracking-[0.3em] text-white/60 mb-3">Processing Rental</p>
-                <p className="text-5xl font-black tabular-nums text-white">{progress}</p>
+          // RUNNING STATE - TWO COLUMN LAYOUT
+          <div className="flex flex-col lg:flex-row gap-6 h-full max-w-7xl mx-auto px-8">
+            {/* LEFT COLUMN - Queue */}
+            <div className="w-full lg:w-2/5 flex flex-col min-h-0">
+              <div className="mb-4">
+                <h2 className="text-xs font-mono uppercase tracking-[0.3em] text-white/60 mb-2">
+                  &gt; Processing Queue
+                </h2>
+                <p className="text-3xl font-black tabular-nums text-amber-500 crt-text-glow">
+                  {progress}
+                </p>
               </div>
-              <div className="h-2 bg-black border border-red-500/30 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-red-500 transition-all duration-500 shadow-[0_0_20px_rgba(239,68,68,0.6)]"
-                  style={{ width: `${((currentIndex + 1) / activeRentals.length) * 100}%` }}
-                />
+              <div className="flex-1 overflow-y-auto space-y-2 crt-scrollbar pr-2">
+                {activeRentals.map((rental, index) => (
+                  <RentalQueueItem
+                    key={rental.id}
+                    rental={rental}
+                    status={getQueueItemStatus(index)}
+                    isCurrent={index === currentIndex}
+                  />
+                ))}
               </div>
             </div>
 
-            {/* Current Rental Display */}
-            <div className="relative border-2 border-red-500 rounded-lg p-8 bg-black shadow-[0_0_50px_rgba(239,68,68,0.3)]">
+            {/* RIGHT COLUMN - Current Rental Details */}
+            <div className="w-full lg:w-3/5 flex flex-col min-h-0 space-y-6">
+              {/* Current Rental Display */}
+              <div className="relative border-2 border-amber-500 rounded-lg p-8 bg-black shadow-[0_0_50px_rgba(251,146,60,0.3)] flex-1 overflow-y-auto crt-scrollbar crt-border-glow">
               {/* Corner Accents */}
               <div className="absolute top-0 left-0 w-6 h-6 border-l-2 border-t-2 border-white" />
               <div className="absolute top-0 right-0 w-6 h-6 border-r-2 border-t-2 border-white" />
@@ -320,18 +319,18 @@ export default function SystemCheckPage() {
                   </h3>
                   {currentRental.expand?.customer ? (
                     <div className="text-2xl font-bold text-white">
-                      <span className="font-mono text-red-500 mr-3 text-3xl">
+                      <span className="font-mono text-amber-500 mr-3 text-3xl crt-text-glow">
                         #{String(currentRental.expand.customer.iid).padStart(4, '0')}
                       </span>
                       {currentRental.expand.customer.firstname}{' '}
                       {currentRental.expand.customer.lastname}
                     </div>
                   ) : (
-                    <p className="text-xl text-red-400">Nutzer nicht gefunden</p>
+                    <p className="text-xl text-amber-400">Nutzer nicht gefunden</p>
                   )}
                 </div>
 
-                <div className="h-px bg-gradient-to-r from-transparent via-red-500/50 to-transparent" />
+                <div className="h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
 
                 {/* Items */}
                 <div>
@@ -341,8 +340,8 @@ export default function SystemCheckPage() {
                   <div className="space-y-3">
                     {currentRental.expand?.items?.length > 0 ? (
                       currentRental.expand.items.map((item) => (
-                        <div key={item.id} className="flex items-center gap-3 text-lg border-l-2 border-red-500 pl-4 py-2 bg-red-950/20">
-                          <span className="font-mono text-red-400 font-bold text-xl">
+                        <div key={item.id} className="flex items-center gap-3 text-lg border-l-2 border-amber-500 pl-4 py-2 bg-amber-950/20">
+                          <span className="font-mono text-amber-400 font-bold text-xl crt-text-glow">
                             #{String(item.iid).padStart(4, '0')}
                           </span>
                           <span className="font-semibold text-white">{item.name}</span>
@@ -359,7 +358,7 @@ export default function SystemCheckPage() {
                   </div>
                 </div>
 
-                <div className="h-px bg-gradient-to-r from-transparent via-red-500/50 to-transparent" />
+                <div className="h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
 
                 {/* Dates */}
                 <div className="grid grid-cols-2 gap-6">
@@ -387,7 +386,7 @@ export default function SystemCheckPage() {
                     <h3 className="text-xs font-mono uppercase tracking-[0.2em] text-white/60 mb-2">
                       &gt; Status
                     </h3>
-                    <Badge className="text-sm px-3 py-1 bg-red-500/20 text-white border-red-500">
+                    <Badge className="text-sm px-3 py-1 bg-amber-500/20 text-white border-amber-500">
                       {getRentalStatusLabel(
                         calculateRentalStatus(
                           currentRental.rented_on,
@@ -413,7 +412,7 @@ export default function SystemCheckPage() {
                 {/* Remark */}
                 {currentRental.remark && (
                   <>
-                    <div className="h-px bg-gradient-to-r from-transparent via-red-500/50 to-transparent" />
+                    <div className="h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
                     <div>
                       <h3 className="text-xs font-mono uppercase tracking-[0.2em] text-white/60 mb-2">
                         &gt; Bemerkung
@@ -425,29 +424,30 @@ export default function SystemCheckPage() {
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex justify-center gap-8 mt-12">
-              <div className="relative group">
-                <div className="absolute -inset-1 bg-red-500 rounded-lg blur-md opacity-75 group-hover:opacity-100 transition duration-300" />
-                <Button
-                  onClick={handleReject}
-                  size="lg"
-                  className="relative text-2xl px-12 py-8 h-auto min-w-[220px] bg-black border-2 border-red-500 text-red-500 hover:bg-red-950 font-black uppercase tracking-wider shadow-[0_0_30px_rgba(239,68,68,0.5)] transition-all hover:scale-105"
-                >
-                  <XIcon className="size-8 mr-3" />
-                  Reject
-                </Button>
-              </div>
-              <div className="relative group">
-                <div className="absolute -inset-1 bg-white rounded-lg blur-md opacity-75 group-hover:opacity-100 transition duration-300" />
-                <Button
-                  onClick={handleAccept}
-                  size="lg"
-                  className="relative text-2xl px-12 py-8 h-auto min-w-[220px] bg-black border-2 border-white text-white hover:bg-white/10 font-black uppercase tracking-wider shadow-[0_0_30px_rgba(255,255,255,0.5)] transition-all hover:scale-105"
-                >
-                  <CheckIcon className="size-8 mr-3" />
-                  Accept
-                </Button>
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-8">
+                <div className="relative group">
+                  <div className="absolute -inset-1 bg-amber-500 rounded-lg blur-md opacity-75 group-hover:opacity-100 transition duration-300" />
+                  <Button
+                    onClick={handleReject}
+                    size="lg"
+                    className="relative w-full sm:w-auto text-2xl px-12 py-8 h-auto sm:min-w-[220px] bg-black border-2 border-amber-500 text-amber-500 hover:bg-amber-950 font-black uppercase tracking-wider shadow-[0_0_30px_rgba(251,146,60,0.5)] transition-all hover:scale-105"
+                  >
+                    <XIcon className="size-8 mr-3" />
+                    Reject
+                  </Button>
+                </div>
+                <div className="relative group">
+                  <div className="absolute -inset-1 bg-white rounded-lg blur-md opacity-75 group-hover:opacity-100 transition duration-300" />
+                  <Button
+                    onClick={handleAccept}
+                    size="lg"
+                    className="relative w-full sm:w-auto text-2xl px-12 py-8 h-auto sm:min-w-[220px] bg-black border-2 border-white text-white hover:bg-white/10 font-black uppercase tracking-wider shadow-[0_0_30px_rgba(255,255,255,0.5)] transition-all hover:scale-105"
+                  >
+                    <CheckIcon className="size-8 mr-3" />
+                    Accept
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
@@ -459,10 +459,10 @@ export default function SystemCheckPage() {
               <div className="relative">
                 <div className="absolute inset-0 bg-green-500 blur-[100px] opacity-30 animate-pulse" />
                 <div className="relative">
-                  <h2 className="text-6xl md:text-8xl font-black uppercase tracking-wider text-white animate-pulse">
+                  <h2 className="text-5xl sm:text-6xl md:text-8xl font-black uppercase tracking-wider text-white animate-pulse crt-text-glow">
                     System Check
                   </h2>
-                  <h2 className="text-6xl md:text-8xl font-black uppercase tracking-wider text-white">
+                  <h2 className="text-5xl sm:text-6xl md:text-8xl font-black uppercase tracking-wider text-white crt-text-glow">
                     Complete
                   </h2>
                   <div className="absolute inset-0 text-6xl md:text-8xl font-black uppercase tracking-wider text-green-500 opacity-20 blur-md">
@@ -506,7 +506,7 @@ export default function SystemCheckPage() {
                 <Button
                   onClick={handleRestart}
                   size="lg"
-                  className="text-lg px-8 py-6 bg-black hover:bg-red-950 border-2 border-red-500 text-red-500 shadow-[0_0_25px_rgba(239,68,68,0.4)] font-mono uppercase tracking-wider transition-all hover:scale-105"
+                  className="text-lg px-8 py-6 bg-black hover:bg-amber-950 border-2 border-amber-500 text-amber-500 shadow-[0_0_25px_rgba(251,146,60,0.4)] font-mono uppercase tracking-wider transition-all hover:scale-105"
                 >
                   &lt;&lt; Erneut prüfen
                 </Button>
@@ -539,6 +539,7 @@ export default function SystemCheckPage() {
             </div>
           </div>
         ) : null}
+      </div>
       </div>
 
       {/* Rental Detail Sheet */}
