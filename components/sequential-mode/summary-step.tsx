@@ -76,7 +76,7 @@ export function SummaryStep() {
         <div className="flex justify-between items-center py-2 border-b border-border">
           <span className="text-muted-foreground font-medium">Artikel:</span>
           <span className="font-semibold text-lg">
-            {selectedItems.length} Artikel
+            {selectedItems.map(({ item }) => `#${String(item.iid).padStart(4, '0')}`).join(', ')}
           </span>
         </div>
 
