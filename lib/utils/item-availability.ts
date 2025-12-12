@@ -5,6 +5,7 @@
 import { collections } from '@/lib/pocketbase/client';
 import type { Item, RentalExpanded } from '@/types';
 import { getCopyCount } from './instance-data';
+import { getReturnedCopyCount } from './partial-returns';
 
 /**
  * Result of availability check for an item
@@ -35,9 +36,9 @@ export async function getItemAvailability(
     const item = await collections.items().getOne<Item>(itemId);
     const totalCopies = item.copies || 1;
 
-    // Fetch all active rentals for this item (not returned yet)
+    // Fetch all rentals for this item (including partially returned ones)
     const activeRentals = await collections.rentals().getFullList<RentalExpanded>({
-      filter: `items ~ '${itemId}' && returned_on = ''`,
+      filter: `items ~ '${itemId}'`,
       expand: 'items',
     });
 
@@ -49,7 +50,14 @@ export async function getItemAvailability(
         continue;
       }
 
-      rentedCopies += getCopyCount(rental.requested_copies, itemId);
+      // Only count unreturned rentals
+      if (!rental.returned_on) {
+        const requestedCopies = getCopyCount(rental.requested_copies, itemId);
+        const returnedCopies = getReturnedCopyCount(rental.returned_items, itemId);
+        const stillOut = requestedCopies - returnedCopies;
+
+        rentedCopies += stillOut;
+      }
     }
 
     const availableCopies = Math.max(0, totalCopies - rentedCopies);
@@ -100,9 +108,9 @@ export async function getMultipleItemAvailability(
       itemCopiesMap.set(item.id, item.copies || 1);
     }
 
-    // Fetch all active rentals that include any of these items
+    // Fetch all rentals that include any of these items (including partially returned)
     const activeRentals = await collections.rentals().getFullList<RentalExpanded>({
-      filter: `(${itemIds.map(id => `items ~ '${id}'`).join(' || ')}) && returned_on = ''`,
+      filter: `(${itemIds.map(id => `items ~ '${id}'`).join(' || ')})`,
       expand: 'items',
     });
 
@@ -119,10 +127,17 @@ export async function getMultipleItemAvailability(
         continue;
       }
 
-      for (const itemId of itemIds) {
-        if (rental.items.includes(itemId)) {
-          const currentCount = rentedCopiesMap.get(itemId) || 0;
-          rentedCopiesMap.set(itemId, currentCount + getCopyCount(rental.requested_copies, itemId));
+      // Only count unreturned rentals
+      if (!rental.returned_on) {
+        for (const itemId of itemIds) {
+          if (rental.items.includes(itemId)) {
+            const requestedCopies = getCopyCount(rental.requested_copies, itemId);
+            const returnedCopies = getReturnedCopyCount(rental.returned_items, itemId);
+            const stillOut = requestedCopies - returnedCopies;
+
+            const currentCount = rentedCopiesMap.get(itemId) || 0;
+            rentedCopiesMap.set(itemId, currentCount + stillOut);
+          }
         }
       }
     }

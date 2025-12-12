@@ -46,6 +46,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
+import { Checkbox } from '@/components/ui/checkbox';
 import { collections } from '@/lib/pocketbase/client';
 import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate } from '@/lib/utils/formatting';
 import { cn } from '@/lib/utils';
@@ -53,6 +54,7 @@ import { useIdentity } from '@/hooks/use-identity';
 import type { Rental, RentalExpanded, Customer, Item } from '@/types';
 import { getCopyCount, setCopyCount, removeCopyCount, type InstanceData } from '@/lib/utils/instance-data';
 import { getMultipleItemAvailability, type ItemAvailability } from '@/lib/utils/item-availability';
+import { getReturnedCopyCount, mergeReturnedItems } from '@/lib/utils/partial-returns';
 import { generateRentalPrintContent } from '@/components/print/rental-print-content';
 
 // Validation schema
@@ -121,6 +123,11 @@ export function RentalDetailSheet({
   const [isLoading, setIsLoading] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  // Partial return state
+  const [showPartialReturnDialog, setShowPartialReturnDialog] = useState(false);
+  const [itemsToReturn, setItemsToReturn] = useState<Record<string, number>>({});
+  const [partialReturnDeposit, setPartialReturnDeposit] = useState(0);
 
   // Track if preloaded items have been applied to prevent re-applying on every render
   const preloadedItemsAppliedRef = useRef(false);
@@ -664,7 +671,7 @@ export function RentalDetailSheet({
   };
 
   const handleReturn = async () => {
-    if (isNewRental) return;
+    if (isNewRental || !rental) return;
 
     const data = form.getValues();
 
@@ -687,8 +694,101 @@ export function RentalDetailSheet({
       }
     }
 
-    // Submit the form
+    // If there are partial returns, mark all remaining items as returned
+    if (rental.returned_items && Object.keys(rental.returned_items).length > 0) {
+      try {
+        setIsLoading(true);
+
+        // Create complete returned_items with all items fully returned
+        const completeReturnedItems: Record<string, number> = {};
+        for (const itemId of rental.items) {
+          const requested = getCopyCount(rental.requested_copies, itemId);
+          completeReturnedItems[itemId] = requested;
+        }
+
+        // Update the rental directly to complete all returns
+        const updateData: Partial<Rental> = {
+          returned_items: completeReturnedItems,
+          returned_on: dateToLocalString(new Date()),
+          deposit_back: data.deposit,
+          employee_back: currentIdentity || data.employee_back,
+        };
+
+        const updatedRental = await collections.rentals().update<Rental>(
+          rental.id,
+          updateData
+        );
+
+        toast.success('Alle Gegenstände zurückgegeben');
+        onSave?.(updatedRental);
+        return;
+      } catch (err) {
+        console.error('Error completing return:', err);
+        toast.error('Fehler beim Zurückgeben');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    // Submit the form for normal returns (no partial returns)
     form.handleSubmit(handleSave)();
+  };
+
+  const handlePartialReturn = async () => {
+    if (!rental || isNewRental) return;
+
+    try {
+      setIsLoading(true);
+
+      // Merge new returns with existing returns
+      const mergedReturnedItems = mergeReturnedItems(
+        rental.returned_items,
+        itemsToReturn
+      );
+
+      // Check if this partial return completes the rental
+      const isNowFullyReturned = rental.items.every((itemId) => {
+        const requested = getCopyCount(rental.requested_copies, itemId);
+        const returned = mergedReturnedItems[itemId] || 0;
+        return requested === returned;
+      });
+
+      // Prepare update data
+      const updateData: Partial<Rental> = {
+        returned_items: mergedReturnedItems,
+        deposit_back: rental.deposit_back + partialReturnDeposit,
+        employee_back: currentIdentity || rental.employee_back,
+      };
+
+      // If fully returned now, set returned_on
+      if (isNowFullyReturned) {
+        updateData.returned_on = dateToLocalString(new Date());
+      }
+
+      const updatedRental = await collections.rentals().update<Rental>(
+        rental.id,
+        updateData
+      );
+
+      toast.success(
+        isNowFullyReturned
+          ? 'Alle Gegenstände zurückgegeben'
+          : 'Teilrückgabe erfolgreich'
+      );
+
+      // Reset dialog
+      setShowPartialReturnDialog(false);
+      setItemsToReturn({});
+      setPartialReturnDeposit(0);
+
+      // Refresh
+      onSave?.(updatedRental);
+    } catch (err) {
+      console.error('Error processing partial return:', err);
+      toast.error('Fehler bei der Teilrückgabe');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handlePrint = () => {
@@ -997,6 +1097,10 @@ export function RentalDetailSheet({
                     <div className="space-y-2">
                       {selectedItems.map((item) => {
                         const copyCount = getCopyCount(instanceData, item.id);
+                        const returnedCount = !isNewRental ? getReturnedCopyCount(rental?.returned_items, item.id) : 0;
+                        const remainingCount = copyCount - returnedCount;
+                        const hasReturns = returnedCount > 0;
+                        const isFullyReturned = returnedCount > 0 && returnedCount === copyCount;
                         const availability = itemAvailability.get(item.id);
                         const totalCopies = item.copies || 1;
                         const hasMultipleCopies = totalCopies > 1;
@@ -1004,7 +1108,13 @@ export function RentalDetailSheet({
                         const totalDeposit = depositPerCopy * copyCount;
 
                         return (
-                          <div key={item.id} className="border rounded-lg p-3 bg-muted/50">
+                          <div
+                            key={item.id}
+                            className={cn(
+                              "border rounded-lg p-3 bg-muted/50",
+                              isFullyReturned && "opacity-60 bg-muted"
+                            )}
+                          >
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-baseline gap-2 mb-1">
@@ -1088,21 +1198,59 @@ export function RentalDetailSheet({
                                 {formatCurrency(depositPerCopy)}
                               </div>
                             )}
+
+                            {/* Return status badge */}
+                            {hasReturns && (
+                              <div className="mt-2 pt-2 border-t">
+                                <Badge variant="outline" className="text-green-600 border-green-600">
+                                  {returnedCount}/{copyCount} zurückgegeben
+                                  {remainingCount > 0 && ` • ${remainingCount} noch aus`}
+                                </Badge>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
                       {selectedItems.length > 1 && (
                         <div className="pt-3 border-t-2 border-primary">
                           <div className="flex items-center justify-between bg-primary/10 rounded-lg p-4">
-                            <span className="text-lg font-semibold text-primary">
-                              Gesamt Pfand:
-                            </span>
-                            <span className="text-3xl font-bold text-primary">
-                              {formatCurrency(selectedItems.reduce((sum, i) => {
+                            {(() => {
+                              const totalDeposit = selectedItems.reduce((sum, i) => {
                                 const copies = getCopyCount(instanceData, i.id);
                                 return sum + ((i.deposit || 0) * copies);
-                              }, 0))}
-                            </span>
+                              }, 0);
+
+                              const remainingDeposit = !isNewRental
+                                ? selectedItems.reduce((sum, i) => {
+                                    const copies = getCopyCount(instanceData, i.id);
+                                    const returned = getReturnedCopyCount(rental?.returned_items, i.id);
+                                    const stillOut = copies - returned;
+                                    return sum + ((i.deposit || 0) * stillOut);
+                                  }, 0)
+                                : totalDeposit;
+
+                              const hasPartialReturns = !isNewRental && totalDeposit !== remainingDeposit && remainingDeposit > 0;
+
+                              return (
+                                <>
+                                  <span className="text-lg font-semibold text-primary">
+                                    {hasPartialReturns ? (
+                                      <>
+                                        <span className="line-through opacity-60 mr-2">
+                                          {formatCurrency(totalDeposit)}
+                                        </span>
+                                        Verbleibendes Pfand:
+                                      </>
+                                    ) : (
+                                      'Gesamt Pfand:'
+                                    )}
+                                  </span>
+                                  <span className="text-3xl font-bold text-primary">
+                                    {formatCurrency(hasPartialReturns ? remainingDeposit : totalDeposit)}
+                                  </span>
+                                </>
+                              );
+                            })()}
                           </div>
                         </div>
                       )}
@@ -1461,17 +1609,17 @@ export function RentalDetailSheet({
 
           <SheetFooter className="border-t pt-6 pb-6 px-6 shrink-0 bg-background">
             <div className="flex justify-between w-full gap-4">
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={handleCancel}
                   disabled={isLoading}
                   size="lg"
-                  className="min-w-[120px]"
+                  className="w-10 h-10 p-0"
+                  title="Abbrechen"
                 >
-                  <XIcon className="size-5 mr-2" />
-                  Abbrechen
+                  <XIcon className="size-5" />
                 </Button>
                 {!isNewRental && (
                   <Button
@@ -1480,10 +1628,10 @@ export function RentalDetailSheet({
                     onClick={() => setShowDeleteDialog(true)}
                     disabled={isLoading}
                     size="lg"
-                    className="min-w-[120px]"
+                    className="w-10 h-10 p-0"
+                    title="Löschen"
                   >
-                    <TrashIcon className="size-5 mr-2" />
-                    Löschen
+                    <TrashIcon className="size-5" />
                   </Button>
                 )}
                 {!isNewRental && selectedCustomer && (
@@ -1493,26 +1641,39 @@ export function RentalDetailSheet({
                     onClick={handlePrint}
                     disabled={isLoading}
                     size="lg"
-                    className="min-w-[120px]"
+                    className="w-10 h-10 p-0"
+                    title="Drucken"
                   >
-                    <PrinterIcon className="size-5 mr-2" />
-                    Drucken
+                    <PrinterIcon className="size-5" />
                   </Button>
                 )}
               </div>
               <div className="flex gap-3">
                 {!isNewRental && !returnedOn && (
-                  <Button
-                    type="button"
-                    variant="default"
-                    className="bg-green-600 hover:bg-green-700 min-w-[140px]"
-                    onClick={handleReturn}
-                    disabled={isLoading}
-                    size="lg"
-                  >
-                    <CheckIcon className="size-5 mr-2" />
-                    Zurückgeben
-                  </Button>
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-w-[140px] border-green-600 text-green-600 hover:bg-green-50"
+                      onClick={() => setShowPartialReturnDialog(true)}
+                      disabled={isLoading}
+                      size="lg"
+                    >
+                      <CheckIcon className="size-5 mr-2" />
+                      Teilrückgabe
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="default"
+                      className="bg-green-600 hover:bg-green-700 min-w-[140px]"
+                      onClick={handleReturn}
+                      disabled={isLoading}
+                      size="lg"
+                    >
+                      <CheckIcon className="size-5 mr-2" />
+                      Alles zurückgeben
+                    </Button>
+                  </>
                 )}
                 <Button
                   type="submit"
@@ -1565,6 +1726,138 @@ export function RentalDetailSheet({
             </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={isLoading}>
               Löschen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Partial Return Dialog */}
+      <Dialog open={showPartialReturnDialog} onOpenChange={setShowPartialReturnDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Teilrückgabe</DialogTitle>
+            <DialogDescription>
+              Wählen Sie die Gegenstände aus, die zurückgegeben werden
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Item selection list */}
+            {selectedItems.map((item) => {
+              const requestedCopies = getCopyCount(instanceData, item.id);
+              const alreadyReturned = getReturnedCopyCount(rental?.returned_items, item.id);
+              const remainingCopies = requestedCopies - alreadyReturned;
+              const selectedCount = itemsToReturn[item.id] || 0;
+              const depositPerCopy = item.deposit || 0;
+
+              if (remainingCopies === 0) return null; // Skip fully returned items
+
+              return (
+                <div key={item.id} className="border rounded-lg p-4">
+                  {/* Checkbox + Item display */}
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Checkbox
+                          checked={selectedCount > 0}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setItemsToReturn((prev) => ({ ...prev, [item.id]: remainingCopies }));
+                            } else {
+                              setItemsToReturn((prev) => {
+                                const { [item.id]: _, ...rest } = prev;
+                                return rest;
+                              });
+                            }
+                          }}
+                        />
+                        <span className="font-mono text-primary font-semibold">
+                          #{String(item.iid).padStart(4, '0')}
+                        </span>
+                        <span className="font-semibold">{item.name}</span>
+                      </div>
+
+                      <div className="text-sm text-muted-foreground ml-6">
+                        {remainingCopies} von {requestedCopies} noch ausstehend
+                        {alreadyReturned > 0 && ` (${alreadyReturned} bereits zurück)`}
+                        {depositPerCopy > 0 && ` • ${formatCurrency(depositPerCopy)} Pfand/Stück`}
+                      </div>
+
+                      {/* Copy counter for multi-copy items */}
+                      {remainingCopies > 1 && selectedCount > 0 && (
+                        <div className="flex items-center gap-2 ml-6 mt-2">
+                          <Label className="text-xs">Anzahl:</Label>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setItemsToReturn((prev) => ({
+                                ...prev,
+                                [item.id]: Math.max(1, selectedCount - 1),
+                              }))
+                            }
+                            disabled={selectedCount <= 1}
+                          >
+                            <MinusIcon className="h-3 w-3" />
+                          </Button>
+                          <span className="font-mono font-semibold w-8 text-center">
+                            {selectedCount}
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setItemsToReturn((prev) => ({
+                                ...prev,
+                                [item.id]: Math.min(remainingCopies, selectedCount + 1),
+                              }))
+                            }
+                            disabled={selectedCount >= remainingCopies}
+                          >
+                            <PlusIcon className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Manual deposit entry */}
+            <div className="border-t pt-4">
+              <Label htmlFor="partial_deposit_back">Pfand zurückgeben (€)</Label>
+              <Input
+                id="partial_deposit_back"
+                type="number"
+                step="0.01"
+                value={partialReturnDeposit}
+                onChange={(e) => setPartialReturnDeposit(parseFloat(e.target.value) || 0)}
+                className="mt-1"
+                placeholder="Betrag eingeben"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Bitte geben Sie den Betrag manuell ein
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowPartialReturnDialog(false);
+                setItemsToReturn({});
+                setPartialReturnDeposit(0);
+              }}
+            >
+              Abbrechen
+            </Button>
+            <Button
+              onClick={handlePartialReturn}
+              disabled={Object.keys(itemsToReturn).length === 0 || isLoading}
+            >
+              Teilrückgabe durchführen
             </Button>
           </DialogFooter>
         </DialogContent>

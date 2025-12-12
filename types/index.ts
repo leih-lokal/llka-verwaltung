@@ -306,6 +306,9 @@ export interface Rental extends BaseRecord {
   /** Number of copies requested for each item (JSON object: {item_id: count}) */
   requested_copies?: Record<string, number>;
 
+  /** Number of copies returned for each item (JSON object: {item_id: count}) */
+  returned_items?: Record<string, number>;
+
   /** Deposit amount given */
   deposit: number;
 
@@ -354,6 +357,49 @@ export interface RentalWithStatus extends RentalExpanded {
 
   /** Days overdue (negative if not yet due) */
   days_overdue: number;
+}
+
+/**
+ * Return status for individual items in a rental
+ */
+export interface ItemReturnStatus {
+  /** Item ID */
+  itemId: string;
+
+  /** Number of copies requested */
+  requestedCopies: number;
+
+  /** Number of copies returned */
+  returnedCopies: number;
+
+  /** Number of copies still out */
+  remainingCopies: number;
+
+  /** Whether all copies of this item are returned */
+  isFullyReturned: boolean;
+}
+
+/**
+ * Overall return status for a rental
+ */
+export interface RentalReturnStatus {
+  /** Whether all items in the rental are fully returned */
+  isFullyReturned: boolean;
+
+  /** Whether some (but not all) items/copies are returned */
+  isPartiallyReturned: boolean;
+
+  /** Whether there are any unreturned items/copies */
+  hasUnreturnedItems: boolean;
+
+  /** Total number of item copies requested */
+  totalItemsRequested: number;
+
+  /** Total number of item copies returned */
+  totalItemsReturned: number;
+
+  /** Return status for each individual item */
+  itemStatuses: ItemReturnStatus[];
 }
 
 /**

@@ -24,6 +24,8 @@ import type { Rental, RentalExpanded } from '@/types';
 import { formatDate, calculateRentalStatus } from '@/lib/utils/formatting';
 import { getRentalStatusLabel, RENTAL_STATUS_COLORS } from '@/lib/constants/statuses';
 import { getCopyCount } from '@/lib/utils/instance-data';
+import { getReturnedCopyCount } from '@/lib/utils/partial-returns';
+import { cn } from '@/lib/utils';
 
 export default function RentalsPage() {
   const searchParams = useSearchParams();
@@ -432,16 +434,25 @@ export default function RentalsPage() {
       case 'items':
         return (
           <td key="items" className="px-4 py-3 text-sm">
-            {rental.expand?.items?.length > 0
-              ? rental.expand.items.map((item) => {
+            {rental.expand?.items?.length > 0 ? (
+              <div className="space-y-1">
+                {rental.expand.items.map((item) => {
                   const copyCount = getCopyCount(rental.requested_copies, item.id);
+                  const returnedCount = getReturnedCopyCount(rental.returned_items, item.id);
+                  const hasPartialReturn = returnedCount > 0 && returnedCount < copyCount;
+                  const isFullyReturned = returnedCount > 0 && returnedCount === copyCount;
+                  // Also check if entire rental is returned (for non-partial returns)
+                  const isRentalReturned = rental.returned_on;
+
                   return (
                     <span key={item.id} className="inline-block mr-2">
                       <span className="font-mono mr-1">
                         <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-1.5 py-0.5 rounded text-xs">
                           {String(item.iid).padStart(4, '0').substring(0, 2)}
                         </span>
-                        <span className="ml-0.5">{String(item.iid).padStart(4, '0').substring(2, 4)}</span>
+                        <span className="ml-0.5">
+                          {String(item.iid).padStart(4, '0').substring(2, 4)}
+                        </span>
                       </span>
                       {item.name}
                       {copyCount > 1 && (
@@ -449,10 +460,23 @@ export default function RentalsPage() {
                           (×{copyCount})
                         </span>
                       )}
+                      {hasPartialReturn && (
+                        <span className="ml-1 text-xs font-semibold text-green-600">
+                          {returnedCount}/{copyCount} zurück
+                        </span>
+                      )}
+                      {(isFullyReturned || isRentalReturned) && (
+                        <span className="ml-1 text-xs font-semibold text-green-600">
+                          ✓
+                        </span>
+                      )}
                     </span>
                   );
-                })
-              : `${rental.items.length} Gegenstände`}
+                })}
+              </div>
+            ) : (
+              `${rental.items.length} Gegenstände`
+            )}
           </td>
         );
       case 'rented_on':
