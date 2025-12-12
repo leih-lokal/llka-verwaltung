@@ -258,10 +258,12 @@ export default function RentalsPage() {
 
   // Render table header cell for a given column
   const renderHeaderCell = (columnId: string) => {
+    const dividerClass = columnVisibility.verticalDividers ? 'border-l first:border-l-0 border-border/30' : '';
+
     switch (columnId) {
       case 'customer':
         return (
-          <th key="customer" className="px-4 py-2 text-left">
+          <th key="customer" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Nutzer"
               sortDirection={getSortDirection('customer')}
@@ -272,7 +274,7 @@ export default function RentalsPage() {
         );
       case 'items':
         return (
-          <th key="items" className="px-4 py-2 text-left">
+          <th key="items" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Gegenstände"
               sortDirection={getSortDirection('items')}
@@ -283,7 +285,7 @@ export default function RentalsPage() {
         );
       case 'rented_on':
         return (
-          <th key="rented_on" className="px-4 py-2 text-left">
+          <th key="rented_on" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Ausgeliehen"
               sortDirection={getSortDirection('rented_on')}
@@ -294,7 +296,7 @@ export default function RentalsPage() {
         );
       case 'expected_on':
         return (
-          <th key="expected_on" className="px-4 py-2 text-left">
+          <th key="expected_on" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Erwartet"
               sortDirection={getSortDirection('expected_on')}
@@ -305,7 +307,7 @@ export default function RentalsPage() {
         );
       case 'returned_on':
         return (
-          <th key="returned_on" className="px-4 py-2 text-left">
+          <th key="returned_on" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Zurück"
               sortDirection={getSortDirection('returned_on')}
@@ -316,13 +318,13 @@ export default function RentalsPage() {
         );
       case 'status':
         return (
-          <th key="status" className="px-4 py-2 text-left" title="Status">
+          <th key="status" className={cn("px-4 py-2 text-left", dividerClass)} title="Status">
             <BadgeCheckIcon className="size-4" />
           </th>
         );
       case 'extended_on':
         return (
-          <th key="extended_on" className="px-4 py-2 text-left">
+          <th key="extended_on" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Verlängert"
               sortDirection={getSortDirection('extended_on')}
@@ -333,7 +335,7 @@ export default function RentalsPage() {
         );
       case 'deposit':
         return (
-          <th key="deposit" className="px-4 py-2 text-left">
+          <th key="deposit" className={cn("px-4 py-2 text-left", dividerClass)}>
             <button
               onClick={() => handleSort('deposit')}
               disabled={isLoading}
@@ -346,7 +348,7 @@ export default function RentalsPage() {
         );
       case 'deposit_back':
         return (
-          <th key="deposit_back" className="px-4 py-2 text-left">
+          <th key="deposit_back" className={cn("px-4 py-2 text-left", dividerClass)}>
             <button
               onClick={() => handleSort('deposit_back')}
               disabled={isLoading}
@@ -359,7 +361,7 @@ export default function RentalsPage() {
         );
       case 'remark':
         return (
-          <th key="remark" className="px-4 py-2 text-left">
+          <th key="remark" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Bemerkung"
               sortDirection={getSortDirection('remark')}
@@ -370,7 +372,7 @@ export default function RentalsPage() {
         );
       case 'employee':
         return (
-          <th key="employee" className="px-4 py-2 text-left">
+          <th key="employee" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
             label={
               <div className="flex items-center gap-1">
@@ -386,7 +388,7 @@ export default function RentalsPage() {
         );
       case 'employee_back':
         return (
-          <th key="employee_back" className="px-4 py-2 text-left">
+          <th key="employee_back" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
             label={
               <div className="flex items-center gap-1">
@@ -407,17 +409,13 @@ export default function RentalsPage() {
 
   // Render table body cell for a given column and rental
   const renderBodyCell = (columnId: string, rental: RentalExpanded) => {
-    const status = calculateRentalStatus(
-      rental.rented_on,
-      rental.returned_on,
-      rental.expected_on,
-      rental.extended_on
-    );
+    const status = calculateRentalStatus(rental);
+    const dividerClass = columnVisibility.verticalDividers ? 'border-l first:border-l-0 border-border/30' : '';
 
     switch (columnId) {
       case 'customer':
         return (
-          <td key="customer" className="px-4 py-3">
+          <td key="customer" className={cn("px-4 py-3", dividerClass)}>
             {rental.expand?.customer ? (
               <span className="font-medium">
                 <span className="font-mono text-primary font-semibold mr-2">
@@ -433,7 +431,7 @@ export default function RentalsPage() {
         );
       case 'items':
         return (
-          <td key="items" className="px-4 py-3 text-sm">
+          <td key="items" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {rental.expand?.items?.length > 0 ? (
               <div className="space-y-1">
                 {rental.expand.items.map((item) => {
@@ -481,63 +479,68 @@ export default function RentalsPage() {
         );
       case 'rented_on':
         return (
-          <td key="rented_on" className="px-4 py-3 text-sm text-muted-foreground">
+          <td key="rented_on" className={cn("px-4 py-3 text-sm text-muted-foreground", dividerClass)}>
             {formatDate(rental.rented_on)}
           </td>
         );
       case 'expected_on':
         return (
-          <td key="expected_on" className="px-4 py-3 text-sm text-muted-foreground">
+          <td key="expected_on" className={cn("px-4 py-3 text-sm text-muted-foreground", dividerClass)}>
             {formatDate(rental.expected_on)}
           </td>
         );
       case 'returned_on':
         return (
-          <td key="returned_on" className="px-4 py-3 text-sm">
+          <td key="returned_on" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {rental.returned_on ? formatDate(rental.returned_on) : '—'}
           </td>
         );
       case 'status':
         return (
-          <td key="status" className="px-4 py-3">
-            <Badge variant="outline">
+          <td key="status" className={cn("px-4 py-3", dividerClass)}>
+            <Badge
+              variant="outline"
+              className={cn(
+                status === 'active' && 'bg-red-500 text-white border-red-500'
+              )}
+            >
               {getRentalStatusLabel(status)}
             </Badge>
           </td>
         );
       case 'extended_on':
         return (
-          <td key="extended_on" className="px-4 py-3 text-sm text-muted-foreground">
+          <td key="extended_on" className={cn("px-4 py-3 text-sm text-muted-foreground", dividerClass)}>
             {rental.extended_on ? formatDate(rental.extended_on) : '—'}
           </td>
         );
       case 'deposit':
         return (
-          <td key="deposit" className="px-4 py-3 text-sm">
+          <td key="deposit" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {rental.deposit > 0 ? `${rental.deposit} €` : '—'}
           </td>
         );
       case 'deposit_back':
         return (
-          <td key="deposit_back" className="px-4 py-3 text-sm">
+          <td key="deposit_back" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {rental.deposit_back > 0 ? `${rental.deposit_back} €` : '—'}
           </td>
         );
       case 'remark':
         return (
-          <td key="remark" className="px-4 py-3 text-sm">
+          <td key="remark" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {rental.remark || '—'}
           </td>
         );
       case 'employee':
         return (
-          <td key="employee" className="px-4 py-3 text-sm">
+          <td key="employee" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {rental.employee || '—'}
           </td>
         );
       case 'employee_back':
         return (
-          <td key="employee_back" className="px-4 py-3 text-sm">
+          <td key="employee_back" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {rental.employee_back || '—'}
           </td>
         );
@@ -589,6 +592,8 @@ export default function RentalsPage() {
             onResetOrder={columnVisibility.resetOrder}
             onReorderColumns={columnVisibility.reorderColumns}
             hiddenCount={columnVisibility.hiddenCount}
+            verticalDividers={columnVisibility.verticalDividers}
+            onToggleVerticalDividers={columnVisibility.toggleVerticalDividers}
           />
         </div>
       </div>
@@ -622,12 +627,7 @@ export default function RentalsPage() {
                   </thead>
                   <tbody>
                     {rentals.map((rental) => {
-                      const status = calculateRentalStatus(
-                        rental.rented_on,
-                        rental.returned_on,
-                        rental.expected_on,
-                        rental.extended_on
-                      );
+                      const status = calculateRentalStatus(rental);
                       const statusColor = RENTAL_STATUS_COLORS[status];
 
                       return (

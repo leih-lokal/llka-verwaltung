@@ -21,6 +21,7 @@ import { customersFilterConfig } from '@/lib/filters/filter-configs';
 import { customersColumnConfig } from '@/lib/tables/column-configs';
 import { enrichCustomersWithStats } from '@/lib/utils/customer-stats';
 import type { Customer, CustomerWithStats } from '@/types';
+import { cn } from '@/lib/utils';
 
 export default function CustomersPage() {
   const searchParams = useSearchParams();
@@ -247,10 +248,12 @@ export default function CustomersPage() {
 
   // Render table header cell for a given column
   const renderHeaderCell = (columnId: string) => {
+    const dividerClass = columnVisibility.verticalDividers ? 'border-l first:border-l-0 border-border/30' : '';
+
     switch (columnId) {
       case 'iid':
         return (
-          <th key="iid" className="px-4 py-2 text-left">
+          <th key="iid" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="ID"
               sortDirection={getSortDirection('iid')}
@@ -261,7 +264,7 @@ export default function CustomersPage() {
         );
       case 'name':
         return (
-          <th key="name" className="px-4 py-2 text-left">
+          <th key="name" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Name"
               sortDirection={getSortDirection('name')}
@@ -272,7 +275,7 @@ export default function CustomersPage() {
         );
       case 'email':
         return (
-          <th key="email" className="px-4 py-2 text-left">
+          <th key="email" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Email"
               sortDirection={getSortDirection('email')}
@@ -283,7 +286,7 @@ export default function CustomersPage() {
         );
       case 'phone':
         return (
-          <th key="phone" className="px-4 py-2 text-left">
+          <th key="phone" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Telefon"
               sortDirection={getSortDirection('phone')}
@@ -294,25 +297,25 @@ export default function CustomersPage() {
         );
       case 'active_reservations':
         return (
-          <th key="active_reservations" className="px-4 py-2 text-left" title="Aktive Reservierungen">
+          <th key="active_reservations" className={cn("px-4 py-2 text-left", dividerClass)} title="Aktive Reservierungen">
             <CalendarCheckIcon className="size-4" />
           </th>
         );
       case 'active_rentals':
         return (
-          <th key="active_rentals" className="px-4 py-2 text-left" title="Aktive Ausleihen">
+          <th key="active_rentals" className={cn("px-4 py-2 text-left", dividerClass)} title="Aktive Ausleihen">
             <PackageIcon className="size-4" />
           </th>
         );
       case 'total_rentals':
         return (
-          <th key="total_rentals" className="px-4 py-2 text-left" title="Gesamt Ausleihen">
+          <th key="total_rentals" className={cn("px-4 py-2 text-left", dividerClass)} title="Gesamt Ausleihen">
             <HistoryIcon className="size-4" />
           </th>
         );
       case 'street':
         return (
-          <th key="street" className="px-4 py-2 text-left">
+          <th key="street" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Straße"
               sortDirection={getSortDirection('street')}
@@ -323,7 +326,7 @@ export default function CustomersPage() {
         );
       case 'postal_code':
         return (
-          <th key="postal_code" className="px-4 py-2 text-left">
+          <th key="postal_code" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="PLZ"
               sortDirection={getSortDirection('postal_code')}
@@ -334,7 +337,7 @@ export default function CustomersPage() {
         );
       case 'city':
         return (
-          <th key="city" className="px-4 py-2 text-left">
+          <th key="city" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Stadt"
               sortDirection={getSortDirection('city')}
@@ -345,7 +348,7 @@ export default function CustomersPage() {
         );
       case 'registered_on':
         return (
-          <th key="registered_on" className="px-4 py-2 text-left">
+          <th key="registered_on" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Registriert"
               sortDirection={getSortDirection('registered_on')}
@@ -356,7 +359,7 @@ export default function CustomersPage() {
         );
       case 'renewed_on':
         return (
-          <th key="renewed_on" className="px-4 py-2 text-left">
+          <th key="renewed_on" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Verlängert"
               sortDirection={getSortDirection('renewed_on')}
@@ -367,7 +370,7 @@ export default function CustomersPage() {
         );
       case 'newsletter':
           return (
-            <th key="newsletter" className="px-4 py-2 text-left" title="Newsletter">
+            <th key="newsletter" className={cn("px-4 py-2 text-left", dividerClass)} title="Newsletter">
               <SortableHeader
                 label={<MailIcon className="size-4" />}
                 sortDirection={getSortDirection('newsletter')}
@@ -378,7 +381,7 @@ export default function CustomersPage() {
           );
       case 'remark':
         return (
-          <th key="remark" className="px-4 py-2 text-left">
+          <th key="remark" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Bemerkung"
               sortDirection={getSortDirection('remark')}
@@ -394,16 +397,18 @@ export default function CustomersPage() {
 
   // Render table body cell for a given column and customer
   const renderBodyCell = (columnId: string, customer: CustomerWithStats) => {
+    const dividerClass = columnVisibility.verticalDividers ? 'border-l first:border-l-0 border-border/30' : '';
+
     switch (columnId) {
       case 'iid':
         return (
-          <td key="iid" className="px-4 py-3 font-mono text-sm">
+          <td key="iid" className={cn("px-4 py-3 font-mono text-sm", dividerClass)}>
             {String(customer.iid).padStart(4, '0')}
           </td>
         );
       case 'name':
         return (
-          <td key="name" className="px-4 py-3">
+          <td key="name" className={cn("px-4 py-3", dividerClass)}>
             <div className="flex items-center gap-2">
               {customer.highlight_color && (
                 customer.highlight_color === 'green' ? (
@@ -429,55 +434,61 @@ export default function CustomersPage() {
         );
       case 'email':
         return (
-          <td key="email" className="px-4 py-3 text-sm text-muted-foreground">
+          <td key="email" className={cn("px-4 py-3 text-sm text-muted-foreground", dividerClass)}>
             {customer.email || '—'}
           </td>
         );
       case 'phone':
         return (
-          <td key="phone" className="px-4 py-3 text-sm text-muted-foreground">
+          <td key="phone" className={cn("px-4 py-3 text-sm text-muted-foreground", dividerClass)}>
             {customer.phone || '—'}
+          </td>
+        );
+      case 'active_reservations':
+        return (
+          <td key="active_reservations" className={cn("px-4 py-3 text-sm text-center", dividerClass)}>
+            {isLoadingStats ? '—' : customer.active_reservations}
           </td>
         );
       case 'active_rentals':
         return (
-          <td key="active_rentals" className="px-4 py-3 text-sm text-center">
+          <td key="active_rentals" className={cn("px-4 py-3 text-sm text-center", dividerClass)}>
             {isLoadingStats ? '—' : customer.active_rentals}
           </td>
         );
       case 'total_rentals':
         return (
-          <td key="total_rentals" className="px-4 py-3 text-sm text-center">
+          <td key="total_rentals" className={cn("px-4 py-3 text-sm text-center", dividerClass)}>
             {isLoadingStats ? '—' : customer.total_rentals}
           </td>
         );
       case 'street':
         return (
-          <td key="street" className="px-4 py-3 text-sm">
+          <td key="street" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {customer.street || '—'}
           </td>
         );
       case 'postal_code':
         return (
-          <td key="postal_code" className="px-4 py-3 text-sm">
+          <td key="postal_code" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {customer.postal_code || '—'}
           </td>
         );
       case 'city':
         return (
-          <td key="city" className="px-4 py-3 text-sm">
+          <td key="city" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {customer.city || '—'}
           </td>
         );
       case 'registered_on':
         return (
-          <td key="registered_on" className="px-4 py-3 text-sm text-muted-foreground">
+          <td key="registered_on" className={cn("px-4 py-3 text-sm text-muted-foreground", dividerClass)}>
             {new Date(customer.registered_on).toLocaleDateString('de-DE')}
           </td>
         );
       case 'renewed_on':
         return (
-          <td key="renewed_on" className="px-4 py-3 text-sm text-muted-foreground">
+          <td key="renewed_on" className={cn("px-4 py-3 text-sm text-muted-foreground", dividerClass)}>
             {customer.renewed_on
               ? new Date(customer.renewed_on).toLocaleDateString('de-DE')
               : '—'}
@@ -485,13 +496,13 @@ export default function CustomersPage() {
         );
       case 'newsletter':
         return (
-          <td key="newsletter" className="px-4 py-3 text-sm">
+          <td key="newsletter" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {customer.newsletter ? 'Ja' : 'Nein'}
           </td>
         );
       case 'remark':
         return (
-          <td key="remark" className="px-4 py-3 text-sm">
+          <td key="remark" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {customer.remark || '—'}
           </td>
         );
@@ -541,6 +552,8 @@ export default function CustomersPage() {
             onResetOrder={columnVisibility.resetOrder}
             onReorderColumns={columnVisibility.reorderColumns}
             hiddenCount={columnVisibility.hiddenCount}
+            verticalDividers={columnVisibility.verticalDividers}
+            onToggleVerticalDividers={columnVisibility.toggleVerticalDividers}
           />
         </div>
       </div>

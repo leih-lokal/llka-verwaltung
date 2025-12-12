@@ -4,18 +4,33 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+// Context for vertical dividers preference
+const TableContext = React.createContext<{ verticalDividers: boolean }>({
+  verticalDividers: false,
+});
+
+export function useTableContext() {
+  return React.useContext(TableContext);
+}
+
+interface TableProps extends React.ComponentProps<"table"> {
+  verticalDividers?: boolean;
+}
+
+function Table({ className, verticalDividers = false, ...props }: TableProps) {
   return (
-    <div
-      data-slot="table-container"
-      className="relative w-full overflow-x-auto"
-    >
-      <table
-        data-slot="table"
-        className={cn("w-full caption-bottom text-sm", className)}
-        {...props}
-      />
-    </div>
+    <TableContext.Provider value={{ verticalDividers }}>
+      <div
+        data-slot="table-container"
+        className="relative w-full overflow-x-auto"
+      >
+        <table
+          data-slot="table"
+          className={cn("w-full caption-bottom text-sm", className)}
+          {...props}
+        />
+      </div>
+    </TableContext.Provider>
   )
 }
 
@@ -66,11 +81,14 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
 }
 
 function TableHead({ className, ...props }: React.ComponentProps<"th">) {
+  const { verticalDividers } = useTableContext();
+
   return (
     <th
       data-slot="table-head"
       className={cn(
         "text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+        verticalDividers && "border-l first:border-l-0 border-border/30",
         className
       )}
       {...props}
@@ -79,11 +97,14 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
 }
 
 function TableCell({ className, ...props }: React.ComponentProps<"td">) {
+  const { verticalDividers } = useTableContext();
+
   return (
     <td
       data-slot="table-cell"
       className={cn(
         "p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+        verticalDividers && "border-l first:border-l-0 border-border/30",
         className
       )}
       {...props}

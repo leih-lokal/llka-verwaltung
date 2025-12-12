@@ -51,6 +51,7 @@ export const ITEM_STATUS_OPTIONS = Object.entries(ITEM_STATUS_LABELS).map(
 export const RENTAL_STATUS_LABELS: Record<RentalStatus, string> = {
   [RentalStatus.Active]: 'Aktiv',
   [RentalStatus.Returned]: 'Zurückgegeben',
+  [RentalStatus.PartiallyReturned]: 'Teilweise zurück',
   [RentalStatus.Overdue]: 'Überfällig',
   [RentalStatus.DueToday]: 'Heute fällig',
   [RentalStatus.ReturnedToday]: 'Heute zurück',
@@ -61,7 +62,8 @@ export const RENTAL_STATUS_LABELS: Record<RentalStatus, string> = {
  */
 export const RENTAL_STATUS_COLORS: Record<RentalStatus, string> = {
   [RentalStatus.Active]: 'transparent',
-  [RentalStatus.Returned]: 'transparent',
+  [RentalStatus.Returned]: 'hsl(120 60% 92%)', // faint green tint for all returned
+  [RentalStatus.PartiallyReturned]: 'hsl(45 80% 88%)', // yellow tint for partial returns
   [RentalStatus.Overdue]: 'hsl(0 80% 92%)', // more visible light red
   [RentalStatus.DueToday]: 'hsl(210 70% 92%)', // more visible light blue
   [RentalStatus.ReturnedToday]: 'hsl(120 60% 92%)', // more visible light green

@@ -4,23 +4,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Calendar,
   CheckCircle2,
   ExternalLink,
   ArrowRight,
-  Printer,
 } from "lucide-react";
 import { collections } from "@/lib/pocketbase/client";
 import { useRealtimeSubscription } from "@/hooks/use-realtime-subscription";
-import { formatDate, formatDateTime } from "@/lib/utils/formatting";
+import { formatDateTime } from "@/lib/utils/formatting";
 import type { Reservation, ReservationExpanded } from "@/types";
 import { toast } from "sonner";
 import Link from "next/link";
 import { parseISO, startOfDay, endOfDay } from "date-fns";
+import { generateReservationPrintContent } from "@/components/print/reservation-print-content";
 
 interface TodaysReservationsSectionProps {
   onReservationCompleted?: () => void;
@@ -57,9 +55,8 @@ export function TodaysReservationsSection({
             .getOne<ReservationExpanded>(reservation.id, { expand: "items" });
           setReservations((prev) => {
             if (prev.some((r) => r.id === reservation.id)) return prev;
-            return [...prev, expandedReservation].sort(
-              (a, b) =>
-                new Date(a.pickup).getTime() - new Date(b.pickup).getTime(),
+            return [...prev, expandedReservation].sort((a, b) =>
+              a.customer_name.localeCompare(b.customer_name)
             );
           });
         } catch (err) {
@@ -87,9 +84,8 @@ export function TodaysReservationsSection({
             const updated = prev.map((r) =>
               r.id === reservation.id ? expandedReservation : r,
             );
-            return updated.sort(
-              (a, b) =>
-                new Date(a.pickup).getTime() - new Date(b.pickup).getTime(),
+            return updated.sort((a, b) =>
+              a.customer_name.localeCompare(b.customer_name)
             );
           });
         } catch (err) {
@@ -119,7 +115,7 @@ export function TodaysReservationsSection({
         .getFullList<ReservationExpanded>({
           expand: "items",
           filter: `done = false && pickup >= "${startOfToday.toISOString()}" && pickup <= "${endOfToday.toISOString()}"`,
-          sort: "pickup",
+          sort: "customer_name",
         });
 
       setReservations(result);
@@ -167,7 +163,13 @@ export function TodaysReservationsSection({
   }
 
   function handlePrint() {
-    window.print();
+    const htmlContent = generateReservationPrintContent(reservations);
+    const printWindow = window.open('', '', 'width=800,height=600');
+    if (printWindow) {
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      printWindow.print();
+    }
   }
 
   function ReservationItem({
@@ -184,218 +186,87 @@ export function TodaysReservationsSection({
       : `${itemCount} ${itemCount === 1 ? "Gegenstand" : "Gegenstände"}`;
 
     return (
-      <div className="p-3 rounded-lg border bg-muted/50">
-        {/* OTP Display - Prominent */}
+      <div className="flex items-center gap-3 p-2.5 rounded border bg-muted/30 hover:bg-muted/50 transition-colors text-sm">
+        {/* Customer name with optional "Neu" badge */}
+        <div className="flex items-center gap-1.5 min-w-[160px]">
+          <span className="font-medium truncate">
+            {reservation.customer_name}
+          </span>
+          {reservation.is_new_customer && (
+            <Badge className="text-[10px] px-1.5 py-0.5">Neu</Badge>
+          )}
+        </div>
+
+        {/* OTP - inline with red background */}
         {reservation.otp && (
-          <div className="mb-3 bg-gradient-to-r from-red-200 to-red-50 border border-red-300 rounded-md p-3">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold text-red-600 uppercase">
-                Abholcode
-              </span>
-              <div className="bg-white rounded px-3 py-1 shadow-sm">
-                <span className="text-2xl font-bold font-mono tracking-wider text-red-600">
-                  {reservation.otp}
-                </span>
-              </div>
-            </div>
+          <div className="bg-red-100 border border-red-300 rounded px-2.5 py-1">
+            <span className="font-mono font-bold text-red-600 tracking-wide">
+              {reservation.otp}
+            </span>
           </div>
         )}
 
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="font-medium text-sm truncate">
-                {reservation.customer_name}
-              </span>
-              {reservation.is_new_customer && (
-                <Badge className="text-xs">Neu</Badge>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground mb-1">
-              Abholung: {formatDateTime(reservation.pickup)}
-            </p>
-            <p className="text-xs truncate">{itemsText}</p>
-            {reservation.comments && (
-              <p className="text-xs text-muted-foreground mt-1 italic">
-                "{reservation.comments}"
-              </p>
-            )}
-          </div>
+        {/* Items info - flex to take remaining space */}
+        <div className="flex-1 min-w-0 truncate text-muted-foreground">
+          {itemsText}
         </div>
-        <div className="flex gap-2">
+
+        {/* Action buttons - icons only, always visible */}
+        <div className="flex items-center gap-1">
           <Button
             size="sm"
             variant="default"
             onClick={() => handleCompleteReservation(reservation)}
             disabled={completingId === reservation.id}
-            className="flex-1"
+            className="h-8 w-8 p-0"
+            title="In Ausleihe umwandeln"
           >
-            <ArrowRight className="mr-1 h-3 w-3" />
-            In Ausleihe umwandeln
+            <ArrowRight className="h-4 w-4" />
           </Button>
           <Button
             size="sm"
-            variant="outline"
+            variant="ghost"
             onClick={() => handleMarkAsDone(reservation.id)}
             disabled={completingId === reservation.id}
+            className="h-8 w-8 p-0"
+            title="Als erledigt markieren"
           >
-            <CheckCircle2 className="h-3 w-3" />
+            <CheckCircle2 className="h-4 w-4" />
           </Button>
-          <Button size="sm" variant="ghost" asChild>
-            <Link href={`/reservations?view=${reservation.id}`}>
-              <ExternalLink className="h-3 w-3" />
+          <Button size="sm" variant="ghost" asChild className="h-8 w-8 p-0">
+            <Link href={`/reservations?view=${reservation.id}`} title="Details anzeigen">
+              <ExternalLink className="h-4 w-4" />
             </Link>
           </Button>
         </div>
+
+        {/* Show comment indicator if present */}
+        {reservation.comments && (
+          <div className="text-muted-foreground" title={reservation.comments}>
+            💬
+          </div>
+        )}
       </div>
     );
   }
 
+  if (loading) {
+    return <p className="text-sm text-muted-foreground">Lädt...</p>;
+  }
+
+  if (reservations.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Keine Reservierungen für heute geplant.
+      </p>
+    );
+  }
+
   return (
-    <>
-      {/* Print styles to hide everything except our print layout */}
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-          @media print {
-            body * {
-              visibility: hidden !important;
-            }
-            #reservation-print-root,
-            #reservation-print-root * {
-              visibility: visible !important;
-            }
-            #reservation-print-root {
-              position: absolute !important;
-              left: 0 !important;
-              top: 0 !important;
-            }
-          }
-        `,
-        }}
-      />
-
-      {/* Regular display (hidden during print) */}
-      <Card className="print:hidden">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              <span>Heutige Reservierungen</span>
-            </CardTitle>
-            {!loading && reservations.length > 0 && (
-              <Button size="sm" variant="outline" onClick={handlePrint}>
-                <Printer className="h-4 w-4 mr-2" />
-                Drucken
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <p className="text-sm text-muted-foreground">Lädt...</p>
-          ) : reservations.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Keine Reservierungen für heute geplant.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {reservations.map((reservation) => (
-                <ReservationItem
-                  key={reservation.id}
-                  reservation={reservation}
-                />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Print-only layout */}
-      <div
-        id="reservation-print-root"
-        className="hidden print:block fixed inset-0 bg-white p-8 z-[9999]"
-      >
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold mb-2">Heutige Reservierungen</h1>
-          <p className="text-sm text-gray-600">{formatDate(new Date())}</p>
-        </div>
-
-        <div className="space-y-6">
-          {reservations.map((reservation, index) => (
-            <div key={reservation.id} className="border-b pb-4 mb-4">
-              <div className="flex items-start gap-3 mb-3">
-                <input
-                  type="checkbox"
-                  className="mt-1 h-5 w-5 print:appearance-auto"
-                  disabled
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-semibold text-base">
-                      {index + 1}. {reservation.customer_name}
-                    </span>
-                    {reservation.is_new_customer && (
-                      <span className="text-xs px-2 py-1 bg-gray-100 rounded">
-                        Neunutzer:in
-                      </span>
-                    )}
-                  </div>
-
-                  {/* OTP Display - Prominent in Print */}
-                  {reservation.otp && (
-                    <div className="my-2 border-2 border-red-300 bg-red-50 rounded p-3 inline-block">
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-semibold text-red-600 uppercase">
-                          Abholcode:
-                        </span>
-                        <span className="text-3xl font-bold font-mono tracking-widest text-red-600">
-                          {reservation.otp}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  <p className="text-sm text-gray-600 mb-1">
-                    Abholung: {formatDateTime(reservation.pickup)}
-                  </p>
-                  {reservation.comments && (
-                    <p className="text-sm text-gray-600 italic mb-2">
-                      Kommentar: "{reservation.comments}"
-                    </p>
-                  )}
-
-                  {/* Items checklist */}
-                  {reservation.expand?.items &&
-                    reservation.expand.items.length > 0 && (
-                      <div className="ml-8 mt-2 space-y-1">
-                        <p className="text-sm font-medium mb-2">Gegenstände:</p>
-                        {reservation.expand.items.map((item) => (
-                          <div key={item.id} className="flex items-start gap-2">
-                            <input
-                              type="checkbox"
-                              className="mt-0.5 h-4 w-4 print:appearance-auto"
-                              disabled
-                            />
-                            <span className="text-sm">
-                              {String(item.iid).padStart(4, "0")} - {item.name}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {reservations.length === 0 && (
-          <p className="text-gray-500">
-            Keine Reservierungen für heute geplant.
-          </p>
-        )}
-      </div>
-    </>
+    <div className="space-y-2">
+      {reservations.map((reservation) => (
+        <ReservationItem key={reservation.id} reservation={reservation} />
+      ))}
+    </div>
   );
 }

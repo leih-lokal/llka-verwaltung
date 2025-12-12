@@ -25,6 +25,7 @@ import type { Item, ItemWithStats } from '@/types';
 import { getItemStatusLabel, ITEM_STATUS_COLORS } from '@/lib/constants/statuses';
 import { getCategoryLabel } from '@/lib/constants/categories';
 import { enrichItemsWithStats } from '@/lib/utils/item-stats';
+import { cn } from '@/lib/utils';
 
 export default function ItemsPage() {
   const searchParams = useSearchParams();
@@ -244,10 +245,12 @@ export default function ItemsPage() {
 
   // Render table header cell for a given column
   const renderHeaderCell = (columnId: string) => {
+    const dividerClass = columnVisibility.verticalDividers ? 'border-l first:border-l-0 border-border/30' : '';
+
     switch (columnId) {
       case 'iid':
         return (
-          <th key="iid" className="px-4 py-2 text-left">
+          <th key="iid" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="ID"
               sortDirection={getSortDirection('iid')}
@@ -258,13 +261,13 @@ export default function ItemsPage() {
         );
       case 'images':
         return (
-          <th key="images" className="px-4 py-2 text-left">
+          <th key="images" className={cn("px-4 py-2 text-left", dividerClass)}>
             <span className="text-sm font-medium">Bild</span>
           </th>
         );
       case 'name':
         return (
-          <th key="name" className="px-4 py-2 text-left">
+          <th key="name" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Name"
               sortDirection={getSortDirection('name')}
@@ -275,7 +278,7 @@ export default function ItemsPage() {
         );
       case 'brand':
         return (
-          <th key="brand" className="px-4 py-2 text-left">
+          <th key="brand" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Marke"
               sortDirection={getSortDirection('brand')}
@@ -286,7 +289,7 @@ export default function ItemsPage() {
         );
       case 'model':
         return (
-          <th key="model" className="px-4 py-2 text-left">
+          <th key="model" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Modell"
               sortDirection={getSortDirection('model')}
@@ -297,7 +300,7 @@ export default function ItemsPage() {
         );
       case 'category':
         return (
-          <th key="category" className="px-4 py-2 text-left">
+          <th key="category" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Kategorie"
               sortDirection={getSortDirection('category')}
@@ -308,7 +311,7 @@ export default function ItemsPage() {
         );
       case 'status':
         return (
-          <th key="status" className="px-4 py-2 text-left">
+          <th key="status" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Status"
               sortDirection={getSortDirection('status')}
@@ -319,7 +322,7 @@ export default function ItemsPage() {
         );
       case 'deposit':
         return (
-          <th key="deposit" className="px-4 py-2 text-left">
+          <th key="deposit" className={cn("px-4 py-2 text-left", dividerClass)}>
             <button
               onClick={() => handleSort('deposit')}
               disabled={isLoading}
@@ -332,7 +335,7 @@ export default function ItemsPage() {
         );
       case 'description':
         return (
-          <th key="description" className="px-4 py-2 text-left">
+          <th key="description" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Beschreibung"
               sortDirection={getSortDirection('description')}
@@ -343,7 +346,7 @@ export default function ItemsPage() {
         );
       case 'packaging':
         return (
-          <th key="packaging" className="px-4 py-2 text-left">
+          <th key="packaging" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Verpackung"
               sortDirection={getSortDirection('packaging')}
@@ -354,7 +357,7 @@ export default function ItemsPage() {
         );
       case 'manual':
         return (
-          <th key="manual" className="px-4 py-2 text-left">
+          <th key="manual" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Anleitung"
               sortDirection={getSortDirection('manual')}
@@ -365,7 +368,7 @@ export default function ItemsPage() {
         );
       case 'parts':
         return (
-          <th key="parts" className="px-4 py-2 text-left">
+          <th key="parts" className={cn("px-4 py-2 text-left", dividerClass)}>
             <button
               onClick={() => handleSort('parts')}
               disabled={isLoading}
@@ -378,7 +381,7 @@ export default function ItemsPage() {
         );
       case 'copies':
         return (
-          <th key="copies" className="px-4 py-2 text-left">
+          <th key="copies" className={cn("px-4 py-2 text-left", dividerClass)}>
             <button
               onClick={() => handleSort('copies')}
               disabled={isLoading}
@@ -391,13 +394,13 @@ export default function ItemsPage() {
         );
       case 'total_rentals':
         return (
-          <th key="total_rentals" className="px-4 py-2 text-left" title="Gesamt Ausleihen">
+          <th key="total_rentals" className={cn("px-4 py-2 text-left", dividerClass)} title="Gesamt Ausleihen">
             <HistoryIcon className="size-4" />
           </th>
         );
       case 'internal_note':
         return (
-          <th key="internal_note" className="px-4 py-2 text-left">
+          <th key="internal_note" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Interne Notiz"
               sortDirection={getSortDirection('internal_note')}
@@ -408,7 +411,7 @@ export default function ItemsPage() {
         );
       case 'added_on':
         return (
-          <th key="added_on" className="px-4 py-2 text-left">
+          <th key="added_on" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Hinzugefügt"
               sortDirection={getSortDirection('added_on')}
@@ -424,10 +427,12 @@ export default function ItemsPage() {
 
   // Render table body cell for a given column and item
   const renderBodyCell = (columnId: string, item: ItemWithStats) => {
+    const dividerClass = columnVisibility.verticalDividers ? 'border-l first:border-l-0 border-border/30' : '';
+
     switch (columnId) {
       case 'iid':
         return (
-          <td key="iid" className="px-4 py-3 font-mono text-sm">
+          <td key="iid" className={cn("px-4 py-3 font-mono text-sm", dividerClass)}>
             <div className="flex items-center gap-1">
               <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-1.5 py-0.5 rounded text-xs">
                 {String(item.iid).padStart(4, '0').substring(0, 2)}
@@ -438,7 +443,7 @@ export default function ItemsPage() {
         );
       case 'images':
         return (
-          <td key="images" className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+          <td key="images" className={cn("px-4 py-3", dividerClass)} onClick={(e) => e.stopPropagation()}>
             {item.images && item.images.length > 0 ? (
               <HoverCard openDelay={200}>
                 <HoverCardTrigger asChild>
@@ -480,7 +485,7 @@ export default function ItemsPage() {
         );
       case 'name':
         return (
-          <td key="name" className="px-4 py-3 font-medium">
+          <td key="name" className={cn("px-4 py-3 font-medium", dividerClass)}>
             <div className="flex items-center gap-2">
               {item.highlight_color && (
                 item.highlight_color === 'green' ? (
@@ -499,19 +504,19 @@ export default function ItemsPage() {
         );
       case 'brand':
         return (
-          <td key="brand" className="px-4 py-3 text-sm text-muted-foreground">
+          <td key="brand" className={cn("px-4 py-3 text-sm text-muted-foreground", dividerClass)}>
             {item.brand || '—'}
           </td>
         );
       case 'model':
         return (
-          <td key="model" className="px-4 py-3 text-sm text-muted-foreground">
+          <td key="model" className={cn("px-4 py-3 text-sm text-muted-foreground", dividerClass)}>
             {item.model || '—'}
           </td>
         );
       case 'category':
         return (
-          <td key="category" className="px-4 py-3 text-sm">
+          <td key="category" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {item.category.length > 0
               ? item.category.map(getCategoryLabel).join(', ')
               : '—'}
@@ -519,7 +524,7 @@ export default function ItemsPage() {
         );
       case 'status':
         return (
-          <td key="status" className="px-4 py-3">
+          <td key="status" className={cn("px-4 py-3", dividerClass)}>
             <Badge variant={ITEM_STATUS_COLORS[item.status]}>
               {getItemStatusLabel(item.status)}
             </Badge>
@@ -527,55 +532,55 @@ export default function ItemsPage() {
         );
       case 'deposit':
         return (
-          <td key="deposit" className="px-4 py-3 text-sm">
+          <td key="deposit" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {item.deposit > 0 ? `${item.deposit} €` : '—'}
           </td>
         );
       case 'description':
         return (
-          <td key="description" className="px-4 py-3 text-sm">
+          <td key="description" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {item.description || '—'}
           </td>
         );
       case 'packaging':
         return (
-          <td key="packaging" className="px-4 py-3 text-sm">
+          <td key="packaging" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {item.packaging || '—'}
           </td>
         );
       case 'manual':
         return (
-          <td key="manual" className="px-4 py-3 text-sm">
+          <td key="manual" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {item.manual || '—'}
           </td>
         );
       case 'parts':
         return (
-          <td key="parts" className="px-4 py-3 text-sm">
+          <td key="parts" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {item.parts || '—'}
           </td>
         );
       case 'copies':
         return (
-          <td key="copies" className="px-4 py-3 text-sm">
+          <td key="copies" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {item.copies}
           </td>
         );
       case 'total_rentals':
         return (
-          <td key="total_rentals" className="px-4 py-3 text-sm text-center">
+          <td key="total_rentals" className={cn("px-4 py-3 text-sm text-center", dividerClass)}>
             {item.total_rentals || 0}
           </td>
         );
       case 'internal_note':
         return (
-          <td key="internal_note" className="px-4 py-3 text-sm">
+          <td key="internal_note" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {item.internal_note || '—'}
           </td>
         );
       case 'added_on':
         return (
-          <td key="added_on" className="px-4 py-3 text-sm text-muted-foreground">
+          <td key="added_on" className={cn("px-4 py-3 text-sm text-muted-foreground", dividerClass)}>
             {new Date(item.added_on).toLocaleDateString('de-DE')}
           </td>
         );
@@ -627,6 +632,8 @@ export default function ItemsPage() {
             onResetOrder={columnVisibility.resetOrder}
             onReorderColumns={columnVisibility.reorderColumns}
             hiddenCount={columnVisibility.hiddenCount}
+            verticalDividers={columnVisibility.verticalDividers}
+            onToggleVerticalDividers={columnVisibility.toggleVerticalDividers}
           />
         </div>
       </div>

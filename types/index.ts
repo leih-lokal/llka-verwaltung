@@ -40,6 +40,7 @@ export enum ItemStatus {
 export enum RentalStatus {
   Active = 'active',
   Returned = 'returned',
+  PartiallyReturned = 'partially_returned',
   Overdue = 'overdue',
   DueToday = 'due_today',
   ReturnedToday = 'returned_today',
@@ -779,4 +780,56 @@ export interface RealtimeConnectionInfo {
   error?: string;
   /** Last connection time */
   lastConnected?: Date;
+}
+
+// ============================================================================
+// DASHBOARD METRICS
+// ============================================================================
+
+/**
+ * Today's activity metrics for dashboard
+ */
+export interface TodayActivityMetrics {
+  /** Number of checkouts today */
+  checkouts: number;
+  /** Number of returns today */
+  returns: number;
+  /** Number of on-time returns today */
+  onTimeReturns: number;
+  /** Number of late returns today */
+  lateReturns: number;
+  /** Number of new customers registered today */
+  newCustomers: number;
+  /** Number of new reservations created today */
+  newReservations: number;
+}
+
+/**
+ * Overdue rental breakdown by severity
+ */
+export interface OverdueBreakdown {
+  /** Number of rentals 1-3 days overdue */
+  severity1to3Days: number;
+  /** Number of rentals 4-7 days overdue */
+  severity4to7Days: number;
+  /** Number of rentals 8+ days overdue */
+  severity8PlusDays: number;
+  /** Total number of overdue rentals */
+  total: number;
+}
+
+/**
+ * Rental due within a time window
+ */
+export interface DueThisWeekItem {
+  /** The rental record */
+  rental: RentalExpanded;
+  /** Due date as ISO string */
+  dueDate: string;
+  /** Days until due (negative if overdue) */
+  daysUntilDue: number;
+  /** Customer name */
+  customerName: string;
+  /** Number of items in rental */
+  itemCount: number;
 }

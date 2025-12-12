@@ -4,10 +4,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ClipboardList, AlertCircle, Clock, ExternalLink } from 'lucide-react';
+import { AlertCircle, Clock, ExternalLink } from 'lucide-react';
 import { collections } from '@/lib/pocketbase/client';
 import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
 import { calculateRentalStatus, formatDate, formatFullName } from '@/lib/utils/formatting';
@@ -176,7 +175,7 @@ export function ActiveRentalsSection({ onRentalReturned }: ActiveRentalsSectionP
 
     return (
       <div
-        className={`p-3 rounded-lg border ${
+        className={`p-2 rounded-lg border ${
           variant === 'overdue'
             ? 'bg-red-50 border-red-200'
             : variant === 'duetoday'
@@ -184,19 +183,19 @@ export function ActiveRentalsSection({ onRentalReturned }: ActiveRentalsSectionP
             : 'bg-muted/50'
         }`}
       >
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start justify-between gap-1.5">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-1.5 mb-0.5">
               <span className="font-medium text-sm truncate">
                 {customerName}
               </span>
               {variant === 'overdue' && (
-                <Badge variant="destructive" className="text-xs">
+                <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
                   Überfällig
                 </Badge>
               )}
               {variant === 'duetoday' && (
-                <Badge variant="outline" className="text-xs border-yellow-600 text-yellow-600">
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-yellow-600 text-yellow-600">
                   Heute fällig
                 </Badge>
               )}
@@ -205,7 +204,7 @@ export function ActiveRentalsSection({ onRentalReturned }: ActiveRentalsSectionP
               {itemsText} • Rückgabe: {formatDate(dueDate)}
             </p>
           </div>
-          <Button size="sm" variant="ghost" asChild className="shrink-0">
+          <Button size="sm" variant="ghost" asChild className="shrink-0 h-8 w-8 p-0">
             <Link href={`/rentals?view=${rental.id}`}>
               <ExternalLink className="h-3 w-3" />
             </Link>
@@ -215,85 +214,78 @@ export function ActiveRentalsSection({ onRentalReturned }: ActiveRentalsSectionP
     );
   }
 
+  if (loading) {
+    return <p className="text-sm text-muted-foreground">Lädt...</p>;
+  }
+
+  if (
+    overdueRentals.length === 0 &&
+    dueTodayRentals.length === 0 &&
+    activeRentals.length === 0
+  ) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Keine aktiven Ausleihen vorhanden.
+      </p>
+    );
+  }
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <ClipboardList className="h-5 w-5" />
-          <span>Aktive Ausleihen</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {loading ? (
-          <p className="text-sm text-muted-foreground">Lädt...</p>
-        ) : (
-          <>
-            {/* Overdue Rentals */}
-            {overdueRentals.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertCircle className="h-4 w-4 text-destructive" />
-                  <h3 className="text-sm font-semibold text-destructive">
-                    Überfällig ({overdueRentals.length})
-                  </h3>
-                </div>
-                <div className="space-y-2">
-                  {overdueRentals.map((rental) => (
-                    <RentalItem key={rental.id} rental={rental} variant="overdue" />
-                  ))}
-                </div>
-              </div>
-            )}
+    <div className="space-y-4">
+      {/* Overdue Rentals */}
+      {overdueRentals.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <AlertCircle className="h-4 w-4 text-destructive" />
+            <h3 className="text-sm font-semibold text-destructive">
+              Überfällig ({overdueRentals.length})
+            </h3>
+          </div>
+          <div className="space-y-2">
+            {overdueRentals.map((rental) => (
+              <RentalItem key={rental.id} rental={rental} variant="overdue" />
+            ))}
+          </div>
+        </div>
+      )}
 
-            {/* Due Today Rentals */}
-            {dueTodayRentals.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Clock className="h-4 w-4 text-yellow-600" />
-                  <h3 className="text-sm font-semibold text-yellow-600">
-                    Heute fällig ({dueTodayRentals.length})
-                  </h3>
-                </div>
-                <div className="space-y-2">
-                  {dueTodayRentals.map((rental) => (
-                    <RentalItem key={rental.id} rental={rental} variant="duetoday" />
-                  ))}
-                </div>
-              </div>
-            )}
+      {/* Due Today Rentals */}
+      {dueTodayRentals.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="h-4 w-4 text-yellow-600" />
+            <h3 className="text-sm font-semibold text-yellow-600">
+              Heute fällig ({dueTodayRentals.length})
+            </h3>
+          </div>
+          <div className="space-y-2">
+            {dueTodayRentals.map((rental) => (
+              <RentalItem key={rental.id} rental={rental} variant="duetoday" />
+            ))}
+          </div>
+        </div>
+      )}
 
-            {/* Active Rentals */}
-            {activeRentals.length > 0 && (
-              <div>
-                <h3 className="text-sm font-semibold mb-2">
-                  Weitere Ausleihen ({activeRentals.length})
-                </h3>
-                <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                  {activeRentals.slice(0, 10).map((rental) => (
-                    <RentalItem key={rental.id} rental={rental} variant="active" />
-                  ))}
-                  {activeRentals.length > 10 && (
-                    <Button variant="outline" size="sm" asChild className="w-full">
-                      <Link href="/rentals">
-                        Alle {activeRentals.length} Ausleihen anzeigen
-                      </Link>
-                    </Button>
-                  )}
-                </div>
-              </div>
+      {/* Active Rentals */}
+      {activeRentals.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold mb-2">
+            Weitere Ausleihen ({activeRentals.length})
+          </h3>
+          <div className="space-y-2 max-h-[300px] overflow-y-auto">
+            {activeRentals.slice(0, 10).map((rental) => (
+              <RentalItem key={rental.id} rental={rental} variant="active" />
+            ))}
+            {activeRentals.length > 10 && (
+              <Button variant="outline" size="sm" asChild className="w-full">
+                <Link href="/rentals">
+                  Alle {activeRentals.length} Ausleihen anzeigen
+                </Link>
+              </Button>
             )}
-
-            {/* No Active Rentals */}
-            {overdueRentals.length === 0 &&
-              dueTodayRentals.length === 0 &&
-              activeRentals.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  Keine aktiven Ausleihen vorhanden.
-                </p>
-              )}
-          </>
-        )}
-      </CardContent>
-    </Card>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

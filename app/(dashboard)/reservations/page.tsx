@@ -40,6 +40,7 @@ import type {
   Customer,
 } from "@/types";
 import { formatDateTime } from "@/lib/utils/formatting";
+import { cn } from "@/lib/utils";
 
 export default function ReservationsPage() {
   const searchParams = useSearchParams();
@@ -389,10 +390,12 @@ export default function ReservationsPage() {
 
   // Render table header cell for a given column
   const renderHeaderCell = (columnId: string) => {
+    const dividerClass = columnVisibility.verticalDividers ? 'border-l first:border-l-0 border-border/30' : '';
+
     switch (columnId) {
       case "customer_name":
         return (
-          <th key="customer_name" className="px-4 py-2 text-left">
+          <th key="customer_name" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Nutzer"
               sortDirection={getSortDirection("customer_name")}
@@ -403,7 +406,7 @@ export default function ReservationsPage() {
         );
       case "items":
         return (
-          <th key="items" className="px-4 py-2 text-left">
+          <th key="items" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Gegenstände"
               sortDirection={getSortDirection("items")}
@@ -414,7 +417,7 @@ export default function ReservationsPage() {
         );
       case "customer_phone":
         return (
-          <th key="customer_phone" className="px-4 py-2 text-left">
+          <th key="customer_phone" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Telefon"
               sortDirection={getSortDirection("customer_phone")}
@@ -425,7 +428,7 @@ export default function ReservationsPage() {
         );
       case "pickup":
         return (
-          <th key="pickup" className="px-4 py-2 text-left">
+          <th key="pickup" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Abholung"
               sortDirection={getSortDirection("pickup")}
@@ -436,7 +439,7 @@ export default function ReservationsPage() {
         );
       case "status":
         return (
-          <th key="status" className="px-4 py-2 text-left">
+          <th key="status" className={cn("px-4 py-2 text-left", dividerClass)}>
             <button
               onClick={() => handleSort("status")}
               disabled={isLoading}
@@ -449,7 +452,7 @@ export default function ReservationsPage() {
         );
       case "customer_email":
         return (
-          <th key="customer_email" className="px-4 py-2 text-left">
+          <th key="customer_email" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Email"
               sortDirection={getSortDirection("customer_email")}
@@ -460,7 +463,7 @@ export default function ReservationsPage() {
         );
       case "customer_iid":
         return (
-          <th key="customer_iid" className="px-4 py-2 text-left">
+          <th key="customer_iid" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Nutzer-ID"
               sortDirection={getSortDirection("customer_iid")}
@@ -471,7 +474,7 @@ export default function ReservationsPage() {
         );
       case "is_new_customer":
         return (
-          <th key="is_new_customer" className="px-4 py-2 text-left">
+          <th key="is_new_customer" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label={<UserPlus className="size-4" />}
               sortDirection={getSortDirection("is_new_customer")}
@@ -482,7 +485,7 @@ export default function ReservationsPage() {
         );
       case "comments":
         return (
-          <th key="comments" className="px-4 py-2 text-left">
+          <th key="comments" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Kommentare"
               sortDirection={getSortDirection("comments")}
@@ -493,7 +496,7 @@ export default function ReservationsPage() {
         );
       case "on_premises":
         return (
-          <th key="on_premises" className="px-4 py-2 text-left">
+          <th key="on_premises" className={cn("px-4 py-2 text-left", dividerClass)}>
             <SortableHeader
               label="Vor Ort"
               sortDirection={getSortDirection("on_premises")}
@@ -504,13 +507,13 @@ export default function ReservationsPage() {
         );
       case "otp":
         return (
-          <th key="otp" className="px-4 py-2 text-left">
+          <th key="otp" className={cn("px-4 py-2 text-left", dividerClass)}>
             <span className="text-sm font-medium">OTP</span>
           </th>
         );
       case "actions":
         return (
-          <th key="actions" className="px-4 py-2 text-center">
+          <th key="actions" className={cn("px-4 py-2 text-center", dividerClass)}>
             <span className="text-sm font-medium">Aktionen</span>
           </th>
         );
@@ -524,10 +527,12 @@ export default function ReservationsPage() {
     columnId: string,
     reservation: ReservationExpanded,
   ) => {
+    const dividerClass = columnVisibility.verticalDividers ? 'border-l first:border-l-0 border-border/30' : '';
+
     switch (columnId) {
       case "customer_name":
         return (
-          <td key="customer_name" className="px-4 py-3">
+          <td key="customer_name" className={cn("px-4 py-3", dividerClass)}>
             {!reservation.customer_name ||
             reservation.customer_name.trim() === "" ? (
               // Empty name → show NEW badge + email
@@ -555,7 +560,7 @@ export default function ReservationsPage() {
         );
       case "items":
         return (
-          <td key="items" className="px-4 py-3 text-sm">
+          <td key="items" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {reservation.expand?.items?.length > 0
               ? reservation.expand.items.map((item) => (
                   <span key={item.id} className="inline-block mr-2">
@@ -572,20 +577,20 @@ export default function ReservationsPage() {
         return (
           <td
             key="customer_phone"
-            className="px-4 py-3 text-sm text-muted-foreground"
+            className={cn("px-4 py-3 text-sm text-muted-foreground", dividerClass)}
           >
             {reservation.customer_phone || "—"}
           </td>
         );
       case "pickup":
         return (
-          <td key="pickup" className="px-4 py-3 text-sm text-muted-foreground">
+          <td key="pickup" className={cn("px-4 py-3 text-sm text-muted-foreground", dividerClass)}>
             {formatDateTime(reservation.pickup)}
           </td>
         );
       case "status":
         return (
-          <td key="status" className="px-4 py-3">
+          <td key="status" className={cn("px-4 py-3", dividerClass)}>
             <Badge variant={reservation.done ? "default" : "outline"}>
               {reservation.done ? "Erledigt" : "Offen"}
             </Badge>
@@ -595,14 +600,14 @@ export default function ReservationsPage() {
         return (
           <td
             key="customer_email"
-            className="px-4 py-3 text-sm text-muted-foreground"
+            className={cn("px-4 py-3 text-sm text-muted-foreground", dividerClass)}
           >
             {reservation.customer_email || "—"}
           </td>
         );
       case "customer_iid":
         return (
-          <td key="customer_iid" className="px-4 py-3 text-sm font-mono">
+          <td key="customer_iid" className={cn("px-4 py-3 text-sm font-mono", dividerClass)}>
             {reservation.customer_iid
               ? String(reservation.customer_iid).padStart(4, "0")
               : "—"}
@@ -610,7 +615,7 @@ export default function ReservationsPage() {
         );
       case "is_new_customer":
         return (
-          <td key="is_new_customer" className="px-4 py-3 text-sm">
+          <td key="is_new_customer" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {reservation.is_new_customer ? (
               <Check className="size-4 text-green-600" />
             ) : (
@@ -620,13 +625,13 @@ export default function ReservationsPage() {
         );
       case "comments":
         return (
-          <td key="comments" className="px-4 py-3 text-sm">
+          <td key="comments" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {reservation.comments || "—"}
           </td>
         );
       case "on_premises":
         return (
-          <td key="on_premises" className="px-4 py-3 text-sm">
+          <td key="on_premises" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {reservation.on_premises ? (
               <Check className="size-4 text-green-600" />
             ) : (
@@ -636,7 +641,7 @@ export default function ReservationsPage() {
         );
       case "otp":
         return (
-          <td key="otp" className="px-4 py-3 text-sm font-mono">
+          <td key="otp" className={cn("px-4 py-3 text-sm font-mono", dividerClass)}>
             {reservation.otp || "—"}
           </td>
         );
@@ -644,7 +649,7 @@ export default function ReservationsPage() {
         return (
           <td
             key="actions"
-            className="px-4 py-3"
+            className={cn("px-4 py-3", dividerClass)}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-center">
@@ -710,6 +715,8 @@ export default function ReservationsPage() {
             onResetOrder={columnVisibility.resetOrder}
             onReorderColumns={columnVisibility.reorderColumns}
             hiddenCount={columnVisibility.hiddenCount}
+            verticalDividers={columnVisibility.verticalDividers}
+            onToggleVerticalDividers={columnVisibility.toggleVerticalDividers}
           />
         </div>
       </div>

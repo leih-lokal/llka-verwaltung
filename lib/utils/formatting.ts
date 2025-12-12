@@ -4,7 +4,8 @@
 
 import { format, formatDistance, differenceInDays, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { RentalStatus } from '@/types';
+import { RentalStatus, type Rental } from '@/types';
+import { getRentalReturnStatus } from './partial-returns';
 
 /**
  * Format date to German locale
@@ -54,20 +55,64 @@ export function formatCurrency(amount: number): string {
 }
 
 /**
- * Calculate rental status based on dates
+ * Calculate rental status based on dates and partial returns
+ * Overload for full rental object (preferred)
+ */
+export function calculateRentalStatus(rental: Rental): RentalStatus;
+/**
+ * Calculate rental status based on dates only (legacy)
  */
 export function calculateRentalStatus(
   rented_on: string,
   returned_on: string | null | undefined,
   expected_on: string,
   extended_on?: string | null
+): RentalStatus;
+/**
+ * Implementation
+ */
+export function calculateRentalStatus(
+  rentalOrRentedOn: Rental | string,
+  returned_on?: string | null,
+  expected_on?: string,
+  extended_on?: string | null
 ): RentalStatus {
+  // Determine if we got a Rental object or individual fields
+  let rental: Rental | null = null;
+  let rentedOn: string;
+  let returnedOn: string | null | undefined;
+  let expectedOn: string;
+  let extendedOn: string | null | undefined;
+
+  if (typeof rentalOrRentedOn === 'object') {
+    // New signature: full rental object
+    rental = rentalOrRentedOn;
+    rentedOn = rental.rented_on;
+    returnedOn = rental.returned_on;
+    expectedOn = rental.expected_on;
+    extendedOn = rental.extended_on;
+  } else {
+    // Legacy signature: individual fields
+    rentedOn = rentalOrRentedOn;
+    returnedOn = returned_on;
+    expectedOn = expected_on!;
+    extendedOn = extended_on;
+  }
+
   const today = new Date();
   today.setHours(0, 0, 0, 0); // Reset to start of day
 
+  // Check for partial returns first (only if we have the full rental object)
+  if (rental && !returnedOn) {
+    const returnStatus = getRentalReturnStatus(rental);
+    if (returnStatus.isPartiallyReturned) {
+      return RentalStatus.PartiallyReturned;
+    }
+  }
+
   // Already returned
-  if (returned_on) {
-    const returnDate = parseISO(returned_on);
+  if (returnedOn) {
+    const returnDate = parseISO(returnedOn);
     returnDate.setHours(0, 0, 0, 0);
 
     // Check if returned today
@@ -80,11 +125,11 @@ export function calculateRentalStatus(
   // Use expected_on as the due date
   // Note: extended_on now represents when the extension was made, not the new deadline
   // The new deadline is stored in expected_on (which gets updated when extending)
-  if (!expected_on) {
+  if (!expectedOn) {
     return RentalStatus.Active;
   }
 
-  const dueDate = parseISO(expected_on);
+  const dueDate = parseISO(expectedOn);
   dueDate.setHours(0, 0, 0, 0);
 
   const daysUntilDue = differenceInDays(dueDate, today);

@@ -33,10 +33,12 @@ export function useColumnVisibility({
 
   const [visibleColumns, setVisibleColumns] = useState<string[]>(defaultVisibleColumns);
   const [columnOrder, setColumnOrder] = useState<string[]>(defaultColumnOrder);
+  const [verticalDividers, setVerticalDividers] = useState<boolean>(false);
 
   // Storage keys for this entity
   const visibilityStorageKey = `column_visibility_${entity}`;
   const orderStorageKey = `column_order_${entity}`;
+  const dividersStorageKey = `vertical_dividers_${entity}`;
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -64,10 +66,16 @@ export function useColumnVisibility({
 
         setColumnOrder(completeOrder);
       }
+
+      // Load vertical dividers preference
+      const storedDividers = localStorage.getItem(dividersStorageKey);
+      if (storedDividers !== null) {
+        setVerticalDividers(JSON.parse(storedDividers) as boolean);
+      }
     } catch (error) {
       console.error('Failed to load column state from localStorage:', error);
     }
-  }, [visibilityStorageKey, orderStorageKey, persist, config.columns]);
+  }, [visibilityStorageKey, orderStorageKey, dividersStorageKey, persist, config.columns]);
 
   // Save visibility to localStorage when it changes
   useEffect(() => {
@@ -90,6 +98,17 @@ export function useColumnVisibility({
       console.error('Failed to save column order to localStorage:', error);
     }
   }, [columnOrder, orderStorageKey, persist]);
+
+  // Save vertical dividers preference to localStorage when it changes
+  useEffect(() => {
+    if (!persist) return;
+
+    try {
+      localStorage.setItem(dividersStorageKey, JSON.stringify(verticalDividers));
+    } catch (error) {
+      console.error('Failed to save vertical dividers preference to localStorage:', error);
+    }
+  }, [verticalDividers, dividersStorageKey, persist]);
 
   /**
    * Toggle column visibility
@@ -156,6 +175,13 @@ export function useColumnVisibility({
   );
 
   /**
+   * Toggle vertical dividers
+   */
+  const toggleVerticalDividers = useCallback(() => {
+    setVerticalDividers((prev) => !prev);
+  }, []);
+
+  /**
    * Get number of hidden columns
    */
   const hiddenCount = config.columns.length - visibleColumns.length;
@@ -163,10 +189,12 @@ export function useColumnVisibility({
   return {
     visibleColumns,
     columnOrder,
+    verticalDividers,
     toggleColumn,
     resetColumns,
     resetOrder,
     reorderColumns,
+    toggleVerticalDividers,
     isColumnVisible,
     getOrderedColumns,
     hiddenCount,

@@ -7,13 +7,6 @@
 import { useMemo } from 'react';
 import { Line, LineChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
@@ -24,13 +17,10 @@ import {
 import type { StatsResponse } from '@/lib/api/stats';
 import { transformStatsForChart } from '@/lib/utils/stats';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Button } from '@/components/ui/button';
-import { RefreshCw } from 'lucide-react';
 
 interface StatsChartProps {
   stats: StatsResponse | null;
   loading?: boolean;
-  onRefresh?: () => void;
 }
 
 // Chart configuration with colors matching old Svelte version
@@ -53,65 +43,30 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-export function StatsChart({ stats, loading, onRefresh }: StatsChartProps) {
+export function StatsChart({ stats, loading }: StatsChartProps) {
   const chartData = useMemo(() => {
     if (!stats) return [];
     return transformStatsForChart(stats);
   }, [stats]);
 
   if (loading) {
-    return (
-      <Card className="shadow-lg">
-        <CardHeader>
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-4 w-64 mt-2" />
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-[400px] w-full" />
-        </CardContent>
-      </Card>
-    );
+    return <Skeleton className="h-[400px] w-full" />;
   }
 
   if (!stats || chartData.length === 0) {
     return (
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle>Statistiken</CardTitle>
-          <CardDescription>
-            Keine Daten verfügbar
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="h-[400px] flex items-center justify-center text-muted-foreground">
-          <p>Keine Statistikdaten gefunden</p>
-        </CardContent>
-      </Card>
+      <div className="h-[400px] flex items-center justify-center">
+        <p className="text-muted-foreground">Keine Statistikdaten gefunden</p>
+      </div>
     );
   }
 
   return (
-    <Card className="shadow-lg">
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
-        <div className="space-y-1">
-          <CardTitle>Statistiken</CardTitle>
-          <CardDescription>
-            Entwicklung über die letzten 2 Jahre
-          </CardDescription>
-        </div>
-        {onRefresh && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onRefresh}
-            className="h-8 w-8"
-            title="Statistiken aktualisieren"
-          >
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        )}
-      </CardHeader>
-      <CardContent>
-        <ChartContainer config={chartConfig} className="h-[400px] w-full">
+    <div>
+      <p className="text-sm text-muted-foreground mb-4">
+        Entwicklung über die letzten 2 Jahre
+      </p>
+      <ChartContainer config={chartConfig} className="h-[400px] w-full">
           <LineChart
             data={chartData}
             margin={{
@@ -213,7 +168,6 @@ export function StatsChart({ stats, loading, onRefresh }: StatsChartProps) {
             />
           </LineChart>
         </ChartContainer>
-      </CardContent>
-    </Card>
+    </div>
   );
 }

@@ -359,3 +359,36 @@
 .cursor-blink {
   animation: cursor-blink 1s infinite;
 }
+
+/* ============================================
+   Sliding Navigation Indicator
+   ============================================ */
+
+/* Sliding navigation indicator */
+.nav-sliding-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: hsl(var(--primary));
+  border-radius: 2px;
+  pointer-events: none;
+  will-change: transform, width;
+  transform-origin: left center;
+  transition:
+    transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    width 300ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 200ms ease-in;
+  opacity: 1;
+}
+
+.nav-sliding-indicator.initial {
+  opacity: 0;
+}
+
+/* Respect user's motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .nav-sliding-indicator {
+    transition-duration: 0ms;
+  }
+}

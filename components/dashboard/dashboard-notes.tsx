@@ -21,11 +21,10 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { StickyNote, Plus, Pencil, Trash2, GripVertical } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Pencil, Trash2, GripVertical } from 'lucide-react';
 import { collections } from '@/lib/pocketbase/client';
 import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
 import type { Note } from '@/types';
@@ -112,7 +111,11 @@ function SortableNote({ note, onEdit, onDelete }: SortableNoteProps) {
   );
 }
 
-export function DashboardNotes() {
+export interface DashboardNotesProps {
+  onRequestAddNote?: (callback: () => void) => void;
+}
+
+export function DashboardNotes({ onRequestAddNote }: DashboardNotesProps = {}) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
@@ -130,6 +133,13 @@ export function DashboardNotes() {
   useEffect(() => {
     loadNotes();
   }, []);
+
+  // Provide handleAddNote to parent component
+  useEffect(() => {
+    if (onRequestAddNote) {
+      onRequestAddNote(() => handleAddNote);
+    }
+  }, [onRequestAddNote]);
 
   // Real-time subscription for live updates
   useRealtimeSubscription<Note>('note', {
@@ -249,113 +259,101 @@ export function DashboardNotes() {
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-        <CardTitle className="flex items-center gap-2">
-          <StickyNote className="h-5 w-5" />
-          <span>Notizen</span>
-        </CardTitle>
-        <Button size="sm" onClick={handleAddNote}>
-          <Plus className="mr-1 h-4 w-4" />
-          Neu
-        </Button>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <p className="text-sm text-muted-foreground">Lädt...</p>
-        ) : notes.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Keine Notizen vorhanden. Erstelle eine neue Notiz!
-          </p>
-        ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
+    <>
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Lädt...</p>
+      ) : notes.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Keine Notizen vorhanden. Erstelle eine neue Notiz!
+        </p>
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={notes.map((n) => n.id)}
+            strategy={verticalListSortingStrategy}
           >
-            <SortableContext
-              items={notes.map((n) => n.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="space-y-3">
-                {notes.map((note) => (
-                  <SortableNote
-                    key={note.id}
-                    note={note}
-                    onEdit={handleEditNote}
-                    onDelete={handleDeleteNote}
+            <div className="space-y-3">
+              {notes.map((note) => (
+                <SortableNote
+                  key={note.id}
+                  note={note}
+                  onEdit={handleEditNote}
+                  onDelete={handleDeleteNote}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {editingNote ? 'Notiz bearbeiten' : 'Neue Notiz'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                Inhalt (Markdown unterstützt)
+              </label>
+              <Textarea
+                value={noteContent}
+                onChange={(e) => setNoteContent(e.target.value)}
+                placeholder="# Überschrift&#10;&#10;- Punkt 1&#10;- Punkt 2&#10;&#10;**Fett** und *kursiv*"
+                className="min-h-[200px] font-mono text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                Hintergrundfarbe
+              </label>
+              <div className="flex gap-2">
+                {NOTE_COLORS.map((color) => (
+                  <button
+                    key={color.value}
+                    type="button"
+                    onClick={() => setNoteColor(color.value)}
+                    className={`w-10 h-10 rounded-md border-2 transition-all ${
+                      noteColor === color.value
+                        ? 'border-primary scale-110'
+                        : 'border-transparent hover:scale-105'
+                    }`}
+                    style={{ backgroundColor: color.value }}
+                    title={color.label}
                   />
                 ))}
               </div>
-            </SortableContext>
-          </DndContext>
-        )}
-
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>
-                {editingNote ? 'Notiz bearbeiten' : 'Neue Notiz'}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  Inhalt (Markdown unterstützt)
-                </label>
-                <Textarea
-                  value={noteContent}
-                  onChange={(e) => setNoteContent(e.target.value)}
-                  placeholder="# Überschrift&#10;&#10;- Punkt 1&#10;- Punkt 2&#10;&#10;**Fett** und *kursiv*"
-                  className="min-h-[200px] font-mono text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  Hintergrundfarbe
-                </label>
-                <div className="flex gap-2">
-                  {NOTE_COLORS.map((color) => (
-                    <button
-                      key={color.value}
-                      type="button"
-                      onClick={() => setNoteColor(color.value)}
-                      className={`w-10 h-10 rounded-md border-2 transition-all ${
-                        noteColor === color.value
-                          ? 'border-primary scale-110'
-                          : 'border-transparent hover:scale-105'
-                      }`}
-                      style={{ backgroundColor: color.value }}
-                      title={color.label}
-                    />
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  Vorschau
-                </label>
-                <div
-                  className="rounded-lg p-4 border min-h-[100px]"
-                  style={{ backgroundColor: noteColor }}
-                >
-                  <div className="prose prose-sm max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {noteContent || '*(Leere Notiz)*'}
-                    </ReactMarkdown>
-                  </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                Vorschau
+              </label>
+              <div
+                className="rounded-lg p-4 border min-h-[100px]"
+                style={{ backgroundColor: noteColor }}
+              >
+                <div className="prose prose-sm max-w-none">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {noteContent || '*(Leere Notiz)*'}
+                  </ReactMarkdown>
                 </div>
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Abbrechen
-              </Button>
-              <Button onClick={handleSaveNote}>Speichern</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </CardContent>
-    </Card>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              Abbrechen
+            </Button>
+            <Button onClick={handleSaveNote}>Speichern</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

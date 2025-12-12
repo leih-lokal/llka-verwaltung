@@ -57,6 +57,12 @@ export interface ColumnSelectorProps {
 
   /** Number of hidden columns */
   hiddenCount?: number;
+
+  /** Whether vertical dividers are enabled */
+  verticalDividers?: boolean;
+
+  /** Callback when vertical dividers toggle is changed */
+  onToggleVerticalDividers?: () => void;
 }
 
 /**
@@ -124,6 +130,8 @@ export function ColumnSelector({
   onResetOrder,
   onReorderColumns,
   hiddenCount = 0,
+  verticalDividers = false,
+  onToggleVerticalDividers,
 }: ColumnSelectorProps) {
   // Set up drag-and-drop sensors
   const sensors = useSensors(
@@ -194,6 +202,19 @@ export function ColumnSelector({
           </SortableContext>
         </DndContext>
         <DropdownMenuSeparator />
+        {onToggleVerticalDividers && (
+          <>
+            <div className="px-2 py-1.5">
+              <DropdownMenuCheckboxItem
+                checked={verticalDividers}
+                onCheckedChange={onToggleVerticalDividers}
+              >
+                Vertikale Trennlinien
+              </DropdownMenuCheckboxItem>
+            </div>
+            <DropdownMenuSeparator />
+          </>
+        )}
         <div className="px-2 py-1.5 text-sm">
           <button
             onClick={onReset}

@@ -12,21 +12,46 @@ import {
   Package,
   AlertCircle,
   BarChart3,
+  Printer,
+  RefreshCw,
+  ClipboardList,
+  StickyNote,
 } from 'lucide-react';
 import { fetchStats, clearStatsCache, type StatsResponse } from '@/lib/api/stats';
 import { DashboardNotes } from '@/components/dashboard/dashboard-notes';
 import { ActiveRentalsSection } from '@/components/dashboard/active-rentals-section';
 import { TodaysReservationsSection } from '@/components/dashboard/todays-reservations-section';
 import { StatsChart } from '@/components/dashboard/stats-chart';
+import { OverdueAlertSection } from '@/components/dashboard/overdue-alert-section';
+import { DueThisWeekSection } from '@/components/dashboard/due-this-week-section';
+import { TodayActivitySection } from '@/components/dashboard/today-activity-section';
+import { useDashboardPreferences } from '@/hooks/use-dashboard-preferences';
+import { DashboardViewMenu } from '@/components/dashboard/dashboard-view-menu';
+import { CollapsibleSection } from '@/components/dashboard/collapsible-section';
+import { generateReservationPrintContent } from '@/components/print/reservation-print-content';
+import type { ReservationExpanded } from '@/types';
+import { collections } from '@/lib/pocketbase/client';
+import { startOfDay, endOfDay } from 'date-fns';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reservations, setReservations] = useState<ReservationExpanded[]>([]);
+  const [addNoteHandler, setAddNoteHandler] = useState<(() => void) | null>(null);
+
+  // Dashboard preferences hook
+  const {
+    componentVisibility,
+    toggleVisibility,
+    componentCollapsed,
+    toggleCollapse,
+  } = useDashboardPreferences();
 
   useEffect(() => {
     loadStats();
+    loadReservations();
   }, []);
 
   async function loadStats() {
@@ -42,14 +67,53 @@ export default function DashboardPage() {
     }
   }
 
+  async function loadReservations() {
+    try {
+      const today = new Date();
+      const startOfToday = startOfDay(today);
+      const endOfToday = endOfDay(today);
+
+      const result = await collections
+        .reservations()
+        .getFullList<ReservationExpanded>({
+          expand: 'items',
+          filter: `done = false && pickup >= "${startOfToday.toISOString()}" && pickup <= "${endOfToday.toISOString()}"`,
+          sort: 'pickup',
+        });
+
+      setReservations(result);
+    } catch (error) {
+      console.error('Failed to load reservations:', error);
+    }
+  }
+
   function handleRefreshStats() {
     clearStatsCache();
     loadStats();
     toast.success('Statistiken werden aktualisiert...');
   }
 
+  function handlePrintReservations() {
+    const htmlContent = generateReservationPrintContent(reservations);
+    const printWindow = window.open('', '', 'width=800,height=600');
+    if (printWindow) {
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  }
+
   return (
     <div className="container mx-auto p-6 space-y-8">
+      {/* Dashboard Header with View Menu */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <DashboardViewMenu
+          visibility={componentVisibility}
+          onToggleVisibility={toggleVisibility}
+        />
+      </div>
+
       {/* Quick Actions Bar */}
       <div className="flex flex-wrap gap-3">
         <Button asChild size="lg" className="shadow-md hover:shadow-lg transition-shadow">
@@ -95,18 +159,120 @@ export default function DashboardPage() {
         </Button>
       </div>
 
+      {/* 3 Column Layout - New Activity Widgets */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {componentVisibility['overdue-alert'] && (
+          <CollapsibleSection
+            title="Überfällige Ausleihen"
+            titleIcon={<AlertCircle className="h-5 w-5 text-red-600" />}
+            isCollapsed={componentCollapsed['overdue-alert']}
+            onToggleCollapse={() => toggleCollapse('overdue-alert')}
+            className="border-red-200"
+          >
+            <OverdueAlertSection />
+          </CollapsibleSection>
+        )}
+
+        {componentVisibility['due-this-week'] && (
+          <CollapsibleSection
+            title="Fällig diese Woche"
+            titleIcon={<Calendar className="h-5 w-5 text-blue-600" />}
+            isCollapsed={componentCollapsed['due-this-week']}
+            onToggleCollapse={() => toggleCollapse('due-this-week')}
+          >
+            <DueThisWeekSection />
+          </CollapsibleSection>
+        )}
+
+        {componentVisibility['today-activity'] && (
+          <CollapsibleSection
+            title="Heutige Aktivität"
+            titleIcon={<BarChart3 className="h-5 w-5" />}
+            isCollapsed={componentCollapsed['today-activity']}
+            onToggleCollapse={() => toggleCollapse('today-activity')}
+          >
+            <TodayActivitySection />
+          </CollapsibleSection>
+        )}
+      </div>
+
       {/* 2 Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Column: Rentals & Reservations */}
         <div className="space-y-6">
-          <TodaysReservationsSection onReservationCompleted={loadStats} />
-          <ActiveRentalsSection onRentalReturned={loadStats} />
+          {componentVisibility['todays-reservations'] && (
+            <CollapsibleSection
+              title="Heutige Reservierungen"
+              titleIcon={<Calendar className="h-5 w-5" />}
+              headerActions={
+                reservations.length > 0 && (
+                  <Button size="sm" variant="outline" onClick={handlePrintReservations}>
+                    <Printer className="h-4 w-4 mr-2" />
+                    Drucken
+                  </Button>
+                )
+              }
+              isCollapsed={componentCollapsed['todays-reservations']}
+              onToggleCollapse={() => toggleCollapse('todays-reservations')}
+            >
+              <TodaysReservationsSection onReservationCompleted={() => { loadStats(); loadReservations(); }} />
+            </CollapsibleSection>
+          )}
+
+          {componentVisibility['active-rentals'] && (
+            <CollapsibleSection
+              title="Aktive Ausleihen"
+              titleIcon={<ClipboardList className="h-5 w-5" />}
+              isCollapsed={componentCollapsed['active-rentals']}
+              onToggleCollapse={() => toggleCollapse('active-rentals')}
+            >
+              <ActiveRentalsSection onRentalReturned={loadStats} />
+            </CollapsibleSection>
+          )}
         </div>
 
         {/* Right Column: Notes & Stats */}
         <div className="space-y-6">
-          <DashboardNotes />
-          <StatsChart stats={stats} loading={loading} onRefresh={handleRefreshStats} />
+          {componentVisibility['dashboard-notes'] && (
+            <CollapsibleSection
+              title="Notizen"
+              titleIcon={<StickyNote className="h-5 w-5" />}
+              headerActions={
+                addNoteHandler && (
+                  <Button size="sm" onClick={addNoteHandler}>
+                    <Plus className="mr-1 h-4 w-4" />
+                    Neu
+                  </Button>
+                )
+              }
+              isCollapsed={componentCollapsed['dashboard-notes']}
+              onToggleCollapse={() => toggleCollapse('dashboard-notes')}
+            >
+              <DashboardNotes onRequestAddNote={setAddNoteHandler} />
+            </CollapsibleSection>
+          )}
+
+          {componentVisibility['stats-chart'] && (
+            <CollapsibleSection
+              title="Statistiken"
+              titleIcon={<BarChart3 className="h-5 w-5" />}
+              headerActions={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleRefreshStats}
+                  className="h-8 w-8"
+                  title="Statistiken aktualisieren"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              }
+              isCollapsed={componentCollapsed['stats-chart']}
+              onToggleCollapse={() => toggleCollapse('stats-chart')}
+            >
+              <StatsChart stats={stats} loading={loading} />
+            </CollapsibleSection>
+          )}
         </div>
       </div>
     </div>
