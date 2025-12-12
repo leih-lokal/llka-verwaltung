@@ -11,7 +11,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { SaveIcon, XIcon, CheckIcon, ChevronsUpDownIcon, CalendarIcon, TrashIcon, MinusIcon, PlusIcon, PrinterIcon } from 'lucide-react';
+import { SaveIcon, XIcon, Grid2x2Check, CornerDownLeft, Blocks,  CheckIcon, ChevronsUpDownIcon, CalendarIcon, TrashIcon, MinusIcon, PlusIcon, PrinterIcon } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -721,16 +721,19 @@ export function RentalDetailSheet({
 
         toast.success('Alle Gegenstände zurückgegeben');
         onSave?.(updatedRental);
+        onOpenChange(false); // Close the sheet
         return;
       } catch (err) {
         console.error('Error completing return:', err);
         toast.error('Fehler beim Zurückgeben');
+        return;
       } finally {
         setIsLoading(false);
       }
     }
 
     // Submit the form for normal returns (no partial returns)
+    // The handleSave function will close the sheet on success
     form.handleSubmit(handleSave)();
   };
 
@@ -1659,7 +1662,7 @@ export function RentalDetailSheet({
                       disabled={isLoading}
                       size="lg"
                     >
-                      <CheckIcon className="size-5 mr-2" />
+                      <Blocks className="size-5 mr-2" />
                       Teilrückgabe
                     </Button>
                     <Button
@@ -1670,7 +1673,7 @@ export function RentalDetailSheet({
                       disabled={isLoading}
                       size="lg"
                     >
-                      <CheckIcon className="size-5 mr-2" />
+                      <Grid2x2Check className="size-5 mr-2" />
                       Alles zurückgeben
                     </Button>
                   </>
