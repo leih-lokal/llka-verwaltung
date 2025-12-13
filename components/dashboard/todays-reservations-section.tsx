@@ -139,8 +139,10 @@ export function TodaysReservationsSection({
       params.set("customer_iid", reservation.customer_iid.toString());
     }
 
-    if (reservation.items && reservation.items.length > 0) {
-      params.set("item_ids", reservation.items.join(","));
+    // Pass item IIDs (not item IDs) so they can be looked up
+    if (reservation.expand?.items && reservation.expand.items.length > 0) {
+      const itemIids = reservation.expand.items.map((item) => item.iid).join(",");
+      params.set("item_ids", itemIids);
     }
 
     window.location.href = `/rentals?${params.toString()}`;

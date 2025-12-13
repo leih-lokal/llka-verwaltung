@@ -327,14 +327,6 @@ export default function ReservationsPage() {
 
   // Handle converting reservation to rental
   const handleConvertToRental = async (reservation: ReservationExpanded) => {
-    // Mark reservation as complete when converting to rental
-    try {
-      await collections.reservations().update(reservation.id, { done: true });
-    } catch (err) {
-      console.error("Error marking reservation as complete:", err);
-      toast.error("Fehler beim Aktualisieren der Reservierung");
-    }
-
     // Close reservation sheet
     setIsSheetOpen(false);
 
@@ -807,6 +799,11 @@ export default function ReservationsPage() {
         open={isRentalSheetOpen}
         onOpenChange={setIsRentalSheetOpen}
         onSave={handleRentalSave}
+        sourceReservationId={
+          rentalFromReservation && !rentalFromReservation.id
+            ? selectedReservation?.id
+            : undefined
+        }
       />
     </div>
   );

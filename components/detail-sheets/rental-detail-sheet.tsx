@@ -110,6 +110,7 @@ interface RentalDetailSheetProps {
   onOpenChange: (open: boolean) => void;
   onSave?: (rental: Rental) => void;
   preloadedItems?: Item[];
+  sourceReservationId?: string;
 }
 
 export function RentalDetailSheet({
@@ -118,6 +119,7 @@ export function RentalDetailSheet({
   onOpenChange,
   onSave,
   preloadedItems = [],
+  sourceReservationId,
 }: RentalDetailSheetProps) {
   const { currentIdentity } = useIdentity();
   const [isLoading, setIsLoading] = useState(false);
@@ -508,7 +510,10 @@ export function RentalDetailSheet({
 
     const newSelectedItems = [...selectedItems, item];
     setSelectedItems(newSelectedItems);
-    setValue('item_iids', newSelectedItems.map(i => i.iid), { shouldDirty: true });
+    setValue('item_iids', newSelectedItems.map(i => i.iid), {
+      shouldDirty: true,
+      shouldValidate: true
+    });
 
     // Initialize instance data with 1 copy for the new item
     const newInstanceData = setCopyCount(instanceData, item.id, 1);
@@ -529,7 +534,10 @@ export function RentalDetailSheet({
   const handleItemRemove = (itemId: string) => {
     const newSelectedItems = selectedItems.filter(i => i.id !== itemId);
     setSelectedItems(newSelectedItems);
-    setValue('item_iids', newSelectedItems.map(i => i.iid), { shouldDirty: true });
+    setValue('item_iids', newSelectedItems.map(i => i.iid), {
+      shouldDirty: true,
+      shouldValidate: true
+    });
 
     // Remove from instance data
     const newInstanceData = removeCopyCount(instanceData, itemId);
@@ -635,6 +643,16 @@ export function RentalDetailSheet({
       if (isNewRental) {
         savedRental = await collections.rentals().create<Rental>(formData);
         toast.success('Leihvorgang erfolgreich erstellt');
+
+        // Mark source reservation as done after successful rental creation
+        if (sourceReservationId) {
+          try {
+            await collections.reservations().update(sourceReservationId, { done: true });
+          } catch (err) {
+            console.error('Error marking reservation as complete:', err);
+            toast.warning('Leihvorgang erstellt, aber Reservierung konnte nicht aktualisiert werden');
+          }
+        }
       } else if (rental) {
         savedRental = await collections.rentals().update<Rental>(rental.id, formData);
         toast.success('Leihvorgang erfolgreich aktualisiert');
@@ -646,7 +664,29 @@ export function RentalDetailSheet({
       onOpenChange(false);
     } catch (err) {
       console.error('Error saving rental:', err);
-      toast.error('Fehler beim Speichern des Leihvorgangs');
+
+      // Extract error message from PocketBase response
+      let errorMessage = 'Fehler beim Speichern des Leihvorgangs';
+
+      if (err && typeof err === 'object') {
+        // PocketBase error with message property
+        if ('message' in err && typeof err.message === 'string') {
+          errorMessage = err.message;
+        }
+        // PocketBase ClientResponseError with data.message
+        else if ('data' in err && err.data && typeof err.data === 'object' && 'message' in err.data) {
+          errorMessage = String(err.data.message);
+        }
+        // Response body with message (for 400 errors)
+        else if ('response' in err && err.response && typeof err.response === 'object') {
+          const response = err.response as any;
+          if (response.data && response.data.message) {
+            errorMessage = response.data.message;
+          }
+        }
+      }
+
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

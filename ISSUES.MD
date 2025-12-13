@@ -1,11 +1,7 @@
 KNOWN ISSUES TO FIX/IMPLEMENT
 
-1. Using websocket connections, on any screen, when a reservation is added to the reservation collection with the "on_premises" boolean set to true, immediately show a large (non-blocking) notification including its details, not just a toast. the notification should come with a sound to catch attention. these are important reservations created using a self-service terminal on the premises. this also includes reservations that were changed from on_premises false to on_premises true, as those users are using the terminal to pick up their order.
+1. While markdown works in components/dashboard/dashboard-notes.tsx, headings are not visually distinct. i suspect a tailwind issue. make headings bigger and bold.
 
-2. make the OTP field also prominent in the components/detail-sheets/reservation-detail-sheet.tsx.
+2. If a user uses the convert to rental feature in components/detail-sheets/reservation-detail-sheet.tsx, the reservation is marked as done regardless of if the rental was saved or not in the next step.
 
-3. make the OTP prominent in the current reservations field in app/(dashboard)/dashboard/page.tsx.
-
-4. make the OTP prominent in the printed list of reservations invoked from the dashboard section.
-
-5. in app/(dashboard)/reservations/page.tsx, add a button to immediately mark as done and convert to rental as a column, with a button (with an icon) in that column.
+3. Using the convert to rental feature in components/dashboard/todays-reservations-section.tsx doesn't actually make a new rental with the customer items, but instead makes an empty rental. make sure these arguments pass correctly.

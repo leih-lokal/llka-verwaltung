@@ -26,6 +26,8 @@ import { getRentalStatusLabel, RENTAL_STATUS_COLORS } from '@/lib/constants/stat
 import { getCopyCount } from '@/lib/utils/instance-data';
 import { getReturnedCopyCount } from '@/lib/utils/partial-returns';
 import { cn } from '@/lib/utils';
+import { createRentalTemplate } from '@/lib/utils/rental-template';
+import { toast } from 'sonner';
 
 export default function RentalsPage() {
   const searchParams = useSearchParams();
@@ -40,6 +42,7 @@ export default function RentalsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedRental, setSelectedRental] = useState<RentalExpanded | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [sourceReservationId, setSourceReservationId] = useState<string | undefined>(undefined);
 
   const observerTarget = useRef<HTMLDivElement>(null);
   const perPage = 50;
@@ -107,10 +110,44 @@ export default function RentalsPage() {
     const viewId = searchParams.get('view');
 
     if (action === 'new') {
-      setSelectedRental(null);
-      setIsSheetOpen(true);
-      // Clear the URL parameter
-      router.replace('/rentals');
+      // Check for pre-fill parameters from reservation conversion
+      const customerIidParam = searchParams.get('customer_iid');
+      const itemIdsParam = searchParams.get('item_ids');
+      const fromReservationId = searchParams.get('from_reservation');
+
+      // If we have pre-fill data, create a template rental
+      if (customerIidParam || itemIdsParam) {
+        const customerIid = customerIidParam ? parseInt(customerIidParam, 10) : undefined;
+        const itemIids = itemIdsParam
+          ? itemIdsParam.split(',').map((id) => parseInt(id, 10))
+          : undefined;
+
+        createRentalTemplate({
+          customerIid,
+          itemIids,
+          reservationId: fromReservationId || undefined,
+        }).then((template) => {
+          if (template) {
+            setSelectedRental(template);
+            setSourceReservationId(fromReservationId || undefined);
+          } else {
+            // Template creation failed, open empty form
+            setSelectedRental(null);
+            setSourceReservationId(undefined);
+            toast.warning('Daten konnten nicht vorausgefüllt werden');
+          }
+          setIsSheetOpen(true);
+          // Clear the URL parameters
+          router.replace('/rentals');
+        });
+      } else {
+        // No pre-fill data, open empty form
+        setSelectedRental(null);
+        setSourceReservationId(undefined);
+        setIsSheetOpen(true);
+        // Clear the URL parameter
+        router.replace('/rentals');
+      }
     } else if (viewId) {
       // Fetch the rental by ID and open it
       collections.rentals().getOne<RentalExpanded>(viewId, {
@@ -254,6 +291,7 @@ export default function RentalsPage() {
     setRentals([]);
     setCurrentPage(1);
     fetchRentals(1);
+    setSourceReservationId(undefined);
   };
 
   // Render table header cell for a given column
@@ -673,6 +711,7 @@ export default function RentalsPage() {
         open={isSheetOpen}
         onOpenChange={setIsSheetOpen}
         onSave={handleRentalSave}
+        sourceReservationId={sourceReservationId}
       />
     </div>
   );

@@ -82,7 +82,7 @@ function SortableNote({ note, onEdit, onDelete }: SortableNoteProps) {
           <GripVertical className="h-4 w-4 text-muted-foreground" />
         </div>
         <div className="pl-6 pr-16 min-h-[60px]">
-          <div className="prose prose-sm max-w-none">
+          <div className="markdown-prose">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {note.content || '*(Leere Notiz)*'}
             </ReactMarkdown>
@@ -338,7 +338,7 @@ export function DashboardNotes({ onRequestAddNote }: DashboardNotesProps = {}) {
                 className="rounded-lg p-4 border min-h-[100px]"
                 style={{ backgroundColor: noteColor }}
               >
-                <div className="prose prose-sm max-w-none">
+                <div className="markdown-prose">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {noteContent || '*(Leere Notiz)*'}
                   </ReactMarkdown>
