@@ -6,7 +6,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { PlusIcon, BadgeCheckIcon, CoinsIcon, WalletIcon, SmileIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { PlusIcon, BadgeCheckIcon, CoinsIcon, WalletIcon, SmileIcon, ChevronLeft, ChevronRight, CircleCheckBig, CheckLine, Check } from 'lucide-react';
 import { SearchBar } from '@/components/search/search-bar';
 import { FilterPopover } from '@/components/search/filter-popover';
 import { SortableHeader, type SortDirection } from '@/components/table/sortable-header';
@@ -464,9 +464,7 @@ export default function RentalsPage() {
                         </span>
                       )}
                       {(isFullyReturned || isRentalReturned) && (
-                        <span className="ml-1 text-xs font-semibold text-green-600">
-                          ✓
-                        </span>
+                        <Check strokeWidth={4} className="inline-block ml-1 size-3.5 text-green-600" />
                       )}
                     </span>
                   );

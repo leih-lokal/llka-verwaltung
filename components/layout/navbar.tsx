@@ -45,7 +45,6 @@ import { useQuickFind } from '@/hooks/use-quick-find';
 import { useSequentialMode } from '@/hooks/use-sequential-mode';
 import { useCommandMenu } from '@/hooks/use-command-menu';
 import { useKeyboardShortcutsReferenceContext } from '@/components/keyboard-shortcuts/keyboard-shortcuts-reference';
-import GooeyNav from '@/components/ui/GooeyNav';
 
 interface MenuTileProps {
   icon: React.ReactNode;

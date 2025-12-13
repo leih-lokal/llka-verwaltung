@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   ExternalLink,
   ArrowRight,
+  ArrowsUpFromLine,
 } from "lucide-react";
 import { collections } from "@/lib/pocketbase/client";
 import { useRealtimeSubscription } from "@/hooks/use-realtime-subscription";
@@ -221,7 +222,7 @@ export function TodaysReservationsSection({
             className="h-8 w-8 p-0"
             title="In Ausleihe umwandeln"
           >
-            <ArrowRight className="h-4 w-4" />
+            <ArrowsUpFromLine className="h-4 w-4" />
           </Button>
           <Button
             size="sm"

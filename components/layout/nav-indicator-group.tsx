@@ -83,7 +83,7 @@ export function NavIndicatorGroup({ items }: NavIndicatorGroupProps) {
       {items.map((item, index) => (
         <NavLink
           key={item.href}
-          ref={(el) => (navRefs.current[index] = el)}
+          ref={(el) => { navRefs.current[index] = el; }}
           href={item.href}
           icon={item.icon}
           label={item.label}

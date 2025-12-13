@@ -295,12 +295,6 @@ export default function CustomersPage() {
             />
           </th>
         );
-      case 'active_reservations':
-        return (
-          <th key="active_reservations" className={cn("px-4 py-2 text-left", dividerClass)} title="Aktive Reservierungen">
-            <CalendarCheckIcon className="size-4" />
-          </th>
-        );
       case 'active_rentals':
         return (
           <th key="active_rentals" className={cn("px-4 py-2 text-left", dividerClass)} title="Aktive Ausleihen">
@@ -442,12 +436,6 @@ export default function CustomersPage() {
         return (
           <td key="phone" className={cn("px-4 py-3 text-sm text-muted-foreground", dividerClass)}>
             {customer.phone || '—'}
-          </td>
-        );
-      case 'active_reservations':
-        return (
-          <td key="active_reservations" className={cn("px-4 py-3 text-sm text-center", dividerClass)}>
-            {isLoadingStats ? '—' : customer.active_reservations}
           </td>
         );
       case 'active_rentals':
