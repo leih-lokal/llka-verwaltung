@@ -12,13 +12,14 @@ import {
 } from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
+import { TriStateCheckbox } from '@/components/ui/tri-state-checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import type { FilterConfig } from '@/lib/filters/filter-configs';
 import type { ActiveFilter } from '@/lib/filters/filter-utils';
 import { Calendar } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 /**
  * Get date range for quick filters
@@ -167,30 +168,45 @@ export function FilterPopover({
     );
   };
 
-  // Handle status/category filter toggle
+  // Get tri-state for a filter option
+  const getFilterState = (field: string, value: string): 'unchecked' | 'checked' | 'excluded' => {
+    const filter = activeFilters.find(f => f.field === field && String(f.value) === value);
+    if (!filter) return 'unchecked';
+    return filter.exclude ? 'excluded' : 'checked';
+  };
+
+  // Handle status/category filter toggle (tri-state)
   const handleToggleFilter = (
     config: FilterConfig,
     optionValue: string,
     optionLabel: string
   ) => {
-    const isActive = isFilterActive(config.field, optionValue);
+    const currentState = getFilterState(config.field, optionValue);
 
-    if (!isActive) {
+    // Cycle through states: unchecked → checked → excluded → unchecked
+    const nextState =
+      currentState === 'unchecked' ? 'checked' :
+      currentState === 'checked' ? 'excluded' :
+      'unchecked';
+
+    // Remove existing filter if any
+    const existingFilter = activeFilters.find(
+      (f) => f.field === config.field && String(f.value) === optionValue
+    );
+    if (existingFilter) {
+      onRemoveFilter(existingFilter.id);
+    }
+
+    // Add new filter if not going to unchecked
+    if (nextState !== 'unchecked') {
       onAddFilter({
         type: config.type as 'status' | 'category',
         field: config.field,
-        operator: '=',
+        operator: nextState === 'excluded' ? '!=' : '=',
         value: optionValue,
-        label: `${config.label}: ${optionLabel}`,
+        label: `${config.label}: ${nextState === 'excluded' ? 'NICHT ' : ''}${optionLabel}`,
+        exclude: nextState === 'excluded',
       });
-    } else {
-      // Remove the filter when unchecking
-      const filterToRemove = activeFilters.find(
-        (f) => f.field === config.field && String(f.value) === optionValue
-      );
-      if (filterToRemove) {
-        onRemoveFilter(filterToRemove.id);
-      }
     }
   };
 
@@ -341,21 +357,27 @@ export function FilterPopover({
                     <Label className="text-xs font-medium">{config.label}</Label>
                     <div className="space-y-2">
                       {config.options?.map((option) => {
-                        const isActive = isFilterActive(config.field, option.value);
+                        const state = getFilterState(config.field, option.value);
                         return (
                           <div key={option.value} className="flex items-center space-x-2">
-                            <Checkbox
+                            <TriStateCheckbox
                               id={`${config.id}-${option.value}`}
-                              checked={isActive}
-                              onCheckedChange={() =>
+                              state={state}
+                              onStateChange={() =>
                                 handleToggleFilter(config, option.value, option.label)
                               }
                             />
                             <label
                               htmlFor={`${config.id}-${option.value}`}
-                              className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                              className={cn(
+                                "text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer",
+                                state === 'excluded' && "line-through text-muted-foreground"
+                              )}
                             >
                               {option.label}
+                              {state === 'excluded' && (
+                                <span className="ml-1.5 text-xs text-destructive font-normal">(ausgeschlossen)</span>
+                              )}
                             </label>
                           </div>
                         );
@@ -462,21 +484,27 @@ export function FilterPopover({
                     <Label className="text-xs font-medium">{config.label}</Label>
                     <div className="space-y-2">
                       {config.options?.map((option) => {
-                        const isActive = isFilterActive(config.field, option.value);
+                        const state = getFilterState(config.field, option.value);
                         return (
                           <div key={option.value} className="flex items-center space-x-2">
-                            <Checkbox
+                            <TriStateCheckbox
                               id={`${config.id}-${option.value}`}
-                              checked={isActive}
-                              onCheckedChange={() =>
+                              state={state}
+                              onStateChange={() =>
                                 handleToggleFilter(config, option.value, option.label)
                               }
                             />
                             <label
                               htmlFor={`${config.id}-${option.value}`}
-                              className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                              className={cn(
+                                "text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer",
+                                state === 'excluded' && "line-through text-muted-foreground"
+                              )}
                             >
                               {option.label}
+                              {state === 'excluded' && (
+                                <span className="ml-1.5 text-xs text-destructive font-normal">(ausgeschlossen)</span>
+                              )}
                             </label>
                           </div>
                         );

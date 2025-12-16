@@ -48,6 +48,16 @@ export default function ItemsPage() {
   const filters = useFilters({
     entity: 'items',
     config: itemsFilterConfig,
+    defaultFilters: [
+      {
+        type: 'status',
+        field: 'status',
+        operator: '!=',
+        value: 'deleted',
+        label: 'Status: NICHT Gelöscht',
+        exclude: true,
+      },
+    ],
   });
 
   // Sort management

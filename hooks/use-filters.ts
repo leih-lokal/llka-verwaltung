@@ -18,29 +18,47 @@ export interface UseFiltersOptions {
 
   /** Enable localStorage persistence */
   persist?: boolean;
+
+  /** Default filters to apply on first load (when localStorage is empty) */
+  defaultFilters?: Omit<ActiveFilter, 'id'>[];
 }
 
-export function useFilters({ entity, config, persist = true }: UseFiltersOptions) {
-  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
-  const [isFilterPopoverOpen, setIsFilterPopoverOpen] = useState(false);
-
+export function useFilters({ entity, config, persist = true, defaultFilters }: UseFiltersOptions) {
   // Storage key for this entity
   const storageKey = `filters_${entity}`;
 
-  // Load filters from localStorage on mount
-  useEffect(() => {
-    if (!persist) return;
+  // Initialize state with localStorage or default filters
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>(() => {
+    if (!persist) return [];
 
     try {
       const stored = localStorage.getItem(storageKey);
+      console.log(`[useFilters] Initializing filters for ${entity}:`, stored ? 'Found in localStorage' : 'Not in localStorage');
+
       if (stored) {
         const filters = JSON.parse(stored) as ActiveFilter[];
-        setActiveFilters(filters);
+        console.log(`[useFilters] Loaded ${filters.length} filter(s) from localStorage`);
+        return filters;
+      } else if (defaultFilters && defaultFilters.length > 0) {
+        // No saved filters - apply defaults
+        console.log(`[useFilters] Applying ${defaultFilters.length} default filter(s)`);
+        const filtersWithIds = defaultFilters.map(f => ({
+          ...f,
+          id: generateFilterId(f),
+        }));
+        console.log('[useFilters] Default filters with IDs:', filtersWithIds);
+        return filtersWithIds;
+      } else {
+        console.log('[useFilters] No filters to load (no localStorage, no defaults)');
+        return [];
       }
     } catch (error) {
       console.error('Failed to load filters from localStorage:', error);
+      return [];
     }
-  }, [storageKey, persist]);
+  });
+
+  const [isFilterPopoverOpen, setIsFilterPopoverOpen] = useState(false);
 
   // Save filters to localStorage when they change
   useEffect(() => {
