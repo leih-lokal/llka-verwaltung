@@ -12,6 +12,10 @@ export const HIGHLIGHT_COLOR_VALUES: Record<HighlightColor, string> = {
   [HighlightColor.Blue]: '#3b82f6',
   [HighlightColor.Yellow]: '#eab308',
   [HighlightColor.Red]: '#ef4444',
+  [HighlightColor.Purple]: '#a855f7',
+  [HighlightColor.Orange]: '#f97316',
+  [HighlightColor.Pink]: '#ec4899',
+  [HighlightColor.Teal]: '#14b8a6',
 };
 
 /**
@@ -22,6 +26,10 @@ export const HIGHLIGHT_COLOR_LABELS: Record<HighlightColor, string> = {
   [HighlightColor.Blue]: 'Blau',
   [HighlightColor.Yellow]: 'Gelb',
   [HighlightColor.Red]: 'Rot',
+  [HighlightColor.Purple]: 'Lila',
+  [HighlightColor.Orange]: 'Orange',
+  [HighlightColor.Pink]: 'Rosa',
+  [HighlightColor.Teal]: 'Türkis',
 };
 
 /**

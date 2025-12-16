@@ -52,7 +52,7 @@ const customerSchema = z.object({
   renewed_on: z.string().optional(),
   newsletter: z.boolean(),
   remark: z.string().optional(),
-  highlight_color: z.enum(['green', 'blue', 'yellow', 'red', '']).optional(),
+  highlight_color: z.enum(['red', 'orange', 'yellow', 'green', 'teal', 'blue', 'purple', 'pink', '']).optional(),
 });
 
 type CustomerFormValues = z.infer<typeof customerSchema>;
@@ -121,7 +121,7 @@ export function CustomerDetailSheet({
         renewed_on: customer.renewed_on ? customer.renewed_on.split(' ')[0] : '',
         newsletter: customer.newsletter,
         remark: customer.remark || '',
-        highlight_color: (customer.highlight_color || '') as '' | 'green' | 'blue' | 'yellow' | 'red',
+        highlight_color: (customer.highlight_color || '') as '' | 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'purple' | 'pink',
       };
       form.reset(formData);
       setIsEditMode(false);
@@ -321,10 +321,14 @@ export function CustomerDetailSheet({
   const getHighlightColorBadge = (color?: HighlightColor) => {
     if (!color) return null;
     const colorMap = {
-      green: 'bg-green-500',
-      blue: 'bg-blue-500',
-      yellow: 'bg-yellow-500',
       red: 'bg-red-500',
+      orange: 'bg-orange-500',
+      yellow: 'bg-yellow-500',
+      green: 'bg-green-500',
+      teal: 'bg-teal-500',
+      blue: 'bg-blue-500',
+      purple: 'bg-purple-500',
+      pink: 'bg-pink-500',
     };
     return (
       <Badge className={`${colorMap[color]} text-white`}>
@@ -432,7 +436,11 @@ export function CustomerDetailSheet({
                   customer.highlight_color === 'red' ? 'bg-red-50 dark:bg-red-950/20 border-red-500' :
                   customer.highlight_color === 'yellow' ? 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-500' :
                   customer.highlight_color === 'blue' ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-500' :
-                  'bg-green-50 dark:bg-green-950/20 border-green-500'
+                  customer.highlight_color === 'green' ? 'bg-green-50 dark:bg-green-950/20 border-green-500' :
+                  customer.highlight_color === 'purple' ? 'bg-purple-50 dark:bg-purple-950/20 border-purple-500' :
+                  customer.highlight_color === 'orange' ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-500' :
+                  customer.highlight_color === 'pink' ? 'bg-pink-50 dark:bg-pink-950/20 border-pink-500' :
+                  'bg-teal-50 dark:bg-teal-950/20 border-teal-500'
                 }`}>
                   <div className="flex items-center gap-2">
                     {getHighlightColorBadge(customer.highlight_color)}
@@ -446,6 +454,10 @@ export function CustomerDetailSheet({
                   customer.highlight_color === 'yellow' ? 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-500' :
                   customer.highlight_color === 'blue' ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-500' :
                   customer.highlight_color === 'green' ? 'bg-green-50 dark:bg-green-950/20 border-green-500' :
+                  customer.highlight_color === 'purple' ? 'bg-purple-50 dark:bg-purple-950/20 border-purple-500' :
+                  customer.highlight_color === 'orange' ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-500' :
+                  customer.highlight_color === 'pink' ? 'bg-pink-50 dark:bg-pink-950/20 border-pink-500' :
+                  customer.highlight_color === 'teal' ? 'bg-teal-50 dark:bg-teal-950/20 border-teal-500' :
                   'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-500'
                 }`}>
                   <div className="text-base font-semibold mb-1">Wichtige Notiz:</div>
@@ -677,25 +689,23 @@ export function CustomerDetailSheet({
                         </button>
                         <button
                           type="button"
-                          onClick={() => form.setValue('highlight_color', 'green')}
-                          className={`w-12 h-12 rounded-md border-2 transition-all bg-green-100 dark:bg-green-950/30 flex items-center justify-center ${
-                            form.watch('highlight_color') === 'green'
-                              ? 'border-green-500 ring-2 ring-green-500/20 scale-105'
-                              : 'border-green-300 dark:border-green-800 hover:border-green-500'
+                          onClick={() => form.setValue('highlight_color', 'red')}
+                          className={`w-12 h-12 rounded-md border-2 transition-all bg-red-100 dark:bg-red-950/30 ${
+                            form.watch('highlight_color') === 'red'
+                              ? 'border-red-500 ring-2 ring-red-500/20 scale-105'
+                              : 'border-red-300 dark:border-red-800 hover:border-red-500'
                           }`}
-                          title="Grün"
-                        >
-                          <Heart className="h-5 w-5 text-green-600 dark:text-green-400 fill-green-600 dark:fill-green-400" />
-                        </button>
+                          title="Rot"
+                        />
                         <button
                           type="button"
-                          onClick={() => form.setValue('highlight_color', 'blue')}
-                          className={`w-12 h-12 rounded-md border-2 transition-all bg-blue-100 dark:bg-blue-950/30 ${
-                            form.watch('highlight_color') === 'blue'
-                              ? 'border-blue-500 ring-2 ring-blue-500/20 scale-105'
-                              : 'border-blue-300 dark:border-blue-800 hover:border-blue-500'
+                          onClick={() => form.setValue('highlight_color', 'orange')}
+                          className={`w-12 h-12 rounded-md border-2 transition-all bg-orange-100 dark:bg-orange-950/30 ${
+                            form.watch('highlight_color') === 'orange'
+                              ? 'border-orange-500 ring-2 ring-orange-500/20 scale-105'
+                              : 'border-orange-300 dark:border-orange-800 hover:border-orange-500'
                           }`}
-                          title="Blau"
+                          title="Orange"
                         />
                         <button
                           type="button"
@@ -709,13 +719,55 @@ export function CustomerDetailSheet({
                         />
                         <button
                           type="button"
-                          onClick={() => form.setValue('highlight_color', 'red')}
-                          className={`w-12 h-12 rounded-md border-2 transition-all bg-red-100 dark:bg-red-950/30 ${
-                            form.watch('highlight_color') === 'red'
-                              ? 'border-red-500 ring-2 ring-red-500/20 scale-105'
-                              : 'border-red-300 dark:border-red-800 hover:border-red-500'
+                          onClick={() => form.setValue('highlight_color', 'green')}
+                          className={`w-12 h-12 rounded-md border-2 transition-all bg-green-100 dark:bg-green-950/30 flex items-center justify-center ${
+                            form.watch('highlight_color') === 'green'
+                              ? 'border-green-500 ring-2 ring-green-500/20 scale-105'
+                              : 'border-green-300 dark:border-green-800 hover:border-green-500'
                           }`}
-                          title="Rot"
+                          title="Grün"
+                        >
+                          <Heart className="h-5 w-5 text-green-600 dark:text-green-400 fill-green-600 dark:fill-green-400" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => form.setValue('highlight_color', 'teal')}
+                          className={`w-12 h-12 rounded-md border-2 transition-all bg-teal-100 dark:bg-teal-950/30 ${
+                            form.watch('highlight_color') === 'teal'
+                              ? 'border-teal-500 ring-2 ring-teal-500/20 scale-105'
+                              : 'border-teal-300 dark:border-teal-800 hover:border-teal-500'
+                          }`}
+                          title="Türkis"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => form.setValue('highlight_color', 'blue')}
+                          className={`w-12 h-12 rounded-md border-2 transition-all bg-blue-100 dark:bg-blue-950/30 ${
+                            form.watch('highlight_color') === 'blue'
+                              ? 'border-blue-500 ring-2 ring-blue-500/20 scale-105'
+                              : 'border-blue-300 dark:border-blue-800 hover:border-blue-500'
+                          }`}
+                          title="Blau"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => form.setValue('highlight_color', 'purple')}
+                          className={`w-12 h-12 rounded-md border-2 transition-all bg-purple-100 dark:bg-purple-950/30 ${
+                            form.watch('highlight_color') === 'purple'
+                              ? 'border-purple-500 ring-2 ring-purple-500/20 scale-105'
+                              : 'border-purple-300 dark:border-purple-800 hover:border-purple-500'
+                          }`}
+                          title="Lila"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => form.setValue('highlight_color', 'pink')}
+                          className={`w-12 h-12 rounded-md border-2 transition-all bg-pink-100 dark:bg-pink-950/30 ${
+                            form.watch('highlight_color') === 'pink'
+                              ? 'border-pink-500 ring-2 ring-pink-500/20 scale-105'
+                              : 'border-pink-300 dark:border-pink-800 hover:border-pink-500'
+                          }`}
+                          title="Rosa"
                         />
                       </div>
                     </div>

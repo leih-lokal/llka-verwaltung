@@ -479,39 +479,58 @@ export function FilterPopover({
             {/* Category filters */}
             {hasCategory && (
               <TabsContent value="category" className="space-y-3 max-h-64 overflow-y-auto">
-                {categoryFilters.map((config) => (
-                  <div key={config.id} className="space-y-2">
-                    <Label className="text-xs font-medium">{config.label}</Label>
-                    <div className="space-y-2">
-                      {config.options?.map((option) => {
-                        const state = getFilterState(config.field, option.value);
-                        return (
-                          <div key={option.value} className="flex items-center space-x-2">
-                            <TriStateCheckbox
-                              id={`${config.id}-${option.value}`}
-                              state={state}
-                              onStateChange={() =>
-                                handleToggleFilter(config, option.value, option.label)
-                              }
-                            />
-                            <label
-                              htmlFor={`${config.id}-${option.value}`}
-                              className={cn(
-                                "text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer",
-                                state === 'excluded' && "line-through text-muted-foreground"
-                              )}
-                            >
-                              {option.label}
-                              {state === 'excluded' && (
-                                <span className="ml-1.5 text-xs text-destructive font-normal">(ausgeschlossen)</span>
-                              )}
-                            </label>
-                          </div>
-                        );
-                      })}
+                {categoryFilters.map((config) => {
+                  const isColorFilter = config.id === 'highlight_color';
+                  const colorMap: Record<string, string> = {
+                    red: 'bg-red-500',
+                    orange: 'bg-orange-500',
+                    yellow: 'bg-yellow-500',
+                    green: 'bg-green-500',
+                    teal: 'bg-teal-500',
+                    blue: 'bg-blue-500',
+                    purple: 'bg-purple-500',
+                    pink: 'bg-pink-500',
+                  };
+
+                  return (
+                    <div key={config.id} className="space-y-2">
+                      <Label className="text-xs font-medium">{config.label}</Label>
+                      <div className="space-y-2">
+                        {config.options?.map((option) => {
+                          const state = getFilterState(config.field, option.value);
+                          return (
+                            <div key={option.value} className="flex items-center space-x-2">
+                              <TriStateCheckbox
+                                id={`${config.id}-${option.value}`}
+                                state={state}
+                                onStateChange={() =>
+                                  handleToggleFilter(config, option.value, option.label)
+                                }
+                              />
+                              <label
+                                htmlFor={`${config.id}-${option.value}`}
+                                className={cn(
+                                  "text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center gap-2",
+                                  state === 'excluded' && "line-through text-muted-foreground"
+                                )}
+                              >
+                                {isColorFilter && colorMap[option.value] && (
+                                  <span className={cn("size-3 rounded-full shrink-0", colorMap[option.value])} />
+                                )}
+                                <span>
+                                  {option.label}
+                                  {state === 'excluded' && (
+                                    <span className="ml-1.5 text-xs text-destructive font-normal">(ausgeschlossen)</span>
+                                  )}
+                                </span>
+                              </label>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </TabsContent>
             )}
 

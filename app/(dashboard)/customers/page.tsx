@@ -416,6 +416,11 @@ export default function CustomersPage() {
                     className={`size-3 rounded-full shrink-0 ${
                       customer.highlight_color === 'red' ? 'bg-red-500' :
                       customer.highlight_color === 'yellow' ? 'bg-yellow-500' :
+                      customer.highlight_color === 'blue' ? 'bg-blue-500' :
+                      customer.highlight_color === 'purple' ? 'bg-purple-500' :
+                      customer.highlight_color === 'orange' ? 'bg-orange-500' :
+                      customer.highlight_color === 'pink' ? 'bg-pink-500' :
+                      customer.highlight_color === 'teal' ? 'bg-teal-500' :
                       'bg-blue-500'
                     }`}
                     title={`Markiert: ${customer.highlight_color}`}
@@ -583,6 +588,11 @@ export default function CustomersPage() {
                           ? `border-b-4 ${
                               customer.highlight_color === 'red' ? 'border-b-red-500' :
                               customer.highlight_color === 'yellow' ? 'border-b-yellow-500' :
+                              customer.highlight_color === 'blue' ? 'border-b-blue-500' :
+                              customer.highlight_color === 'purple' ? 'border-b-purple-500' :
+                              customer.highlight_color === 'orange' ? 'border-b-orange-500' :
+                              customer.highlight_color === 'pink' ? 'border-b-pink-500' :
+                              customer.highlight_color === 'teal' ? 'border-b-teal-500' :
                               'border-b-blue-500'
                             }`
                           : 'border-b'

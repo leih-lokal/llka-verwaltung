@@ -53,7 +53,7 @@ const itemSchema = z.object({
   parts: z.string().optional(),
   copies: z.number().int().min(1, 'Anzahl muss mindestens 1 sein'),
   status: z.enum(['instock', 'outofstock', 'reserved', 'onbackorder', 'lost', 'repairing', 'forsale', 'deleted']),
-  highlight_color: z.enum(['green', 'blue', 'yellow', 'red', '']).optional(),
+  highlight_color: z.enum(['red', 'orange', 'yellow', 'green', 'teal', 'blue', 'purple', 'pink', '']).optional(),
   internal_note: z.string().optional(),
   added_on: z.string(),
 });
@@ -132,7 +132,7 @@ export function ItemDetailSheet({
         parts: item.parts || '',
         copies: item.copies,
         status: item.status,
-        highlight_color: (item.highlight_color || '') as '' | 'green' | 'blue' | 'yellow' | 'red',
+        highlight_color: (item.highlight_color || '') as '' | 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'purple' | 'pink',
         internal_note: item.internal_note || '',
         // Extract just the date part (YYYY-MM-DD) from PocketBase format (YYYY-MM-DD HH:MM:SS.000Z)
         added_on: item.added_on.split(' ')[0],
@@ -348,10 +348,14 @@ export function ItemDetailSheet({
   const getHighlightColorBadge = (color?: HighlightColor) => {
     if (!color) return null;
     const colorMap = {
-      green: 'bg-green-500',
-      blue: 'bg-blue-500',
-      yellow: 'bg-yellow-500',
       red: 'bg-red-500',
+      orange: 'bg-orange-500',
+      yellow: 'bg-yellow-500',
+      green: 'bg-green-500',
+      teal: 'bg-teal-500',
+      blue: 'bg-blue-500',
+      purple: 'bg-purple-500',
+      pink: 'bg-pink-500',
     };
     return (
       <Badge className={`${colorMap[color]} text-white`}>
@@ -812,10 +816,14 @@ export function ItemDetailSheet({
                       className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     >
                       <option value="">Keine</option>
-                      <option value="green">Grün</option>
-                      <option value="blue">Blau</option>
-                      <option value="yellow">Gelb</option>
                       <option value="red">Rot</option>
+                      <option value="orange">Orange</option>
+                      <option value="yellow">Gelb</option>
+                      <option value="green">Grün</option>
+                      <option value="teal">Türkis</option>
+                      <option value="blue">Blau</option>
+                      <option value="purple">Lila</option>
+                      <option value="pink">Rosa</option>
                     </select>
                   ) : (
                     <div className="mt-1">

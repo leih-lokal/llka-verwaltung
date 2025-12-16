@@ -504,6 +504,11 @@ export default function ItemsPage() {
                   <div className={`size-3 rounded-full ${
                     item.highlight_color === 'red' ? 'bg-red-500' :
                     item.highlight_color === 'yellow' ? 'bg-yellow-500' :
+                    item.highlight_color === 'blue' ? 'bg-blue-500' :
+                    item.highlight_color === 'purple' ? 'bg-purple-500' :
+                    item.highlight_color === 'orange' ? 'bg-orange-500' :
+                    item.highlight_color === 'pink' ? 'bg-pink-500' :
+                    item.highlight_color === 'teal' ? 'bg-teal-500' :
                     'bg-blue-500'
                   }`} />
                 )

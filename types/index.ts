@@ -54,6 +54,10 @@ export enum HighlightColor {
   Blue = 'blue',
   Yellow = 'yellow',
   Red = 'red',
+  Purple = 'purple',
+  Orange = 'orange',
+  Pink = 'pink',
+  Teal = 'teal',
 }
 
 // ============================================================================
