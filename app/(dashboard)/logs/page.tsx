@@ -2,25 +2,28 @@
  * Logs page
  */
 
-'use client';
+"use client";
 
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { FileText, Eye, EyeOff } from 'lucide-react';
-import { SearchBar } from '@/components/search/search-bar';
-import { FilterPopover } from '@/components/search/filter-popover';
-import { SortableHeader, type SortDirection } from '@/components/table/sortable-header';
-import { ColumnSelector } from '@/components/table/column-selector';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { pb } from '@/lib/pocketbase/client';
-import { LogPrettyView, LogRawView } from '@/components/logs/log-pretty-view';
-import { isRestRequest } from '@/lib/utils/log-parser';
-import { useFilters } from '@/hooks/use-filters';
-import { useColumnVisibility } from '@/hooks/use-column-visibility';
-import { logsFilterConfig } from '@/lib/filters/filter-configs';
-import { logsColumnConfig } from '@/lib/tables/column-configs';
-import { formatDateTime } from '@/lib/utils/formatting';
-import type { LogEntry, LogEntryRaw, LogLevelString } from '@/types';
+import { useEffect, useState, useRef, useCallback } from "react";
+import { FileText, Eye, EyeOff } from "lucide-react";
+import { SearchBar } from "@/components/search/search-bar";
+import { FilterPopover } from "@/components/search/filter-popover";
+import {
+  SortableHeader,
+  type SortDirection,
+} from "@/components/table/sortable-header";
+import { ColumnSelector } from "@/components/table/column-selector";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { pb } from "@/lib/pocketbase/client";
+import { LogPrettyView, LogRawView } from "@/components/logs/log-pretty-view";
+import { isRestRequest } from "@/lib/utils/log-parser";
+import { useFilters } from "@/hooks/use-filters";
+import { useColumnVisibility } from "@/hooks/use-column-visibility";
+import { logsFilterConfig } from "@/lib/filters/filter-configs";
+import { logsColumnConfig } from "@/lib/tables/column-configs";
+import { formatDateTime } from "@/lib/utils/formatting";
+import type { LogEntry, LogEntryRaw, LogLevelString } from "@/types";
 
 /**
  * Convert numeric log level to string
@@ -28,14 +31,14 @@ import type { LogEntry, LogEntryRaw, LogLevelString } from '@/types';
 function normalizeLogLevel(level: number): LogLevelString {
   switch (level) {
     case 0:
-      return 'info';
+      return "info";
     case 4:
-      return 'warn';
+      return "warn";
     case 8:
-      return 'error';
+      return "error";
     default:
       // Default to info for unknown levels
-      return 'info';
+      return "info";
   }
 }
 
@@ -56,8 +59,8 @@ export default function LogsPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
   // Pretty view state
   const [showPrettyView, setShowPrettyView] = useState(true);
@@ -68,27 +71,27 @@ export default function LogsPage() {
 
   // Load pretty view preference from localStorage
   useEffect(() => {
-    const stored = localStorage.getItem('logs_pretty_view');
+    const stored = localStorage.getItem("logs_pretty_view");
     if (stored !== null) {
-      setShowPrettyView(stored === 'true');
+      setShowPrettyView(stored === "true");
     }
   }, []);
 
   // Save pretty view preference to localStorage
   useEffect(() => {
-    localStorage.setItem('logs_pretty_view', String(showPrettyView));
+    localStorage.setItem("logs_pretty_view", String(showPrettyView));
   }, [showPrettyView]);
 
   // Toggle global pretty view
   const toggleGlobalView = useCallback(() => {
-    setShowPrettyView(prev => !prev);
+    setShowPrettyView((prev) => !prev);
     // Clear per-row overrides when toggling global
     setExpandedLogs(new Set());
   }, []);
 
   // Toggle individual log view
   const toggleLogView = useCallback((logId: string) => {
-    setExpandedLogs(prev => {
+    setExpandedLogs((prev) => {
       const next = new Set(prev);
       if (next.has(logId)) {
         next.delete(logId);
@@ -100,65 +103,38 @@ export default function LogsPage() {
   }, []);
 
   // Determine if a specific log should show pretty view
-  const shouldShowPretty = useCallback((logId: string): boolean => {
-    // XOR logic: global state XOR individual override
-    return showPrettyView !== expandedLogs.has(logId);
-  }, [showPrettyView, expandedLogs]);
+  const shouldShowPretty = useCallback(
+    (logId: string): boolean => {
+      // XOR logic: global state XOR individual override
+      return showPrettyView !== expandedLogs.has(logId);
+    },
+    [showPrettyView, expandedLogs],
+  );
 
-  // Filter management
+  // Filter management - default to non-REST logs only
   const filters = useFilters({
-    entity: 'logs',
+    entity: "logs",
     config: logsFilterConfig,
+    defaultFilters: [
+      {
+        type: "category",
+        field: "data.method",
+        operator: "=",
+        value: "__none__",
+        label: "Request-Typ: Keine (Nicht-REST)",
+      },
+    ],
   });
 
-  // Add default request method filters on mount (POST, PATCH, DELETE)
-  // Wait for localStorage to be loaded first
-  const [hasInitialized, setHasInitialized] = useState(false);
-
-  useEffect(() => {
-    if (!hasInitialized) {
-      setHasInitialized(true);
-
-      // Check if there are any request_method filters already
-      const hasRequestMethodFilters = filters.activeFilters.some(
-        f => f.field === 'data.method'
-      );
-
-      // Only add defaults if no request method filters exist
-      if (!hasRequestMethodFilters) {
-        filters.addFilter({
-          type: 'category',
-          field: 'data.method',
-          operator: '=',
-          value: 'POST',
-          label: 'Request-Typ: POST',
-        });
-        filters.addFilter({
-          type: 'category',
-          field: 'data.method',
-          operator: '=',
-          value: 'PATCH',
-          label: 'Request-Typ: PATCH',
-        });
-        filters.addFilter({
-          type: 'category',
-          field: 'data.method',
-          operator: '=',
-          value: 'DELETE',
-          label: 'Request-Typ: DELETE',
-        });
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasInitialized, filters.activeFilters.length]);
-
   // Sort management
-  const [sortField, setSortField] = useState<string>(logsColumnConfig.defaultSort);
+  const [sortField, setSortField] = useState<string>(
+    logsColumnConfig.defaultSort,
+  );
   const [sortColumn, setSortColumn] = useState<string | null>(null);
 
   // Column visibility management
   const columnVisibility = useColumnVisibility({
-    entity: 'logs',
+    entity: "logs",
     config: logsColumnConfig,
   });
 
@@ -181,61 +157,75 @@ export default function LogsPage() {
     setHasMore(true);
   }, [debouncedSearch, filters.activeFilters, sortField]);
 
-  const fetchLogs = useCallback(async (page: number) => {
-    try {
-      const isInitialLoad = page === 1;
-      if (isInitialLoad) {
-        setIsLoading(true);
-      } else {
-        setIsLoadingMore(true);
+  const fetchLogs = useCallback(
+    async (page: number) => {
+      try {
+        const isInitialLoad = page === 1;
+        if (isInitialLoad) {
+          setIsLoading(true);
+        } else {
+          setIsLoadingMore(true);
+        }
+
+        // Build server-side filter from search and active filters
+        const filter = filters.buildFilter(debouncedSearch);
+
+        // Use PocketBase logs API directly (not a collection)
+        // Build query string manually
+        const params = new URLSearchParams({
+          page: page.toString(),
+          perPage: perPage.toString(),
+          sort: sortField,
+          fields: "id,created,level,message,data",
+        });
+
+        if (filter) {
+          params.set("filter", filter);
+        }
+
+        console.log("Fetching logs page", page, "with filter:", filter);
+
+        const result = (await pb.send(`/api/logs?${params.toString()}`, {
+          method: "GET",
+        })) as {
+          items: LogEntryRaw[];
+          page: number;
+          perPage: number;
+          totalItems: number;
+          totalPages: number;
+        };
+
+        console.log(
+          "Received",
+          result.items.length,
+          "logs. Total items:",
+          result.totalItems,
+        );
+
+        // Normalize log entries
+        const normalizedLogs = result.items.map(normalizeLogEntry);
+
+        if (isInitialLoad) {
+          setLogs(normalizedLogs);
+        } else {
+          setLogs((prev) => [...prev, ...normalizedLogs]);
+        }
+
+        setHasMore(result.items.length === perPage);
+        setCurrentPage(page + 1);
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching logs:", err);
+        setError(
+          err instanceof Error ? err.message : "Fehler beim Laden der Logs",
+        );
+      } finally {
+        setIsLoading(false);
+        setIsLoadingMore(false);
       }
-
-      // Build server-side filter from search and active filters
-      const filter = filters.buildFilter(debouncedSearch);
-
-      // Use PocketBase logs API directly (not a collection)
-      // Build query string manually
-      const params = new URLSearchParams({
-        page: page.toString(),
-        perPage: perPage.toString(),
-        sort: sortField,
-        fields: 'id,created,level,message,data',
-      });
-
-      if (filter) {
-        params.set('filter', filter);
-      }
-
-      console.log('Fetching logs page', page, 'with filter:', filter);
-
-      const result = await pb.send(`/api/logs?${params.toString()}`, {
-        method: 'GET',
-      }) as { items: LogEntryRaw[]; page: number; perPage: number; totalItems: number; totalPages: number };
-
-      console.log('Received', result.items.length, 'logs. Total items:', result.totalItems);
-
-      // Normalize log entries
-      const normalizedLogs = result.items.map(normalizeLogEntry);
-
-      if (isInitialLoad) {
-        setLogs(normalizedLogs);
-      } else {
-        setLogs((prev) => [...prev, ...normalizedLogs]);
-      }
-
-      setHasMore(result.items.length === perPage);
-      setCurrentPage(page + 1);
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching logs:', err);
-      setError(
-        err instanceof Error ? err.message : 'Fehler beim Laden der Logs'
-      );
-    } finally {
-      setIsLoading(false);
-      setIsLoadingMore(false);
-    }
-  }, [debouncedSearch, filters.buildFilter, sortField, perPage]);
+    },
+    [debouncedSearch, filters.buildFilter, sortField, perPage],
+  );
 
   // Initial load and reload on search/filter/sort change
   useEffect(() => {
@@ -247,11 +237,16 @@ export default function LogsPage() {
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !isLoading && !isLoadingMore) {
+        if (
+          entries[0].isIntersecting &&
+          hasMore &&
+          !isLoading &&
+          !isLoadingMore
+        ) {
           fetchLogs(currentPage);
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1 },
     );
 
     if (observerTarget.current) {
@@ -272,7 +267,7 @@ export default function LogsPage() {
     // Toggle sort direction
     if (sortColumn === columnId) {
       // Currently sorting by this column, toggle direction
-      setSortField(sortField.startsWith('-') ? field : `-${field}`);
+      setSortField(sortField.startsWith("-") ? field : `-${field}`);
     } else {
       // New column, start with ascending
       setSortColumn(columnId);
@@ -285,7 +280,11 @@ export default function LogsPage() {
     if (sortColumn !== columnId) return null;
     const column = logsColumnConfig.columns.find((c) => c.id === columnId);
     const field = column?.sortField || columnId;
-    return sortField === field ? 'asc' : sortField === `-${field}` ? 'desc' : null;
+    return sortField === field
+      ? "asc"
+      : sortField === `-${field}`
+        ? "desc"
+        : null;
   };
 
   // Render table header cell for a given column
@@ -309,56 +308,57 @@ export default function LogsPage() {
   // Render table body cell for a given column and log
   const renderBodyCell = (columnId: string, log: LogEntry) => {
     switch (columnId) {
-      case 'created':
-        return (
-          <span className="text-sm">
-            {formatDateTime(log.created)}
-          </span>
-        );
+      case "created":
+        return <span className="text-sm">{formatDateTime(log.created)}</span>;
 
-      case 'level':
+      case "level":
         return (
           <div className="flex items-center gap-2">
-            {log.level === 'info' && (
-              <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+            {log.level === "info" && (
+              <Badge
+                variant="default"
+                className="bg-green-500 hover:bg-green-600"
+              >
                 Info
               </Badge>
             )}
-            {log.level === 'warn' && (
-              <Badge variant="default" className="bg-yellow-500 hover:bg-yellow-600">
+            {log.level === "warn" && (
+              <Badge
+                variant="default"
+                className="bg-yellow-500 hover:bg-yellow-600"
+              >
                 Warnung
               </Badge>
             )}
-            {log.level === 'error' && (
-              <Badge variant="destructive">
-                Fehler
-              </Badge>
+            {log.level === "error" && (
+              <Badge variant="destructive">Fehler</Badge>
             )}
           </div>
         );
 
-      case 'method':
+      case "method":
         if (!log.data?.method) {
           return <span className="text-sm text-muted-foreground">—</span>;
         }
 
         // Color-code HTTP methods
-        let badgeVariant: 'default' | 'secondary' | 'destructive' | 'outline' = 'outline';
-        let badgeClass = '';
+        let badgeVariant: "default" | "secondary" | "destructive" | "outline" =
+          "outline";
+        let badgeClass = "";
 
         switch (log.data.method) {
-          case 'GET':
-            badgeClass = 'bg-blue-500 hover:bg-blue-600 text-white';
+          case "GET":
+            badgeClass = "bg-blue-500 hover:bg-blue-600 text-white";
             break;
-          case 'POST':
-            badgeClass = 'bg-green-500 hover:bg-green-600 text-white';
+          case "POST":
+            badgeClass = "bg-green-500 hover:bg-green-600 text-white";
             break;
-          case 'PATCH':
-          case 'PUT':
-            badgeClass = 'bg-yellow-500 hover:bg-yellow-600 text-white';
+          case "PATCH":
+          case "PUT":
+            badgeClass = "bg-yellow-500 hover:bg-yellow-600 text-white";
             break;
-          case 'DELETE':
-            badgeVariant = 'destructive';
+          case "DELETE":
+            badgeVariant = "destructive";
             break;
         }
 
@@ -368,7 +368,7 @@ export default function LogsPage() {
           </Badge>
         );
 
-      case 'message':
+      case "message":
         // Check if this is a REST request log
         if (isRestRequest(log)) {
           // Determine if we should show pretty view for this log
@@ -376,26 +376,18 @@ export default function LogsPage() {
 
           if (showPretty) {
             return (
-              <LogPrettyView
-                log={log}
-                onToggle={() => toggleLogView(log.id)}
-              />
+              <LogPrettyView log={log} onToggle={() => toggleLogView(log.id)} />
             );
           } else {
             return (
-              <LogRawView
-                log={log}
-                onToggle={() => toggleLogView(log.id)}
-              />
+              <LogRawView log={log} onToggle={() => toggleLogView(log.id)} />
             );
           }
         }
 
         // Non-REST logs: always show as plain text
         return (
-          <span className="text-sm font-mono break-words">
-            {log.message}
-          </span>
+          <span className="text-sm font-mono break-words">{log.message}</span>
         );
 
       default:
@@ -448,7 +440,7 @@ export default function LogsPage() {
           <Button
             onClick={toggleGlobalView}
             size="sm"
-            variant={showPrettyView ? 'default' : 'outline'}
+            variant={showPrettyView ? "default" : "outline"}
             className="h-10"
           >
             {showPrettyView ? (
@@ -482,7 +474,9 @@ export default function LogsPage() {
         ) : logs.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-muted-foreground">
-              {debouncedSearch ? 'Keine Ergebnisse gefunden' : 'Keine Logs gefunden'}
+              {debouncedSearch
+                ? "Keine Ergebnisse gefunden"
+                : "Keine Logs gefunden"}
             </p>
           </div>
         ) : (
