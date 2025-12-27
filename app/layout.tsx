@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LeihLokal Verwaltung",
-  description: "Library management system for LeihLokal",
+  title: "LLKA-V",
+  description: "leih.lokal Verwaltungssoftware",
 };
 
 export default function RootLayout({
