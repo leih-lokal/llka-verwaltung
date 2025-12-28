@@ -531,7 +531,7 @@ export default function ReservationsPage() {
               // Empty name → show NEW badge + email
               <div className="flex items-center gap-2">
                 <Badge variant="default" className="text-xs shrink-0">
-                  NEW
+                  ★
                 </Badge>
                 <span className="font-mono text-primary text-sm truncate">
                   {reservation.customer_email || "Keine E-Mail"}
