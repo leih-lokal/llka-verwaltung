@@ -11,6 +11,7 @@ import { SearchBar } from '@/components/search/search-bar';
 import { FilterPopover } from '@/components/search/filter-popover';
 import { SortableHeader, type SortDirection } from '@/components/table/sortable-header';
 import { ColumnSelector } from '@/components/table/column-selector';
+import { HelpButton } from '@/components/table/help-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { RentalDetailSheet } from '@/components/detail-sheets/rental-detail-sheet';
@@ -482,11 +483,11 @@ export default function RentalsPage() {
 
                   return (
                     <span key={item.id} className="inline-block mr-2">
-                      <span className="font-mono mr-1">
-                        <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-1.5 py-0.5 rounded text-xs">
+                      <span className="inline-flex items-center gap-1.5 border-2 border-border rounded-md pr-1.5 font-mono mr-2">
+                        <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-2 py-1 rounded text-base">
                           {String(item.iid).padStart(4, '0').substring(0, 2)}
                         </span>
-                        <span className="ml-0.5">
+                        <span className="text-base font-semibold px-0.5">
                           {String(item.iid).padStart(4, '0').substring(2, 4)}
                         </span>
                       </span>

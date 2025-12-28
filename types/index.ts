@@ -237,8 +237,8 @@ export interface Item extends BaseRecord {
   /** Manual included? */
   manual?: string;
 
-  /** Parts list */
-  parts?: string;
+  /** Number of parts/accessories */
+  parts?: number;
 
   /** Number of copies available */
   copies: number;
@@ -257,6 +257,9 @@ export interface Item extends BaseRecord {
 
   /** Date added to inventory */
   added_on: string;
+
+  /** Manufacturer suggested retail price */
+  msrp?: number;
 }
 
 /**
@@ -286,12 +289,13 @@ export interface ItemFormData {
   synonyms: string[];
   packaging?: string;
   manual?: string;
-  parts?: string;
+  parts?: number;
   copies: number;
   status: ItemStatus;
   images?: FileList;
   highlight_color?: HighlightColor;
   internal_note?: string;
+  msrp?: number;
 }
 
 // ============================================================================

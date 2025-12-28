@@ -49,6 +49,9 @@ import { formatDate, formatCurrency } from '@/lib/utils/formatting';
 import { cn } from '@/lib/utils';
 import type { Reservation, ReservationExpanded, Customer, Item } from '@/types';
 import { CustomerDetailSheet } from './customer-detail-sheet';
+import { FormHelpPanel } from './form-help-panel';
+import { DOCUMENTATION } from '@/lib/constants/documentation';
+import { useHelpCollapsed } from '@/hooks/use-help-collapsed';
 
 // Validation schema
 const reservationSchema = z.object({
@@ -85,6 +88,7 @@ export function ReservationDetailSheet({
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCustomerSheet, setShowCustomerSheet] = useState(false);
+  const { isCollapsed: isHelpCollapsed, toggle: toggleHelp } = useHelpCollapsed();
   const [newCustomerData, setNewCustomerData] = useState<Partial<Customer> | null>(null);
 
   // Customer search state
@@ -138,7 +142,7 @@ export function ReservationDetailSheet({
 
         // If search is numeric, search by iid
         if (/^\d+$/.test(customerSearch)) {
-          filters.push(`iid~'${customerSearch}'`);
+          filters.push(`iid=${parseInt(customerSearch, 10)}`);
           sortBy = 'iid'; // Sort by iid when searching numerically
         } else {
           // Check if search contains a space (possible full name search)
@@ -193,7 +197,7 @@ export function ReservationDetailSheet({
 
         // If search is numeric, search by iid
         if (/^\d+$/.test(itemSearch)) {
-          filters.push(`iid~'${itemSearch}'`);
+          filters.push(`iid=${parseInt(itemSearch, 10)}`);
         }
 
         // Always search by name
@@ -434,7 +438,16 @@ export function ReservationDetailSheet({
           onOpenChange(open);
         }
       }}>
-        <SheetContent className="w-full sm:max-w-4xl flex flex-col overflow-hidden">
+        <SheetContent
+          className="w-full sm:max-w-4xl flex flex-col overflow-hidden"
+          overlayContent={
+            <FormHelpPanel
+              content={DOCUMENTATION.reservationForm}
+              isCollapsed={isHelpCollapsed}
+              onToggle={toggleHelp}
+            />
+          }
+        >
           <SheetHeader className="border-b pb-6 mb-6 px-6 shrink-0">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
@@ -719,8 +732,13 @@ export function ReservationDetailSheet({
                                     selectedItems.some(i => i.id === item.id) ? "opacity-100" : "opacity-0"
                                   )}
                                 />
-                                <span className="font-mono text-primary font-semibold mr-2 group-aria-selected:text-white">
-                                  #{String(item.iid).padStart(4, '0')}
+                                <span className="inline-flex items-center gap-1.5 border-2 border-border rounded-md pr-1.5 font-mono mr-2">
+                                  <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-2 py-1 rounded text-base">
+                                    {String(item.iid).padStart(4, '0').substring(0, 2)}
+                                  </span>
+                                  <span className="text-base font-semibold px-0.5">
+                                    {String(item.iid).padStart(4, '0').substring(2, 4)}
+                                  </span>
                                 </span>
                                 <span className="flex-1 group-aria-selected:text-white">{item.name}</span>
                                 <span className="text-muted-foreground text-xs ml-2 group-aria-selected:text-white">
@@ -748,8 +766,13 @@ export function ReservationDetailSheet({
                     <div key={item.id} className="border rounded-lg p-3 bg-muted/50 flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-baseline gap-2 mb-1">
-                          <span className="font-mono text-primary font-semibold">
-                            #{String(item.iid).padStart(4, '0')}
+                          <span className="inline-flex items-center gap-1.5 border-2 border-border rounded-md pr-1.5 font-mono mr-2">
+                            <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-2 py-1 rounded text-base">
+                              {String(item.iid).padStart(4, '0').substring(0, 2)}
+                            </span>
+                            <span className="text-base font-semibold px-0.5">
+                              {String(item.iid).padStart(4, '0').substring(2, 4)}
+                            </span>
                           </span>
                           <span className="font-semibold truncate">{item.name}</span>
                         </div>

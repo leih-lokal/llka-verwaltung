@@ -148,6 +148,12 @@ export const itemsColumnConfig: EntityColumnConfig = {
       sortable: true,
     },
     {
+      id: "msrp",
+      label: "UVP",
+      defaultVisible: false,
+      sortable: true,
+    },
+    {
       id: "parts",
       label: "Teile",
       defaultVisible: true,

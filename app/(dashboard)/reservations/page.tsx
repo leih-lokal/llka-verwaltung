@@ -23,6 +23,7 @@ import {
   type SortDirection,
 } from "@/components/table/sortable-header";
 import { ColumnSelector } from "@/components/table/column-selector";
+import { HelpButton } from "@/components/table/help-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ReservationDetailSheet } from "@/components/detail-sheets/reservation-detail-sheet";
@@ -556,9 +557,14 @@ export default function ReservationsPage() {
             {reservation.expand?.items?.length > 0
               ? reservation.expand.items.map((item) => (
                   <span key={item.id} className="inline-block mr-2">
-                    <span className="font-mono text-primary">
-                      #{String(item.iid).padStart(4, "0")}
-                    </span>{" "}
+                    <span className="inline-flex items-center gap-1.5 border-2 border-border rounded-md pr-1.5 font-mono mr-2">
+                      <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-2 py-1 rounded text-base">
+                        {String(item.iid).padStart(4, "0").substring(0, 2)}
+                      </span>
+                      <span className="text-base font-semibold px-0.5">
+                        {String(item.iid).padStart(4, "0").substring(2, 4)}
+                      </span>
+                    </span>
                     {item.name}
                   </span>
                 ))

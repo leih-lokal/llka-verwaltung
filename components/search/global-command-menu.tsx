@@ -88,8 +88,8 @@ export function GlobalCommandMenu() {
 
         // Build filter strings
         const customerFilter = isNumeric
-          ? `firstname ~ "${searchTerm}" || lastname ~ "${searchTerm}" || email ~ "${searchTerm}" || phone ~ "${searchTerm}" || iid = ${numericIID}`
-          : `firstname ~ "${searchTerm}" || lastname ~ "${searchTerm}" || email ~ "${searchTerm}" || phone ~ "${searchTerm}"`;
+          ? `firstname ~ "${searchTerm}" || lastname ~ "${searchTerm}" || iid = ${numericIID}`
+          : `firstname ~ "${searchTerm}" || lastname ~ "${searchTerm}"`;
 
         const itemFilter = isNumeric
           ? `name ~ "${searchTerm}" || brand ~ "${searchTerm}" || iid = ${numericIID}`
@@ -117,11 +117,13 @@ export function GlobalCommandMenu() {
             .then((res) => res.items)
             .catch(() => []),
 
-          // Reservations: search by customer name, phone
+          // Reservations: search by customer name, iid
           collections
             .reservations()
             .getList<Reservation>(1, 5, {
-              filter: `customer_name ~ "${searchTerm}" || customer_phone ~ "${searchTerm}"`,
+              filter: isNumeric
+                ? `customer_name ~ "${searchTerm}" || customer_iid = ${numericIID}`
+                : `customer_name ~ "${searchTerm}"`,
               sort: '-created',
               expand: 'items',
             })

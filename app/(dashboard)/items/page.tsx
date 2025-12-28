@@ -343,6 +343,17 @@ export default function ItemsPage() {
             </button>
           </th>
         );
+      case 'msrp':
+        return (
+          <th key="msrp" className={cn("px-4 py-2 text-left", dividerClass)}>
+            <SortableHeader
+              label="UVP"
+              sortDirection={getSortDirection('msrp')}
+              onSort={() => handleSort('msrp')}
+              disabled={isLoading}
+            />
+          </th>
+        );
       case 'description':
         return (
           <th key="description" className={cn("px-4 py-2 text-left", dividerClass)}>
@@ -442,12 +453,12 @@ export default function ItemsPage() {
     switch (columnId) {
       case 'iid':
         return (
-          <td key="iid" className={cn("px-4 py-3 font-mono text-sm", dividerClass)}>
-            <div className="flex items-center gap-1">
-              <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-1.5 py-0.5 rounded text-xs">
+          <td key="iid" className={cn("px-4 py-3 font-mono", dividerClass)}>
+            <div className="inline-flex items-center gap-1.5 border-2 border-border rounded-md pr-1.5">
+              <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-2 py-1 rounded text-base">
                 {String(item.iid).padStart(4, '0').substring(0, 2)}
               </span>
-              <span>{String(item.iid).padStart(4, '0').substring(2, 4)}</span>
+              <span className="text-base font-semibold px-0.5">{String(item.iid).padStart(4, '0').substring(2, 4)}</span>
             </div>
           </td>
         );
@@ -549,6 +560,12 @@ export default function ItemsPage() {
         return (
           <td key="deposit" className={cn("px-4 py-3 text-sm", dividerClass)}>
             {item.deposit > 0 ? `${item.deposit} €` : '—'}
+          </td>
+        );
+      case 'msrp':
+        return (
+          <td key="msrp" className={cn("px-4 py-3 text-sm", dividerClass)}>
+            {item.msrp && item.msrp > 0 ? `${item.msrp} €` : '—'}
           </td>
         );
       case 'description':

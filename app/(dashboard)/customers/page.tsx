@@ -11,6 +11,7 @@ import { SearchBar } from '@/components/search/search-bar';
 import { FilterPopover } from '@/components/search/filter-popover';
 import { SortableHeader, type SortDirection } from '@/components/table/sortable-header';
 import { ColumnSelector } from '@/components/table/column-selector';
+import { HelpButton } from '@/components/table/help-button';
 import { Button } from '@/components/ui/button';
 import { CustomerDetailSheet } from '@/components/detail-sheets/customer-detail-sheet';
 import { collections } from '@/lib/pocketbase/client';

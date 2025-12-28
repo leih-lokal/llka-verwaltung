@@ -56,6 +56,9 @@ import { getCopyCount, setCopyCount, removeCopyCount, type InstanceData } from '
 import { getMultipleItemAvailability, type ItemAvailability } from '@/lib/utils/item-availability';
 import { getReturnedCopyCount, mergeReturnedItems } from '@/lib/utils/partial-returns';
 import { generateRentalPrintContent } from '@/components/print/rental-print-content';
+import { FormHelpPanel } from './form-help-panel';
+import { DOCUMENTATION } from '@/lib/constants/documentation';
+import { useHelpCollapsed } from '@/hooks/use-help-collapsed';
 
 // Validation schema
 const rentalSchema = z.object({
@@ -125,6 +128,7 @@ export function RentalDetailSheet({
   const [isLoading, setIsLoading] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const { isCollapsed: isHelpCollapsed, toggle: toggleHelp } = useHelpCollapsed();
 
   // Partial return state
   const [showPartialReturnDialog, setShowPartialReturnDialog] = useState(false);
@@ -326,7 +330,7 @@ export function RentalDetailSheet({
 
         // If search is numeric, search by iid
         if (/^\d+$/.test(customerSearch)) {
-          filters.push(`iid~'${customerSearch}'`);
+          filters.push(`iid=${parseInt(customerSearch, 10)}`);
           sortBy = 'iid'; // Sort by iid when searching numerically
         } else {
           // Check if search contains a space (possible full name search)
@@ -381,7 +385,7 @@ export function RentalDetailSheet({
 
         // If search is numeric, search by iid
         if (/^\d+$/.test(itemSearch)) {
-          filters.push(`iid~'${itemSearch}'`);
+          filters.push(`iid=${parseInt(itemSearch, 10)}`);
         }
 
         // Always search by name
@@ -918,7 +922,16 @@ export function RentalDetailSheet({
           onOpenChange(open);
         }
       }}>
-        <SheetContent className="w-full sm:max-w-4xl flex flex-col overflow-hidden">
+        <SheetContent
+          className="w-full sm:max-w-4xl flex flex-col overflow-hidden"
+          overlayContent={
+            <FormHelpPanel
+              content={DOCUMENTATION.rentalForm}
+              isCollapsed={isHelpCollapsed}
+              onToggle={toggleHelp}
+            />
+          }
+        >
           <SheetHeader className="border-b pb-6 mb-6 px-6 shrink-0">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
@@ -1113,8 +1126,13 @@ export function RentalDetailSheet({
                                         selectedItems.some(i => i.id === item.id) ? "opacity-100" : "opacity-0"
                                       )}
                                     />
-                                    <span className="font-mono text-primary font-semibold mr-2 group-aria-selected:text-white">
-                                      #{String(item.iid).padStart(4, '0')}
+                                    <span className="inline-flex items-center gap-1.5 border-2 border-border rounded-md pr-1.5 font-mono mr-2">
+                                      <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-2 py-1 rounded text-base">
+                                        {String(item.iid).padStart(4, '0').substring(0, 2)}
+                                      </span>
+                                      <span className="text-base font-semibold px-0.5">
+                                        {String(item.iid).padStart(4, '0').substring(2, 4)}
+                                      </span>
                                     </span>
                                     <span className="flex-1 group-aria-selected:text-white">{item.name}</span>
                                     <span className="text-muted-foreground text-xs ml-2 group-aria-selected:text-white">
@@ -1161,8 +1179,13 @@ export function RentalDetailSheet({
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-baseline gap-2 mb-1">
-                                  <span className="font-mono text-primary font-semibold">
-                                    #{String(item.iid).padStart(4, '0')}
+                                  <span className="inline-flex items-center gap-1.5 border-2 border-border rounded-md pr-1.5 font-mono mr-2">
+                                    <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-2 py-1 rounded text-base">
+                                      {String(item.iid).padStart(4, '0').substring(0, 2)}
+                                    </span>
+                                    <span className="text-base font-semibold px-0.5">
+                                      {String(item.iid).padStart(4, '0').substring(2, 4)}
+                                    </span>
                                   </span>
                                   <span className="font-semibold truncate">{item.name}</span>
                                 </div>
@@ -1814,8 +1837,13 @@ export function RentalDetailSheet({
                             }
                           }}
                         />
-                        <span className="font-mono text-primary font-semibold">
-                          #{String(item.iid).padStart(4, '0')}
+                        <span className="inline-flex items-center gap-1.5 border-2 border-border rounded-md pr-1.5 font-mono mr-2">
+                          <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-2 py-1 rounded text-base">
+                            {String(item.iid).padStart(4, '0').substring(0, 2)}
+                          </span>
+                          <span className="text-base font-semibold px-0.5">
+                            {String(item.iid).padStart(4, '0').substring(2, 4)}
+                          </span>
                         </span>
                         <span className="font-semibold">{item.name}</span>
                       </div>

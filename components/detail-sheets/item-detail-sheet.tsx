@@ -37,6 +37,9 @@ import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, l
 import type { Item, ItemFormData, RentalExpanded, ItemCategory, ItemStatus, HighlightColor } from '@/types';
 import { CATEGORY_OPTIONS, GERMAN_CATEGORY_VALUES } from '@/lib/constants/categories';
 import { RentalDetailSheet } from './rental-detail-sheet';
+import { FormHelpPanel } from './form-help-panel';
+import { DOCUMENTATION } from '@/lib/constants/documentation';
+import { useHelpCollapsed } from '@/hooks/use-help-collapsed';
 
 // Validation schema (using German category names as they are stored in PocketBase)
 const itemSchema = z.object({
@@ -50,12 +53,13 @@ const itemSchema = z.object({
   synonyms: z.string().optional(), // Comma-separated
   packaging: z.string().optional(),
   manual: z.string().optional(),
-  parts: z.string().optional(),
+  parts: z.number().int().min(0, 'Teile muss positiv sein').optional(),
   copies: z.number().int().min(1, 'Anzahl muss mindestens 1 sein'),
   status: z.enum(['instock', 'outofstock', 'reserved', 'onbackorder', 'lost', 'repairing', 'forsale', 'deleted']),
   highlight_color: z.enum(['red', 'orange', 'yellow', 'green', 'teal', 'blue', 'purple', 'pink', '']).optional(),
   internal_note: z.string().optional(),
   added_on: z.string(),
+  msrp: z.number().min(0, 'UVP muss positiv sein').optional(),
 });
 
 type ItemFormValues = z.infer<typeof itemSchema>;
@@ -91,6 +95,9 @@ export function ItemDetailSheet({
 
   const isNewItem = !item?.id;
 
+  // Help panel state (persisted in localStorage with 12h TTL)
+  const { isCollapsed: isHelpCollapsed, toggle: toggleHelp } = useHelpCollapsed();
+
   const form = useForm<ItemFormValues>({
     resolver: zodResolver(itemSchema),
     defaultValues: {
@@ -104,12 +111,13 @@ export function ItemDetailSheet({
       synonyms: '',
       packaging: '',
       manual: '',
-      parts: '',
+      parts: undefined,
       copies: 1,
       status: 'instock',
       highlight_color: '',
       internal_note: '',
       added_on: dateToLocalString(new Date()),
+      msrp: undefined,
     },
   });
 
@@ -129,13 +137,14 @@ export function ItemDetailSheet({
         synonyms: Array.isArray(item.synonyms) ? item.synonyms.join(', ') : '',
         packaging: item.packaging || '',
         manual: item.manual || '',
-        parts: item.parts || '',
+        parts: typeof item.parts === 'number' ? item.parts : undefined,
         copies: item.copies,
         status: item.status,
         highlight_color: (item.highlight_color || '') as '' | 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'purple' | 'pink',
         internal_note: item.internal_note || '',
         // Extract just the date part (YYYY-MM-DD) from PocketBase format (YYYY-MM-DD HH:MM:SS.000Z)
         added_on: item.added_on.split(' ')[0],
+        msrp: item.msrp,
       });
       // Load existing images
       setExistingImages(item.images || []);
@@ -159,12 +168,13 @@ export function ItemDetailSheet({
             synonyms: '',
             packaging: '',
             manual: '',
-            parts: '',
+            parts: undefined,
             copies: 1,
             status: 'instock',
             highlight_color: '',
             internal_note: '',
             added_on: dateToLocalString(new Date()),
+            msrp: undefined,
           });
         } catch (err) {
           // If no items exist yet, start with 1
@@ -179,12 +189,13 @@ export function ItemDetailSheet({
             synonyms: '',
             packaging: '',
             manual: '',
-            parts: '',
+            parts: undefined,
             copies: 1,
             status: 'instock',
             highlight_color: '',
             internal_note: '',
             added_on: dateToLocalString(new Date()),
+            msrp: undefined,
           });
         }
       };
@@ -263,12 +274,13 @@ export function ItemDetailSheet({
 
       if (data.packaging) formData.append('packaging', data.packaging);
       if (data.manual) formData.append('manual', data.manual);
-      if (data.parts) formData.append('parts', data.parts);
+      if (data.parts !== undefined) formData.append('parts', data.parts.toString());
       formData.append('copies', data.copies.toString());
       formData.append('status', data.status);
       if (data.highlight_color) formData.append('highlight_color', data.highlight_color);
       if (data.internal_note) formData.append('internal_note', data.internal_note);
       formData.append('added_on', data.added_on);
+      if (data.msrp !== undefined) formData.append('msrp', data.msrp.toString());
 
       // Add new images
       newImages.forEach((file) => {
@@ -358,9 +370,7 @@ export function ItemDetailSheet({
       pink: 'bg-pink-500',
     };
     return (
-      <Badge className={`${colorMap[color]} text-white`}>
-        {color}
-      </Badge>
+      <span className={`inline-block w-4 h-4 rounded ${colorMap[color]}`} />
     );
   };
 
@@ -388,18 +398,29 @@ export function ItemDetailSheet({
           onOpenChange(open);
         }
       }}>
-        <SheetContent className="w-full sm:max-w-4xl flex flex-col overflow-hidden">
+        <SheetContent
+          className="w-full sm:max-w-4xl flex flex-col overflow-hidden"
+          overlayContent={
+            isEditMode ? (
+              <FormHelpPanel
+                content={DOCUMENTATION.itemForm}
+                isCollapsed={isHelpCollapsed}
+                onToggle={toggleHelp}
+              />
+            ) : undefined
+          }
+        >
           <SheetHeader className="border-b pb-6 mb-6 px-6 shrink-0">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-4 mb-3">
                   <div className="flex items-center gap-3 flex-wrap">
                     {!isNewItem && (
-                      <div className="flex items-center gap-1.5 font-mono text-3xl font-bold">
+                      <div className="inline-flex items-center gap-1.5 border-2 border-border rounded-md pr-1.5 font-mono text-3xl font-bold">
                         <span className="inline-flex items-center justify-center bg-red-500 text-white px-2.5 py-1 rounded-md">
                           {String(item?.iid).padStart(4, '0').substring(0, 2)}
                         </span>
-                        <span className="text-foreground">
+                        <span className="text-foreground px-0.5">
                           {String(item?.iid).padStart(4, '0').substring(2, 4)}
                         </span>
                       </div>
@@ -417,6 +438,7 @@ export function ItemDetailSheet({
                 {!isNewItem && item && item.highlight_color && (
                   <div className="flex items-center gap-3 mb-2">
                     {getHighlightColorBadge(item.highlight_color)}
+                    <span>{item.internal_note || ''}</span>
                   </div>
                 )}
                 {!isNewItem && item && (
@@ -562,35 +584,70 @@ export function ItemDetailSheet({
                     )}
                   </div>
 
-                  <div>
-                    <Label htmlFor="deposit">Kaution (€) *</Label>
-                    <Input
-                      id="deposit"
-                      type="number"
-                      step="0.01"
-                      {...form.register('deposit', { valueAsNumber: true })}
-                      className="mt-1"
-                    />
-                    {form.formState.errors.deposit && (
-                      <p className="text-sm text-destructive mt-1">
-                        {form.formState.errors.deposit.message}
-                      </p>
-                    )}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="deposit">Kaution (€) *</Label>
+                      <Input
+                        id="deposit"
+                        type="number"
+                        step="0.01"
+                        {...form.register('deposit', { valueAsNumber: true })}
+                        className="mt-1"
+                      />
+                      {form.formState.errors.deposit && (
+                        <p className="text-sm text-destructive mt-1">
+                          {form.formState.errors.deposit.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="msrp">UVP (€)</Label>
+                      <Input
+                        id="msrp"
+                        type="number"
+                        step="0.01"
+                        {...form.register('msrp', { valueAsNumber: true })}
+                        className="mt-1"
+                      />
+                      {form.formState.errors.msrp && (
+                        <p className="text-sm text-destructive mt-1">
+                          {form.formState.errors.msrp.message}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
-                  <div>
-                    <Label htmlFor="copies">Anzahl *</Label>
-                    <Input
-                      id="copies"
-                      type="number"
-                      {...form.register('copies', { valueAsNumber: true })}
-                      className="mt-1"
-                    />
-                    {form.formState.errors.copies && (
-                      <p className="text-sm text-destructive mt-1">
-                        {form.formState.errors.copies.message}
-                      </p>
-                    )}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="copies">Anzahl *</Label>
+                      <Input
+                        id="copies"
+                        type="number"
+                        {...form.register('copies', { valueAsNumber: true })}
+                        className="mt-1"
+                      />
+                      {form.formState.errors.copies && (
+                        <p className="text-sm text-destructive mt-1">
+                          {form.formState.errors.copies.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="parts">Teile</Label>
+                      <Input
+                        id="parts"
+                        type="number"
+                        {...form.register('parts', { valueAsNumber: true })}
+                        className="mt-1"
+                      />
+                      {form.formState.errors.parts && (
+                        <p className="text-sm text-destructive mt-1">
+                          {form.formState.errors.parts.message}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   <div>
@@ -766,22 +823,6 @@ export function ItemDetailSheet({
                     </p>
                   )}
                 </div>
-
-                <div className="col-span-2">
-                  <Label htmlFor="parts">Teile</Label>
-                  {isEditMode ? (
-                    <Textarea
-                      id="parts"
-                      {...form.register('parts')}
-                      className="mt-1"
-                      rows={2}
-                    />
-                  ) : (
-                    <p className="mt-1 text-sm whitespace-pre-wrap">
-                      {item?.parts || '—'}
-                    </p>
-                  )}
-                </div>
               </div>
             </section>
 
@@ -807,24 +848,103 @@ export function ItemDetailSheet({
                   )}
                 </div>
 
-                <div>
-                  <Label htmlFor="highlight_color">Markierungsfarbe</Label>
+                <div className="col-span-2">
+                  <Label className="mb-2 block">Markierungsfarbe</Label>
                   {isEditMode ? (
-                    <select
-                      id="highlight_color"
-                      {...form.register('highlight_color')}
-                      className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    >
-                      <option value="">Keine</option>
-                      <option value="red">Rot</option>
-                      <option value="orange">Orange</option>
-                      <option value="yellow">Gelb</option>
-                      <option value="green">Grün</option>
-                      <option value="teal">Türkis</option>
-                      <option value="blue">Blau</option>
-                      <option value="purple">Lila</option>
-                      <option value="pink">Rosa</option>
-                    </select>
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => form.setValue('highlight_color', '')}
+                        className={`w-10 h-10 rounded-md border-2 transition-all bg-muted hover:bg-muted/80 flex items-center justify-center ${
+                          !form.watch('highlight_color')
+                            ? 'border-primary ring-2 ring-primary/20 scale-105'
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                        title="Keine Markierung"
+                      >
+                        <span className="text-xs text-muted-foreground font-medium">—</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => form.setValue('highlight_color', 'red')}
+                        className={`w-10 h-10 rounded-md border-2 transition-all bg-red-100 dark:bg-red-950/30 ${
+                          form.watch('highlight_color') === 'red'
+                            ? 'border-red-500 ring-2 ring-red-500/20 scale-105'
+                            : 'border-red-300 dark:border-red-800 hover:border-red-500'
+                        }`}
+                        title="Rot"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => form.setValue('highlight_color', 'orange')}
+                        className={`w-10 h-10 rounded-md border-2 transition-all bg-orange-100 dark:bg-orange-950/30 ${
+                          form.watch('highlight_color') === 'orange'
+                            ? 'border-orange-500 ring-2 ring-orange-500/20 scale-105'
+                            : 'border-orange-300 dark:border-orange-800 hover:border-orange-500'
+                        }`}
+                        title="Orange"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => form.setValue('highlight_color', 'yellow')}
+                        className={`w-10 h-10 rounded-md border-2 transition-all bg-yellow-100 dark:bg-yellow-950/30 ${
+                          form.watch('highlight_color') === 'yellow'
+                            ? 'border-yellow-500 ring-2 ring-yellow-500/20 scale-105'
+                            : 'border-yellow-300 dark:border-yellow-800 hover:border-yellow-500'
+                        }`}
+                        title="Gelb"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => form.setValue('highlight_color', 'green')}
+                        className={`w-10 h-10 rounded-md border-2 transition-all bg-green-100 dark:bg-green-950/30 ${
+                          form.watch('highlight_color') === 'green'
+                            ? 'border-green-500 ring-2 ring-green-500/20 scale-105'
+                            : 'border-green-300 dark:border-green-800 hover:border-green-500'
+                        }`}
+                        title="Grün"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => form.setValue('highlight_color', 'teal')}
+                        className={`w-10 h-10 rounded-md border-2 transition-all bg-teal-100 dark:bg-teal-950/30 ${
+                          form.watch('highlight_color') === 'teal'
+                            ? 'border-teal-500 ring-2 ring-teal-500/20 scale-105'
+                            : 'border-teal-300 dark:border-teal-800 hover:border-teal-500'
+                        }`}
+                        title="Türkis"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => form.setValue('highlight_color', 'blue')}
+                        className={`w-10 h-10 rounded-md border-2 transition-all bg-blue-100 dark:bg-blue-950/30 ${
+                          form.watch('highlight_color') === 'blue'
+                            ? 'border-blue-500 ring-2 ring-blue-500/20 scale-105'
+                            : 'border-blue-300 dark:border-blue-800 hover:border-blue-500'
+                        }`}
+                        title="Blau"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => form.setValue('highlight_color', 'purple')}
+                        className={`w-10 h-10 rounded-md border-2 transition-all bg-purple-100 dark:bg-purple-950/30 ${
+                          form.watch('highlight_color') === 'purple'
+                            ? 'border-purple-500 ring-2 ring-purple-500/20 scale-105'
+                            : 'border-purple-300 dark:border-purple-800 hover:border-purple-500'
+                        }`}
+                        title="Lila"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => form.setValue('highlight_color', 'pink')}
+                        className={`w-10 h-10 rounded-md border-2 transition-all bg-pink-100 dark:bg-pink-950/30 ${
+                          form.watch('highlight_color') === 'pink'
+                            ? 'border-pink-500 ring-2 ring-pink-500/20 scale-105'
+                            : 'border-pink-300 dark:border-pink-800 hover:border-pink-500'
+                        }`}
+                        title="Rosa"
+                      />
+                    </div>
                   ) : (
                     <div className="mt-1">
                       {getHighlightColorBadge(item?.highlight_color) || <span className="text-sm">—</span>}
@@ -954,6 +1074,14 @@ export function ItemDetailSheet({
                   <p className="text-2xl font-bold">{item?.copies || 0}</p>
                 </div>
 
+                {/* Parts */}
+                <div className="border rounded-lg p-4 bg-muted/30">
+                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                    Teile
+                  </div>
+                  <p className="text-2xl font-bold">{item?.parts ?? '—'}</p>
+                </div>
+
                 {/* Added Date */}
                 <div className="border rounded-lg p-4 bg-muted/30">
                   <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
@@ -961,6 +1089,16 @@ export function ItemDetailSheet({
                   </div>
                   <p className="text-base font-semibold">
                     {item ? formatDate(item.added_on) : '—'}
+                  </p>
+                </div>
+
+                {/* MSRP */}
+                <div className="border rounded-lg p-4 bg-muted/30">
+                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                    UVP
+                  </div>
+                  <p className="text-base font-semibold">
+                    {item?.msrp && item.msrp > 0 ? `${item.msrp} €` : '—'}
                   </p>
                 </div>
 
@@ -978,7 +1116,7 @@ export function ItemDetailSheet({
               </section>
 
               {/* Additional Details */}
-              {(item?.packaging || item?.manual || item?.parts || item?.internal_note) && (
+              {(item?.packaging || item?.manual || item?.internal_note) && (
                 <section>
                   <div className="border rounded-lg p-4 bg-muted/30 space-y-4">
                     <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -1000,15 +1138,6 @@ export function ItemDetailSheet({
                           Anleitung
                         </div>
                         <p className="text-base whitespace-pre-wrap">{item.manual}</p>
-                      </div>
-                    )}
-
-                    {item?.parts && (
-                      <div>
-                        <div className="text-xs font-medium text-muted-foreground mb-1">
-                          Teile
-                        </div>
-                        <p className="text-base whitespace-pre-wrap">{item.parts}</p>
                       </div>
                     )}
 

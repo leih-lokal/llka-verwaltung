@@ -37,6 +37,9 @@ import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, l
 import { getRentalStatusLabel } from '@/lib/constants/statuses';
 import { generateCustomerPrintContent } from '@/components/print/customer-print-content';
 import type { Customer, CustomerFormData, Rental, RentalExpanded, Reservation, ReservationExpanded, HighlightColor } from '@/types';
+import { FormHelpPanel } from './form-help-panel';
+import { DOCUMENTATION } from '@/lib/constants/documentation';
+import { useHelpCollapsed } from '@/hooks/use-help-collapsed';
 
 // Validation schema
 const customerSchema = z.object({
@@ -74,6 +77,7 @@ export function CustomerDetailSheet({
   const [isLoading, setIsLoading] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const { isCollapsed: isHelpCollapsed, toggle: toggleHelp } = useHelpCollapsed();
   const [rentals, setRentals] = useState<RentalExpanded[]>([]);
   const [reservations, setReservations] = useState<ReservationExpanded[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -331,9 +335,7 @@ export function CustomerDetailSheet({
       pink: 'bg-pink-500',
     };
     return (
-      <Badge className={`${colorMap[color]} text-white`}>
-        {color}
-      </Badge>
+      <span className={`inline-block w-4 h-4 rounded ${colorMap[color]}`} />
     );
   };
 
@@ -375,7 +377,18 @@ export function CustomerDetailSheet({
           onOpenChange(open);
         }
       }}>
-        <SheetContent className="w-full sm:max-w-4xl flex flex-col overflow-hidden">
+        <SheetContent
+          className="w-full sm:max-w-4xl flex flex-col overflow-hidden"
+          overlayContent={
+            isEditMode ? (
+              <FormHelpPanel
+                content={DOCUMENTATION.customerForm}
+                isCollapsed={isHelpCollapsed}
+                onToggle={toggleHelp}
+              />
+            ) : undefined
+          }
+        >
           <SheetHeader className="border-b pb-6 mb-6 px-6 shrink-0">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
@@ -815,7 +828,14 @@ export function CustomerDetailSheet({
                 {/* Address Card (only if exists) */}
                 {(customer?.street || customer?.city) && (
                   <section>
-                    <div className="border rounded-lg p-4 bg-muted/30">
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                        [customer?.street, customer?.postal_code, customer?.city].filter(Boolean).join(', ')
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block border rounded-lg p-4 bg-muted/30 hover:bg-muted/50 hover:underline transition-colors cursor-pointer"
+                    >
                       <div className="flex items-start gap-3">
                         <MapPinIcon className="size-5 text-muted-foreground shrink-0 mt-0.5" />
                         <div className="text-base">
@@ -825,7 +845,7 @@ export function CustomerDetailSheet({
                           )}
                         </div>
                       </div>
-                    </div>
+                    </a>
                   </section>
                 )}
 
@@ -898,22 +918,28 @@ export function CustomerDetailSheet({
                           return (
                             <tr key={reservation.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                               <td className="px-3 py-2 font-medium">{formatDate(reservation.pickup)}</td>
-                              <td className="px-3 py-2 text-muted-foreground">
+                              <td className="px-3 py-2">
                                 {firstItem ? (
-                                  <>
-                                    <span className="font-mono text-xs">
-                                      {String(firstItem.iid).padStart(4, '0')}
+                                  <div className="flex flex-wrap gap-1 items-center">
+                                    <span className="inline-flex items-center gap-1 border-2 border-border rounded-md pr-1 font-mono text-xs">
+                                      <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-1.5 py-0.5 rounded text-xs">
+                                        {String(firstItem.iid).padStart(4, '0').substring(0, 2)}
+                                      </span>
+                                      <span className="font-semibold px-0.5">
+                                        {String(firstItem.iid).padStart(4, '0').substring(2, 4)}
+                                      </span>
                                     </span>
-                                    {' '}
-                                    {firstItem.name}
+                                    <span className="text-muted-foreground truncate max-w-[200px]">
+                                      {firstItem.name}
+                                    </span>
                                     {additionalCount > 0 && (
-                                      <span className="text-xs ml-1">
+                                      <span className="text-xs text-muted-foreground">
                                         +{additionalCount}
                                       </span>
                                     )}
-                                  </>
+                                  </div>
                                 ) : (
-                                  '—'
+                                  <span className="text-muted-foreground">—</span>
                                 )}
                               </td>
                               <td className="px-3 py-2">
@@ -976,14 +1002,39 @@ export function CustomerDetailSheet({
                             rental.expected_on,
                             rental.extended_on
                           );
+                          const items = rental.expand?.items || [];
+                          const firstItem = items[0];
+                          const additionalCount = items.length - 1;
+
                           return (
                             <tr key={rental.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                               <td className="px-3 py-2 font-medium">{formatDate(rental.rented_on)}</td>
                               <td className="px-3 py-2 text-muted-foreground">
                                 {rental.returned_on ? formatDate(rental.returned_on) : '—'}
                               </td>
-                              <td className="px-3 py-2 text-muted-foreground">
-                                {rental.expand?.items?.length || 0} Artikel
+                              <td className="px-3 py-2">
+                                {firstItem ? (
+                                  <div className="flex flex-wrap gap-1 items-center">
+                                    <span className="inline-flex items-center gap-1 border-2 border-border rounded-md pr-1 font-mono text-xs">
+                                      <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-1.5 py-0.5 rounded text-xs">
+                                        {String(firstItem.iid).padStart(4, '0').substring(0, 2)}
+                                      </span>
+                                      <span className="font-semibold px-0.5">
+                                        {String(firstItem.iid).padStart(4, '0').substring(2, 4)}
+                                      </span>
+                                    </span>
+                                    <span className="text-muted-foreground truncate max-w-[200px]">
+                                      {firstItem.name}
+                                    </span>
+                                    {additionalCount > 0 && (
+                                      <span className="text-xs text-muted-foreground">
+                                        +{additionalCount}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
                               </td>
                               <td className="px-3 py-2">
                                 <Badge variant={status === 'overdue' ? 'destructive' : 'secondary'}>
