@@ -307,6 +307,12 @@ export const rentalsColumnConfig: EntityColumnConfig = {
 export const reservationsColumnConfig: EntityColumnConfig = {
   columns: [
     {
+      id: "otp",
+      label: "OTP",
+      defaultVisible: true,
+      sortable: false,
+    },
+    {
       id: "is_new_customer",
       label: "Neunutzer?",
       defaultVisible: false,
@@ -354,12 +360,6 @@ export const reservationsColumnConfig: EntityColumnConfig = {
       label: "Vor Ort",
       defaultVisible: false,
       sortable: true,
-    },
-    {
-      id: "otp",
-      label: "OTP",
-      defaultVisible: false,
-      sortable: false,
     },
     {
       id: "customer_phone",

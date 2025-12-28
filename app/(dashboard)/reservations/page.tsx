@@ -639,8 +639,10 @@ export default function ReservationsPage() {
         );
       case "otp":
         return (
-          <td key="otp" className={cn("px-4 py-3 text-sm font-mono", dividerClass)}>
-            {reservation.otp || "—"}
+          <td key="otp" className={cn("px-4 py-3 text-base font-mono font-semibold text-red-600", dividerClass)}>
+            {reservation.otp
+              ? `${reservation.otp.slice(0, 3)} ${reservation.otp.slice(3)}`
+              : "—"}
           </td>
         );
       case "actions":
