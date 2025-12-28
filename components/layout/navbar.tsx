@@ -31,6 +31,7 @@ import {
   Keyboard,
   ArrowRight,
   Menu,
+  Palette,
 } from 'lucide-react';
 import { NavLink } from './nav-link';
 import { IdentityPicker } from './identity-picker';

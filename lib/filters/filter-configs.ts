@@ -182,7 +182,7 @@ export const itemsFilterConfig: EntityFilterConfig = {
 // ============================================================================
 
 export const rentalsFilterConfig: EntityFilterConfig = {
-  searchFields: ['customer.firstname', 'customer.lastname', 'customer.iid'],
+  searchFields: ['customer.firstname', 'customer.lastname', 'customer.iid', 'items.iid', 'items.name'],
 
   statusFilters: [
     {
