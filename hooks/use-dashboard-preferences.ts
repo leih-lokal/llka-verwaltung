@@ -25,9 +25,9 @@ const DEFAULT_VISIBILITY: ComponentState = {
   'active-rentals': true,
   'dashboard-notes': true,
   'stats-chart': true,
-  'overdue-alert': true,
-  'due-this-week': true,
-  'today-activity': true,
+  'overdue-alert': false,
+  'due-this-week': false,
+  'today-activity': false,
 };
 
 const DEFAULT_COLLAPSED: ComponentState = {

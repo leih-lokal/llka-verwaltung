@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { ArrowLeftIcon, CheckIcon, XIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -244,10 +245,14 @@ export default function SystemCheckPage() {
           <div className="h-full flex flex-col items-center justify-center p-8 font-mono text-amber-500">
             {/* ASCII Logo */}
             <div className="mb-12 w-full max-w-3xl">
-              <img
+              <Image
                 src="/SCM.svg"
                 alt="System Check Mode"
+                width={768}
+                height={200}
                 className="w-full opacity-90"
+                unoptimized
+                priority
               />
             </div>
 
