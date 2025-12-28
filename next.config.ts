@@ -10,10 +10,15 @@ const nextConfig: NextConfig = {
 
   basePath,
 
+  // Expose basePath to client-side code for asset paths
+  env: {
+    NEXT_PUBLIC_BASE_PATH: basePath,
+  },
+
   // Required for static export
   images: {
     unoptimized: true,
-  }, 
+  },
 };
 
 export default nextConfig;

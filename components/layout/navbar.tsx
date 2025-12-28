@@ -197,7 +197,7 @@ export function Navbar() {
         >
           <Link href="/dashboard" className="flex items-center">
             <Image
-              src="/smile.svg"
+              src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/smile.svg`}
               alt="LeihLokal"
               width={40}
               height={40}

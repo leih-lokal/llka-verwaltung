@@ -246,7 +246,7 @@ export default function SystemCheckPage() {
             {/* ASCII Logo */}
             <div className="mb-12 w-full max-w-3xl">
               <Image
-                src="/SCM.svg"
+                src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/SCM.svg`}
                 alt="System Check Mode"
                 width={768}
                 height={200}
