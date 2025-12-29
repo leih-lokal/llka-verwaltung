@@ -1,136 +1,99 @@
 /**
  * Today's Activity Widget
  * Shows daily activity summary: checkouts, returns, new customers, reservations
+ * Uses efficient count queries instead of fetching all records
  */
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Package, CheckCircle, Users, Calendar } from 'lucide-react';
 import { collections } from '@/lib/pocketbase/client';
 import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
-import type {
-  Rental,
-  RentalExpanded,
-  Customer,
-  Reservation,
-  TodayActivityMetrics,
-} from '@/types';
-import { calculateTodayMetrics } from '@/lib/utils/dashboard-metrics';
+import type { Rental, Customer, Reservation } from '@/types';
 import { toast } from 'sonner';
 
+interface TodayCounts {
+  checkouts: number;
+  returns: number;
+  newCustomers: number;
+  newReservations: number;
+}
+
 export function TodayActivitySection() {
-  const [rentals, setRentals] = useState<RentalExpanded[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [metrics, setMetrics] = useState<TodayActivityMetrics>({
+  const [counts, setCounts] = useState<TodayCounts>({
     checkouts: 0,
     returns: 0,
-    onTimeReturns: 0,
-    lateReturns: 0,
     newCustomers: 0,
     newReservations: 0,
   });
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  // Real-time subscriptions
-  useRealtimeSubscription<Rental>('rental', {
-    onCreated: async (rental) => {
-      try {
-        const expandedRental = await collections
-          .rentals()
-          .getOne<RentalExpanded>(rental.id, { expand: 'customer,items' });
-        setRentals((prev) => {
-          if (prev.some((r) => r.id === rental.id)) return prev;
-          return [...prev, expandedRental];
-        });
-      } catch (err) {
-        console.error('Error fetching expanded rental:', err);
-      }
-    },
-    onUpdated: async (rental) => {
-      try {
-        const expandedRental = await collections
-          .rentals()
-          .getOne<RentalExpanded>(rental.id, { expand: 'customer,items' });
-        setRentals((prev) =>
-          prev.map((r) => (r.id === rental.id ? expandedRental : r))
-        );
-      } catch (err) {
-        console.error('Error fetching expanded rental:', err);
-      }
-    },
-    onDeleted: (rental) => {
-      setRentals((prev) => prev.filter((r) => r.id !== rental.id));
-    },
-  });
-
-  useRealtimeSubscription<Customer>('customer', {
-    onCreated: (customer) => {
-      setCustomers((prev) => {
-        if (prev.some((c) => c.id === customer.id)) return prev;
-        return [...prev, customer];
-      });
-    },
-    onUpdated: (customer) => {
-      setCustomers((prev) =>
-        prev.map((c) => (c.id === customer.id ? customer : c))
-      );
-    },
-    onDeleted: (customer) => {
-      setCustomers((prev) => prev.filter((c) => c.id !== customer.id));
-    },
-  });
-
-  useRealtimeSubscription<Reservation>('reservation', {
-    onCreated: (reservation) => {
-      setReservations((prev) => {
-        if (prev.some((r) => r.id === reservation.id)) return prev;
-        return [...prev, reservation];
-      });
-    },
-    onUpdated: (reservation) => {
-      setReservations((prev) =>
-        prev.map((r) => (r.id === reservation.id ? reservation : r))
-      );
-    },
-    onDeleted: (reservation) => {
-      setReservations((prev) => prev.filter((r) => r.id !== reservation.id));
-    },
-  });
-
-  // Recalculate metrics whenever data changes
-  useEffect(() => {
-    setMetrics(calculateTodayMetrics(rentals, customers, reservations));
-  }, [rentals, customers, reservations]);
-
-  async function loadData() {
+  const loadCounts = useCallback(async () => {
     try {
       setLoading(true);
 
-      // Load all data in parallel
-      const [rentalsResult, customersResult, reservationsResult] =
+      // Get today's date at midnight in local timezone, formatted for PocketBase
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStr = today.toISOString().replace('T', ' ').substring(0, 19);
+
+      // Run all 4 count queries in parallel with perPage=1 to get totalItems
+      const [rentalsToday, returnsToday, reservationsToday, customersToday] =
         await Promise.all([
-          collections.rentals().getFullList<RentalExpanded>({
-            expand: 'customer,items',
+          // Rentals created today (checkouts)
+          collections.rentals().getList(1, 1, {
+            filter: `rented_on >= '${todayStr}'`,
           }),
-          collections.customers().getFullList<Customer>(),
-          collections.reservations().getFullList<Reservation>(),
+          // Returns today
+          collections.rentals().getList(1, 1, {
+            filter: `returned_on >= '${todayStr}'`,
+          }),
+          // Reservations created today
+          collections.reservations().getList(1, 1, {
+            filter: `created >= '${todayStr}'`,
+          }),
+          // New customers registered today
+          collections.customers().getList(1, 1, {
+            filter: `registered_on >= '${todayStr}'`,
+          }),
         ]);
 
-      setRentals(rentalsResult);
-      setCustomers(customersResult);
-      setReservations(reservationsResult);
+      setCounts({
+        checkouts: rentalsToday.totalItems,
+        returns: returnsToday.totalItems,
+        newReservations: reservationsToday.totalItems,
+        newCustomers: customersToday.totalItems,
+      });
     } catch (error) {
-      console.error('Failed to load data:', error);
-      toast.error('Fehler beim Laden der Daten');
+      console.error('Failed to load counts:', error);
+      toast.error('Fehler beim Laden der Aktivitäten');
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    loadCounts();
+  }, [loadCounts]);
+
+  // Real-time subscriptions - refresh counts on any change
+  useRealtimeSubscription<Rental>('rental', {
+    onCreated: () => loadCounts(),
+    onUpdated: () => loadCounts(),
+    onDeleted: () => loadCounts(),
+  });
+
+  useRealtimeSubscription<Customer>('customer', {
+    onCreated: () => loadCounts(),
+    onUpdated: () => loadCounts(),
+    onDeleted: () => loadCounts(),
+  });
+
+  useRealtimeSubscription<Reservation>('reservation', {
+    onCreated: () => loadCounts(),
+    onUpdated: () => loadCounts(),
+    onDeleted: () => loadCounts(),
+  });
 
   if (loading) {
     return <p className="text-sm text-muted-foreground">Lädt...</p>;
@@ -144,9 +107,7 @@ export function TodayActivitySection() {
           <Package className="h-4 w-4 text-blue-600" />
           <span className="text-xs font-medium text-blue-700">Ausleihen</span>
         </div>
-        <div className="text-2xl font-bold text-blue-900">
-          {metrics.checkouts}
-        </div>
+        <div className="text-2xl font-bold text-blue-900">{counts.checkouts}</div>
         <div className="text-xs text-blue-600 mt-1">Heute ausgegeben</div>
       </div>
 
@@ -156,31 +117,14 @@ export function TodayActivitySection() {
           <CheckCircle className="h-4 w-4 text-green-600" />
           <span className="text-xs font-medium text-green-700">Rückgaben</span>
         </div>
-        <div className="text-2xl font-bold text-green-900">
-          {metrics.returns}
-        </div>
-        <div className="text-xs text-green-600 mt-1">
-          {metrics.onTimeReturns > 0 && (
-            <span className="font-medium">
-              {metrics.onTimeReturns} pünktlich
-            </span>
-          )}
-          {metrics.onTimeReturns > 0 && metrics.lateReturns > 0 && (
-            <span>, </span>
-          )}
-          {metrics.lateReturns > 0 && (
-            <span className="text-orange-600">
-              {metrics.lateReturns} verspätet
-            </span>
-          )}
-          {metrics.returns === 0 && <span>Heute zurückgegeben</span>}
-        </div>
+        <div className="text-2xl font-bold text-green-900">{counts.returns}</div>
+        <div className="text-xs text-green-600 mt-1">Heute zurückgegeben</div>
       </div>
 
       {/* New Customers */}
       <div
         className={`${
-          metrics.newCustomers > 0
+          counts.newCustomers > 0
             ? 'bg-purple-50 border-purple-200'
             : 'bg-gray-50 border-gray-200'
         } border rounded-lg p-4`}
@@ -188,12 +132,12 @@ export function TodayActivitySection() {
         <div className="flex items-center gap-2 mb-2">
           <Users
             className={`h-4 w-4 ${
-              metrics.newCustomers > 0 ? 'text-purple-600' : 'text-gray-600'
+              counts.newCustomers > 0 ? 'text-purple-600' : 'text-gray-600'
             }`}
           />
           <span
             className={`text-xs font-medium ${
-              metrics.newCustomers > 0 ? 'text-purple-700' : 'text-gray-700'
+              counts.newCustomers > 0 ? 'text-purple-700' : 'text-gray-700'
             }`}
           >
             Neue Nutzer:innen
@@ -201,14 +145,14 @@ export function TodayActivitySection() {
         </div>
         <div
           className={`text-2xl font-bold ${
-            metrics.newCustomers > 0 ? 'text-purple-900' : 'text-gray-900'
+            counts.newCustomers > 0 ? 'text-purple-900' : 'text-gray-900'
           }`}
         >
-          {metrics.newCustomers}
+          {counts.newCustomers}
         </div>
         <div
           className={`text-xs mt-1 ${
-            metrics.newCustomers > 0 ? 'text-purple-600' : 'text-gray-600'
+            counts.newCustomers > 0 ? 'text-purple-600' : 'text-gray-600'
           }`}
         >
           Heute registriert
@@ -224,7 +168,7 @@ export function TodayActivitySection() {
           </span>
         </div>
         <div className="text-2xl font-bold text-orange-900">
-          {metrics.newReservations}
+          {counts.newReservations}
         </div>
         <div className="text-xs text-orange-600 mt-1">Heute erstellt</div>
       </div>

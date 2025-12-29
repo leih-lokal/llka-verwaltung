@@ -4,7 +4,7 @@
 
 "use client";
 
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -57,7 +57,6 @@ export default function ReservationsPage() {
   const [selectedReservation, setSelectedReservation] =
     useState<ReservationExpanded | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const [hasInitializedFilter, setHasInitializedFilter] = useState(false);
 
   // Rental sheet state for converting reservation to rental
   const [isRentalSheetOpen, setIsRentalSheetOpen] = useState(false);
@@ -72,14 +71,6 @@ export default function ReservationsPage() {
     entity: "reservations",
     config: reservationsFilterConfig,
   });
-
-  // Calculate today's date range
-  const todayRange = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().split("T")[0];
-    return { start: todayStr, end: todayStr };
-  }, []);
 
   // Handle URL query parameters (action=new or view=id)
   useEffect(() => {
@@ -110,22 +101,6 @@ export default function ReservationsPage() {
         });
     }
   }, [searchParams, router]);
-
-  // Initialize "today" filter on first load if no filters exist
-  useEffect(() => {
-    // Only run once and only if there are no active filters
-    if (!hasInitializedFilter && filters.activeFilters.length === 0) {
-      filters.addFilter({
-        type: "date",
-        field: "pickup",
-        operator: ">=",
-        value: [todayRange.start, todayRange.end],
-        label: "Abholung: Heute",
-      });
-    }
-    // Mark as initialized regardless (even if filters exist from localStorage)
-    setHasInitializedFilter(true);
-  }, [hasInitializedFilter, filters, todayRange]);
 
   // Sort management
   const [sortField, setSortField] = useState<string>(
@@ -242,12 +217,9 @@ export default function ReservationsPage() {
 
   // Initial load and reload on search change
   useEffect(() => {
-    // Wait until filter initialization is complete before fetching
-    if (!hasInitializedFilter) return;
-
     setCurrentPage(1);
     fetchReservations(1);
-  }, [debouncedSearch, fetchReservations, hasInitializedFilter]);
+  }, [debouncedSearch, fetchReservations]);
 
   // Intersection Observer for infinite scroll
   useEffect(() => {
