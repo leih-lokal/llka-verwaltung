@@ -296,10 +296,8 @@ export function ItemDetailSheet({
       if (isNewItem) {
         savedItem = await collections.items().create<Item>(formData);
         toast.success('Artikel erfolgreich erstellt');
-        // Force reload after creating new item to ensure clean state
         onSave?.(savedItem);
         onOpenChange(false);
-        window.location.reload();
       } else if (item) {
         savedItem = await collections.items().update<Item>(item.id, formData);
         toast.success('Artikel erfolgreich aktualisiert');

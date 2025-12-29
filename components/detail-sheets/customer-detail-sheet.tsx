@@ -261,10 +261,8 @@ export function CustomerDetailSheet({
       if (isNewCustomer) {
         savedCustomer = await collections.customers().create<Customer>(formData);
         toast.success('Nutzer:in erfolgreich erstellt');
-        // Force reload after creating new customer to ensure clean state
         onSave?.(savedCustomer);
         onOpenChange(false);
-        window.location.reload();
       } else if (customer) {
         savedCustomer = await collections.customers().update<Customer>(customer.id, formData);
         toast.success('Nutzer:in erfolgreich aktualisiert');
