@@ -27,6 +27,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -83,6 +89,10 @@ export function CustomerDetailSheet({
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [showAllRentals, setShowAllRentals] = useState(false);
   const [showAllReservations, setShowAllReservations] = useState(false);
+
+  // Date picker state
+  const [registeredOnPickerOpen, setRegisteredOnPickerOpen] = useState(false);
+  const [renewedOnPickerOpen, setRenewedOnPickerOpen] = useState(false);
 
   const isNewCustomer = !customer?.id;
 
@@ -261,6 +271,22 @@ export function CustomerDetailSheet({
       if (isNewCustomer) {
         savedCustomer = await collections.customers().create<Customer>(formData);
         toast.success('Nutzer:in erfolgreich erstellt');
+        // Reset form to defaults before closing to prevent stale data on next open
+        form.reset({
+          iid: 1,
+          firstname: '',
+          lastname: '',
+          email: '',
+          phone: '',
+          street: '',
+          postal_code: '',
+          city: '',
+          registered_on: dateToLocalString(new Date()),
+          renewed_on: '',
+          newsletter: false,
+          remark: '',
+          highlight_color: '',
+        });
         onSave?.(savedCustomer);
         onOpenChange(false);
       } else if (customer) {
@@ -611,43 +637,95 @@ export function CustomerDetailSheet({
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <Label htmlFor="registered_on">Registriert am</Label>
-                        <Controller
-                          name="registered_on"
-                          control={form.control}
-                          render={({ field }) => (
-                            <Input
-                              id="registered_on"
-                              type="date"
-                              value={field.value || ''}
-                              onChange={field.onChange}
-                              onBlur={field.onBlur}
-                              name={field.name}
-                              ref={field.ref}
-                              className="mt-1.5"
-                            />
-                          )}
-                        />
+                        <div className="relative mt-1.5">
+                          <Input
+                            id="registered_on"
+                            value={form.watch('registered_on') ? new Date(form.watch('registered_on')).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' }) : ''}
+                            placeholder="Datum auswählen..."
+                            className="bg-background pr-10 cursor-pointer"
+                            readOnly
+                            onClick={() => setRegisteredOnPickerOpen(true)}
+                          />
+                          <Popover open={registeredOnPickerOpen} onOpenChange={setRegisteredOnPickerOpen}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                className="absolute top-1/2 right-2 size-6 -translate-y-1/2"
+                              >
+                                <CalendarIcon className="size-3.5" />
+                                <span className="sr-only">Datum auswählen</span>
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              className="w-auto overflow-hidden p-0"
+                              align="end"
+                              alignOffset={-8}
+                              sideOffset={10}
+                            >
+                              <Calendar
+                                mode="single"
+                                selected={form.watch('registered_on') ? new Date(form.watch('registered_on')) : undefined}
+                                captionLayout="dropdown"
+                                startMonth={new Date(2020, 0)}
+                                endMonth={new Date(2030, 11)}
+                                onSelect={(date) => {
+                                  if (date) {
+                                    form.setValue('registered_on', date.toISOString().slice(0, 10), { shouldDirty: true });
+                                  }
+                                  setRegisteredOnPickerOpen(false);
+                                }}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
                       </div>
 
                       <div>
                         <Label htmlFor="renewed_on">Verlängert am</Label>
                         <div className="flex gap-2 mt-1.5">
-                          <Controller
-                            name="renewed_on"
-                            control={form.control}
-                            render={({ field }) => (
-                              <Input
-                                id="renewed_on"
-                                type="date"
-                                value={field.value || ''}
-                                onChange={field.onChange}
-                                onBlur={field.onBlur}
-                                name={field.name}
-                                ref={field.ref}
-                                className="flex-1"
-                              />
-                            )}
-                          />
+                          <div className="relative flex-1">
+                            <Input
+                              id="renewed_on"
+                              value={form.watch('renewed_on') ? new Date(form.watch('renewed_on')!).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' }) : ''}
+                              placeholder="Datum auswählen..."
+                              className="bg-background pr-10 cursor-pointer"
+                              readOnly
+                              onClick={() => setRenewedOnPickerOpen(true)}
+                            />
+                            <Popover open={renewedOnPickerOpen} onOpenChange={setRenewedOnPickerOpen}>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  className="absolute top-1/2 right-2 size-6 -translate-y-1/2"
+                                >
+                                  <CalendarIcon className="size-3.5" />
+                                  <span className="sr-only">Datum auswählen</span>
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent
+                                className="w-auto overflow-hidden p-0"
+                                align="end"
+                                alignOffset={-8}
+                                sideOffset={10}
+                              >
+                                <Calendar
+                                  mode="single"
+                                  selected={form.watch('renewed_on') ? new Date(form.watch('renewed_on')!) : undefined}
+                                  captionLayout="dropdown"
+                                  startMonth={new Date(2020, 0)}
+                                  endMonth={new Date(2030, 11)}
+                                  onSelect={(date) => {
+                                    if (date) {
+                                      form.setValue('renewed_on', date.toISOString().slice(0, 10), { shouldDirty: true });
+                                    }
+                                    setRenewedOnPickerOpen(false);
+                                  }}
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </div>
                           <Button
                             type="button"
                             variant="outline"

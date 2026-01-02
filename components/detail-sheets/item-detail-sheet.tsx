@@ -10,7 +10,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { PencilIcon, SaveIcon, XIcon, ImageIcon, Trash2Icon, UploadIcon, PlusCircleIcon, Tag } from 'lucide-react';
+import { PencilIcon, SaveIcon, XIcon, ImageIcon, Trash2Icon, UploadIcon, PlusCircleIcon, Tag, CalendarIcon } from 'lucide-react';
 import Link from 'next/link';
 import {
   Sheet,
@@ -27,6 +27,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -97,6 +103,9 @@ export function ItemDetailSheet({
 
   // Help panel state (persisted in localStorage with 12h TTL)
   const { isCollapsed: isHelpCollapsed, toggle: toggleHelp } = useHelpCollapsed();
+
+  // Date picker state
+  const [addedOnPickerOpen, setAddedOnPickerOpen] = useState(false);
 
   const form = useForm<ItemFormValues>({
     resolver: zodResolver(itemSchema),
@@ -296,6 +305,29 @@ export function ItemDetailSheet({
       if (isNewItem) {
         savedItem = await collections.items().create<Item>(formData);
         toast.success('Artikel erfolgreich erstellt');
+        // Reset form to defaults before closing to prevent stale data on next open
+        form.reset({
+          iid: 1,
+          name: '',
+          brand: '',
+          model: '',
+          description: '',
+          category: [],
+          deposit: 0,
+          synonyms: '',
+          packaging: '',
+          manual: '',
+          parts: undefined,
+          copies: 1,
+          status: 'instock',
+          highlight_color: '',
+          internal_note: '',
+          added_on: dateToLocalString(new Date()),
+          msrp: undefined,
+        });
+        setExistingImages([]);
+        setNewImages([]);
+        setImagesToDelete([]);
         onSave?.(savedItem);
         onOpenChange(false);
       } else if (item) {
@@ -833,12 +865,48 @@ export function ItemDetailSheet({
                 <div>
                   <Label htmlFor="added_on">Hinzugefügt am</Label>
                   {isEditMode ? (
-                    <Input
-                      id="added_on"
-                      type="date"
-                      {...form.register('added_on')}
-                      className="mt-1"
-                    />
+                    <div className="relative mt-1">
+                      <Input
+                        id="added_on"
+                        value={form.watch('added_on') ? new Date(form.watch('added_on')).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' }) : ''}
+                        placeholder="Datum auswählen..."
+                        className="bg-background pr-10 cursor-pointer"
+                        readOnly
+                        onClick={() => setAddedOnPickerOpen(true)}
+                      />
+                      <Popover open={addedOnPickerOpen} onOpenChange={setAddedOnPickerOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="absolute top-1/2 right-2 size-6 -translate-y-1/2"
+                          >
+                            <CalendarIcon className="size-3.5" />
+                            <span className="sr-only">Datum auswählen</span>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          className="w-auto overflow-hidden p-0"
+                          align="end"
+                          alignOffset={-8}
+                          sideOffset={10}
+                        >
+                          <Calendar
+                            mode="single"
+                            selected={form.watch('added_on') ? new Date(form.watch('added_on')) : undefined}
+                            captionLayout="dropdown"
+                            startMonth={new Date(2020, 0)}
+                            endMonth={new Date(2030, 11)}
+                            onSelect={(date) => {
+                              if (date) {
+                                form.setValue('added_on', date.toISOString().slice(0, 10), { shouldDirty: true });
+                              }
+                              setAddedOnPickerOpen(false);
+                            }}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                   ) : (
                     <p className="mt-1 text-sm">
                       {item ? formatDate(item.added_on) : '—'}

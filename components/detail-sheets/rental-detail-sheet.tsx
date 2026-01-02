@@ -1366,6 +1366,8 @@ export function RentalDetailSheet({
                             mode="single"
                             selected={stringToDate(rentedOn)}
                             captionLayout="dropdown"
+                            startMonth={new Date(2020, 0)}
+                            endMonth={new Date(2030, 11)}
                             onSelect={(date) => {
                               setValue('rented_on', dateToString(date), { shouldDirty: true });
                               setRentedOnPickerOpen(false);
@@ -1426,6 +1428,8 @@ export function RentalDetailSheet({
                             mode="single"
                             selected={stringToDate(expectedOn)}
                             captionLayout="dropdown"
+                            startMonth={new Date(2020, 0)}
+                            endMonth={new Date(2030, 11)}
                             onSelect={(date) => {
                               setValue('expected_on', dateToString(date), { shouldDirty: true });
                               setExpectedOnPickerOpen(false);
@@ -1506,6 +1510,8 @@ export function RentalDetailSheet({
                               mode="single"
                               selected={stringToDate(extendedOn)}
                               captionLayout="dropdown"
+                              startMonth={new Date(2020, 0)}
+                              endMonth={new Date(2030, 11)}
                               onSelect={(date) => {
                                 setValue('extended_on', dateToString(date), { shouldDirty: true });
                                 setExtendedOnPickerOpen(false);
@@ -1563,6 +1569,8 @@ export function RentalDetailSheet({
                               mode="single"
                               selected={stringToDate(returnedOn)}
                               captionLayout="dropdown"
+                              startMonth={new Date(2020, 0)}
+                              endMonth={new Date(2030, 11)}
                               onSelect={(date) => {
                                 setValue('returned_on', dateToString(date), { shouldDirty: true });
                                 setReturnedOnPickerOpen(false);

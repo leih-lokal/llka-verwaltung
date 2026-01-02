@@ -130,10 +130,31 @@ export function useFilters({ entity, config, persist = true, defaultFilters }: U
         const searchTerm = searchQuery.toLowerCase();
         const searchConditions: string[] = [];
 
+        // Check if search term is a wildcard IID pattern (e.g., 37**, 7**, 2***)
+        // Each * represents a single digit position
+        const wildcardMatch = searchTerm.match(/^(\d+)(\*+)$/);
+
         // Check if search term is numeric (with possible leading zeros)
         const numericMatch = searchTerm.match(/^0*(\d+)$/);
 
-        if (numericMatch) {
+        if (wildcardMatch) {
+          // Wildcard IID search: e.g., 37** matches 3700-3799, 7** matches 700-799
+          const prefix = wildcardMatch[1];
+          const wildcardCount = wildcardMatch[2].length;
+          const multiplier = Math.pow(10, wildcardCount);
+          const minValue = parseInt(prefix, 10) * multiplier;
+          const maxValue = minValue + multiplier - 1;
+
+          config.searchFields.forEach((field) => {
+            if (field === 'iid' || field.endsWith('.iid')) {
+              // For iid fields, search by range
+              searchConditions.push(`(${field} >= ${minValue} && ${field} <= ${maxValue})`);
+            } else {
+              // For text fields, do text search with the prefix
+              searchConditions.push(`${field} ~ "${prefix}"`);
+            }
+          });
+        } else if (numericMatch) {
           // For numeric searches, add special handling for iid fields
           const numericValue = numericMatch[1]; // Stripped of leading zeros
 

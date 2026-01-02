@@ -14,6 +14,7 @@ import {
   UserIcon,
   ExternalLinkIcon,
   PackageIcon,
+  MessageSquareIcon,
 } from 'lucide-react';
 import type { RentalExpanded } from '@/types';
 import { formatDate, formatFullName, calculateDaysOverdue } from '@/lib/utils/formatting';
@@ -111,6 +112,14 @@ export function OverdueRentalCard({ rental, variant, onUpdated }: OverdueRentalC
                 </Badge>
               )}
             </div>
+
+            {/* Remark */}
+            {rental.remark && (
+              <div className="flex items-start gap-2 text-sm text-muted-foreground italic">
+                <MessageSquareIcon className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <span>{rental.remark}</span>
+              </div>
+            )}
           </div>
 
           {/* Right: Quick Actions */}

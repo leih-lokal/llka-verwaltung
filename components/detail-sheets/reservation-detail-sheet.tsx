@@ -10,7 +10,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { SaveIcon, XIcon, CheckIcon, ChevronsUpDownIcon, PlusIcon, Trash2Icon, ArrowRightIcon, UserPlusIcon } from 'lucide-react';
+import { SaveIcon, XIcon, CheckIcon, ChevronsUpDownIcon, PlusIcon, Trash2Icon, ArrowRightIcon, UserPlusIcon, CalendarIcon } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -44,6 +44,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Calendar } from '@/components/ui/calendar';
 import { collections } from '@/lib/pocketbase/client';
 import { formatDate, formatCurrency } from '@/lib/utils/formatting';
 import { cn } from '@/lib/utils';
@@ -104,6 +105,9 @@ export function ReservationDetailSheet({
   const [selectedItems, setSelectedItems] = useState<Item[]>([]);
   const [itemSearchOpen, setItemSearchOpen] = useState(false);
   const [isSearchingItems, setIsSearchingItems] = useState(false);
+
+  // Date picker state
+  const [pickupDatePickerOpen, setPickupDatePickerOpen] = useState(false);
 
   const isNewReservation = !reservation?.id;
 
@@ -810,12 +814,65 @@ export function ReservationDetailSheet({
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="pickup">Abholung (Datum & Zeit) *</Label>
-                  <Input
-                    id="pickup"
-                    type="datetime-local"
-                    {...form.register('pickup')}
-                    className="mt-1"
-                  />
+                  <div className="flex gap-2 mt-1">
+                    <div className="relative flex-1">
+                      <Input
+                        id="pickup_date"
+                        value={form.watch('pickup') ? new Date(form.watch('pickup')).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' }) : ''}
+                        placeholder="Datum auswählen..."
+                        className="bg-background pr-10 cursor-pointer"
+                        readOnly
+                        onClick={() => setPickupDatePickerOpen(true)}
+                      />
+                      <Popover open={pickupDatePickerOpen} onOpenChange={setPickupDatePickerOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="absolute top-1/2 right-2 size-6 -translate-y-1/2"
+                          >
+                            <CalendarIcon className="size-3.5" />
+                            <span className="sr-only">Datum auswählen</span>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          className="w-auto overflow-hidden p-0"
+                          align="end"
+                          alignOffset={-8}
+                          sideOffset={10}
+                        >
+                          <Calendar
+                            mode="single"
+                            selected={form.watch('pickup') ? new Date(form.watch('pickup')) : undefined}
+                            captionLayout="dropdown"
+                            startMonth={new Date(2020, 0)}
+                            endMonth={new Date(2030, 11)}
+                            onSelect={(date) => {
+                              if (date) {
+                                const currentPickup = form.watch('pickup');
+                                const currentTime = currentPickup ? currentPickup.slice(11, 16) : '10:00';
+                                const newDate = `${date.toISOString().slice(0, 10)}T${currentTime}`;
+                                setValue('pickup', newDate, { shouldDirty: true });
+                              }
+                              setPickupDatePickerOpen(false);
+                            }}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <Input
+                      id="pickup_time"
+                      type="time"
+                      value={form.watch('pickup') ? form.watch('pickup').slice(11, 16) : '10:00'}
+                      onChange={(e) => {
+                        const currentPickup = form.watch('pickup');
+                        const currentDate = currentPickup ? currentPickup.slice(0, 10) : new Date().toISOString().slice(0, 10);
+                        const newPickup = `${currentDate}T${e.target.value}`;
+                        setValue('pickup', newPickup, { shouldDirty: true });
+                      }}
+                      className="w-24"
+                    />
+                  </div>
                   {form.formState.errors.pickup && (
                     <p className="text-sm text-destructive mt-1">
                       {form.formState.errors.pickup.message}
