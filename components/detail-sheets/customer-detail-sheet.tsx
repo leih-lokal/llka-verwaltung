@@ -52,8 +52,8 @@ const customerSchema = z.object({
   iid: z.number().int().min(1, 'ID muss mindestens 1 sein'),
   firstname: z.string().min(1, 'Vorname ist erforderlich'),
   lastname: z.string().min(1, 'Nachname ist erforderlich'),
-  email: z.string().email('Ungültige E-Mail-Adresse').optional().or(z.literal('')),
-  phone: z.string().optional(),
+  email: z.string().min(1, 'E-Mail ist erforderlich').email('Ungültige E-Mail-Adresse'),
+  phone: z.string().min(1, 'Telefon ist erforderlich'),
   street: z.string().optional(),
   postal_code: z.string().optional(),
   city: z.string().optional(),
@@ -255,8 +255,8 @@ export function CustomerDetailSheet({
         iid: data.iid,
         firstname: data.firstname,
         lastname: data.lastname,
-        email: data.email || undefined,
-        phone: data.phone || undefined,
+        email: data.email,
+        phone: data.phone,
         street: data.street || undefined,
         postal_code: data.postal_code || undefined,
         city: data.city || undefined,
@@ -565,7 +565,7 @@ export function CustomerDetailSheet({
                     {/* Email and Phone together */}
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <Label htmlFor="email">E-Mail</Label>
+                        <Label htmlFor="email">E-Mail *</Label>
                         <Input
                           id="email"
                           type="email"
@@ -580,12 +580,17 @@ export function CustomerDetailSheet({
                       </div>
 
                       <div>
-                        <Label htmlFor="phone">Telefon</Label>
+                        <Label htmlFor="phone">Telefon *</Label>
                         <Input
                           id="phone"
                           {...form.register('phone')}
                           className="mt-1.5"
                         />
+                        {form.formState.errors.phone && (
+                          <p className="text-sm text-destructive mt-1">
+                            {form.formState.errors.phone.message}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
