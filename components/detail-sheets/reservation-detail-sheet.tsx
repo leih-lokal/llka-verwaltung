@@ -452,7 +452,7 @@ export function ReservationDetailSheet({
     const formValues = form.getValues();
 
     // Parse customer name into firstname and lastname
-    const nameParts = formValues.customer_name.trim().split(" ");
+    const nameParts = (formValues.customer_name || "").trim().split(" ");
     const firstname = nameParts[0] || "";
     const lastname = nameParts.slice(1).join(" ") || "";
 
