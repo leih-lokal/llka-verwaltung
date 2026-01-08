@@ -93,8 +93,10 @@ export function buildPocketBaseFilter(
         case 'date':
           if (Array.isArray(filter.value)) {
             const [start, end] = filter.value;
+            // Append time suffixes to ensure datetime fields are correctly filtered
+            // Start of day: 00:00:00, End of day: 23:59:59
             fieldParts.push(
-              `(${filter.field} >= '${start}' && ${filter.field} <= '${end}')`
+              `(${filter.field} >= '${start} 00:00:00' && ${filter.field} <= '${end} 23:59:59')`
             );
           }
           break;
@@ -176,9 +178,9 @@ export function buildPocketBaseFilter(
       case 'date':
         if (Array.isArray(filter.value)) {
           const [start, end] = filter.value;
-          // Items OUTSIDE this date range
+          // Items OUTSIDE this date range (with time suffixes for datetime fields)
           filterParts.push(
-            `(${filter.field} < '${start}' || ${filter.field} > '${end}')`
+            `(${filter.field} < '${start} 00:00:00' || ${filter.field} > '${end} 23:59:59')`
           );
         }
         break;
