@@ -147,8 +147,29 @@ export function useFilters({ entity, config, persist = true, defaultFilters }: U
 
           config.searchFields.forEach((field) => {
             if (field === 'iid' || field.endsWith('.iid')) {
-              // For iid fields, search by range
-              searchConditions.push(`(${field} >= ${minValue} && ${field} <= ${maxValue})`);
+              // Check if this is an array field (e.g., items.iid for rentals/reservations)
+              const isArrayField = field.includes('.');
+
+              if (isArrayField) {
+                // For array fields, we need to search within the array
+                // PocketBase doesn't support range queries on array fields directly,
+                // so we generate individual checks for each possible value in range
+                // For small ranges (< 100 values), enumerate them; otherwise, use text search on prefix
+                const rangeSize = maxValue - minValue + 1;
+                if (rangeSize <= 100) {
+                  const values = Array.from({ length: rangeSize }, (_, i) => minValue + i);
+                  const conditions = values.map(v => `${field} ?= ${v}`).join(' || ');
+                  searchConditions.push(`(${conditions})`);
+                } else {
+                  // Range too large, fall back to text search on the field name
+                  const fieldParts = field.split('.');
+                  const nameField = `${fieldParts[0]}.name`;
+                  searchConditions.push(`${nameField} ~ "${prefix}"`);
+                }
+              } else {
+                // For non-array iid fields, search by range
+                searchConditions.push(`(${field} >= ${minValue} && ${field} <= ${maxValue})`);
+              }
             } else {
               // For text fields, do text search with the prefix
               searchConditions.push(`${field} ~ "${prefix}"`);
@@ -160,8 +181,16 @@ export function useFilters({ entity, config, persist = true, defaultFilters }: U
 
           config.searchFields.forEach((field) => {
             if (field === 'iid' || field.endsWith('.iid')) {
-              // For iid fields, search by numeric value
-              searchConditions.push(`${field} = ${numericValue}`);
+              // Check if this is an array field (e.g., items.iid for rentals/reservations)
+              const isArrayField = field.includes('.');
+
+              if (isArrayField) {
+                // For array fields, use the ?= operator to check if any element matches
+                searchConditions.push(`${field} ?= ${numericValue}`);
+              } else {
+                // For non-array iid fields, use exact match
+                searchConditions.push(`${field} = ${numericValue}`);
+              }
             } else {
               // For text fields, still do text search with original term
               searchConditions.push(`${field} ~ "${searchTerm}"`);
