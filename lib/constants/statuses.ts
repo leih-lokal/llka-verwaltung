@@ -20,19 +20,21 @@ export const ITEM_STATUS_LABELS: Record<ItemStatus, string> = {
 
 /**
  * Item status colors (for badges)
+ * - InStock (available): red/destructive to stand out
+ * - All others: grey/secondary
  */
 export const ITEM_STATUS_COLORS: Record<
   ItemStatus,
   'default' | 'secondary' | 'destructive' | 'outline'
 > = {
-  [ItemStatus.InStock]: 'default',
+  [ItemStatus.InStock]: 'destructive',
   [ItemStatus.OutOfStock]: 'secondary',
-  [ItemStatus.Reserved]: 'outline',
-  [ItemStatus.OnBackorder]: 'outline',
-  [ItemStatus.Lost]: 'destructive',
-  [ItemStatus.Repairing]: 'outline',
+  [ItemStatus.Reserved]: 'secondary',
+  [ItemStatus.OnBackorder]: 'secondary',
+  [ItemStatus.Lost]: 'secondary',
+  [ItemStatus.Repairing]: 'secondary',
   [ItemStatus.ForSale]: 'secondary',
-  [ItemStatus.Deleted]: 'destructive',
+  [ItemStatus.Deleted]: 'secondary',
 };
 
 /**
