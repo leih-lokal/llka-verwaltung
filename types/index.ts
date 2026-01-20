@@ -626,7 +626,7 @@ export interface ApiResponse<T> {
 // ============================================================================
 
 /**
- * Application settings
+ * Application settings (legacy, to be removed)
  */
 export interface AppSettings {
   /** PocketBase API URL */
@@ -644,6 +644,77 @@ export interface AppSettings {
   /** Enable notifications */
   notifications_enabled: boolean;
 }
+
+/**
+ * White-label settings stored in PocketBase settings collection
+ */
+export interface Settings extends BaseRecord {
+  /** Application display name (e.g., "BiblioBorrow") */
+  app_name: string;
+
+  /** Application tagline/subtitle (e.g., "Verwaltungssoftware") */
+  tagline: string;
+
+  /** Logo file name (uploaded to PocketBase) */
+  logo?: string;
+
+  /** Favicon file name (uploaded to PocketBase) */
+  favicon?: string;
+
+  /** Copyright holder name for footer */
+  copyright_holder: string;
+
+  /** Show "Powered by LLKA-V" branding */
+  show_powered_by: boolean;
+
+  /** Primary theme color (oklch or hex) */
+  primary_color: string;
+
+  /** ID format prefix pattern (e.g., "#", "LL-") */
+  id_format: string;
+
+  /** ID padding (0 = none, 4 = pad to 4 digits) */
+  id_padding: number;
+
+  /** Enable reservations feature */
+  reservations_enabled: boolean;
+
+  /** Tracks whether initial setup is complete */
+  setup_complete: boolean;
+}
+
+/**
+ * Settings form data for editing
+ */
+export interface SettingsFormData {
+  app_name: string;
+  tagline: string;
+  logo?: File;
+  favicon?: File;
+  copyright_holder: string;
+  show_powered_by: boolean;
+  primary_color: string;
+  id_format: string;
+  id_padding: number;
+  reservations_enabled: boolean;
+}
+
+/**
+ * Default settings values when no settings exist
+ */
+export const DEFAULT_SETTINGS: Omit<Settings, keyof BaseRecord> = {
+  app_name: 'leih.lokal',
+  tagline: 'Verwaltungssoftware',
+  logo: undefined,
+  favicon: undefined,
+  copyright_holder: 'Bürgerstiftung Karlsruhe',
+  show_powered_by: true,
+  primary_color: 'oklch(0.515 0.283 27.87)',
+  id_format: '#',
+  id_padding: 0,
+  reservations_enabled: true,
+  setup_complete: false,
+};
 
 // ============================================================================
 // LOGS

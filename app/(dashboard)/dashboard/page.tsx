@@ -34,12 +34,16 @@ import { collections } from '@/lib/pocketbase/client';
 import { startOfDay, endOfDay } from 'date-fns';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useSettings } from '@/hooks/use-settings';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [reservations, setReservations] = useState<ReservationExpanded[]>([]);
   const [addNoteHandler, setAddNoteHandler] = useState<(() => void) | null>(null);
+
+  // Settings hook for feature toggles
+  const { settings } = useSettings();
 
   // Dashboard preferences hook
   const {
@@ -51,8 +55,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadStats();
-    loadReservations();
-  }, []);
+    if (settings.reservations_enabled) {
+      loadReservations();
+    }
+  }, [settings.reservations_enabled]);
 
   async function loadStats() {
     try {
@@ -122,12 +128,14 @@ export default function DashboardPage() {
             Neue Ausleihe
           </Link>
         </Button>
-        <Button variant="outline" asChild size="lg" className="shadow-sm hover:shadow-md transition-shadow">
-          <Link href="/reservations?action=new">
-            <Calendar className="mr-2 h-4 w-4" />
-            Neue Reservierung
-          </Link>
-        </Button>
+        {settings.reservations_enabled && (
+          <Button variant="outline" asChild size="lg" className="shadow-sm hover:shadow-md transition-shadow">
+            <Link href="/reservations?action=new">
+              <Calendar className="mr-2 h-4 w-4" />
+              Neue Reservierung
+            </Link>
+          </Button>
+        )}
         <Button variant="outline" asChild size="lg" className="shadow-sm hover:shadow-md transition-shadow">
           <Link href="/customers?action=new">
             <Users className="mr-2 h-4 w-4" />
@@ -200,7 +208,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Column: Rentals & Reservations */}
         <div className="space-y-6">
-          {componentVisibility['todays-reservations'] && (
+          {settings.reservations_enabled && componentVisibility['todays-reservations'] && (
             <CollapsibleSection
               title="Heutige Reservierungen"
               titleIcon={<Calendar className="h-5 w-5" />}

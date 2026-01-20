@@ -46,6 +46,7 @@ import { useQuickFind } from '@/hooks/use-quick-find';
 import { useSequentialMode } from '@/hooks/use-sequential-mode';
 import { useCommandMenu } from '@/hooks/use-command-menu';
 import { useKeyboardShortcutsReferenceContext } from '@/components/keyboard-shortcuts/keyboard-shortcuts-reference';
+import { useSettings } from '@/hooks/use-settings';
 
 interface MenuTileProps {
   icon: React.ReactNode;
@@ -149,6 +150,7 @@ export function Navbar() {
   const { setOpen: setSequentialModeOpen } = useSequentialMode();
   const { setOpen: setCommandMenuOpen } = useCommandMenu();
   const { setOpen: setKeyboardShortcutsOpen } = useKeyboardShortcutsReferenceContext();
+  const { settings } = useSettings();
   const userEmail = (user as any)?.email || 'admin@leihlokal.de';
 
   // State for current time
@@ -217,6 +219,8 @@ export function Navbar() {
               href={item.href}
               icon={item.icon}
               label={item.label}
+              disabled={item.href === '/reservations' && !settings.reservations_enabled}
+              disabledTitle="Reservierungen sind in den Einstellungen deaktiviert"
             />
           ))}
         </div>
@@ -347,6 +351,17 @@ export function Navbar() {
                     />
                   </div>
                 </section>
+
+                {/* Footer with settings link */}
+                <div className="border-t pt-3 mt-2 flex justify-end">
+                  <Link
+                    href="/settings"
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                  >
+                    <Settings className="h-3 w-3" />
+                    Konfiguration
+                  </Link>
+                </div>
               </div>
             </PopoverContent>
           </Popover>

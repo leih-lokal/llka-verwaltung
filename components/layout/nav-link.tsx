@@ -15,12 +15,30 @@ interface NavLinkProps {
   icon: LucideIcon;
   label: string;
   collapsed?: boolean;
+  disabled?: boolean;
+  disabledTitle?: string;
 }
 
 export const NavLink = React.forwardRef<HTMLAnchorElement, NavLinkProps>(
-  function NavLink({ href, icon: Icon, label, collapsed }, ref) {
+  function NavLink({ href, icon: Icon, label, collapsed, disabled, disabledTitle }, ref) {
     const pathname = usePathname();
     const isActive = pathname === href || pathname.startsWith(`${href}/`);
+
+    if (disabled) {
+      return (
+        <span
+          className={cn(
+            'flex items-center gap-2 px-4 py-2 font-medium transition-colors border cursor-not-allowed',
+            'border-transparent text-muted-foreground/50 text-base',
+            collapsed && 'justify-center'
+          )}
+          title={disabledTitle || `${label} ist deaktiviert`}
+        >
+          <Icon className="flex-shrink-0 h-4 w-4" />
+          {!collapsed && <span>{label}</span>}
+        </span>
+      );
+    }
 
     return (
       <Link

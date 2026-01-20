@@ -46,6 +46,7 @@ import { RentalDetailSheet } from './rental-detail-sheet';
 import { FormHelpPanel } from './form-help-panel';
 import { DOCUMENTATION } from '@/lib/constants/documentation';
 import { useHelpCollapsed } from '@/hooks/use-help-collapsed';
+import { FormattedId } from '@/components/ui/formatted-id';
 
 // Validation schema (using German category names as they are stored in PocketBase)
 const itemSchema = z.object({
@@ -445,15 +446,8 @@ export function ItemDetailSheet({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-4 mb-3">
                   <div className="flex items-center gap-3 flex-wrap">
-                    {!isNewItem && (
-                      <div className="inline-flex items-center gap-1.5 border-2 border-border rounded-md pr-1.5 font-mono text-3xl font-bold">
-                        <span className="inline-flex items-center justify-center bg-red-500 text-white px-2.5 py-1 rounded-md">
-                          {String(item?.iid).padStart(4, '0').substring(0, 2)}
-                        </span>
-                        <span className="text-foreground px-0.5">
-                          {String(item?.iid).padStart(4, '0').substring(2, 4)}
-                        </span>
-                      </div>
+                    {!isNewItem && item?.iid && (
+                      <FormattedId id={item.iid} size="xl" />
                     )}
                     <SheetTitle className="text-2xl">
                       {isNewItem ? 'Neuer Artikel' : item?.name}

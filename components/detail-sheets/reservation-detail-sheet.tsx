@@ -63,6 +63,7 @@ import { CustomerDetailSheet } from "./customer-detail-sheet";
 import { FormHelpPanel } from "./form-help-panel";
 import { DOCUMENTATION } from "@/lib/constants/documentation";
 import { useHelpCollapsed } from "@/hooks/use-help-collapsed";
+import { FormattedId } from "@/components/ui/formatted-id";
 
 // Validation schema
 const reservationSchema = z.object({
@@ -527,17 +528,17 @@ export function ReservationDetailSheet({
 
           {/* OTP Display - Prominent Section */}
           {!isNewReservation && reservation?.otp && (
-            <div className="mx-6 mb-6 bg-gradient-to-r from-red-200 to-red-50 border-2 border-red-300 rounded-lg p-6 shadow-sm">
+            <div className="mx-6 mb-6 bg-gradient-to-r from-primary/20 to-primary/5 border-2 border-primary/30 rounded-lg p-6 shadow-sm">
               <div className="text-center">
-                <p className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-2">
+                <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-2">
                   Abholcode
                 </p>
                 <div className="bg-white rounded-lg px-6 py-4 inline-block shadow-sm">
-                  <p className="text-5xl font-bold font-mono tracking-widest text-red-600">
+                  <p className="text-5xl font-bold font-mono tracking-widest text-primary">
                     {reservation.otp}
                   </p>
                 </div>
-                <p className="text-xs text-red-600 mt-3">
+                <p className="text-xs text-primary mt-3">
                   Diesen Code mit der Email des Nutzers vergleichen
                 </p>
               </div>
@@ -844,18 +845,7 @@ export function ReservationDetailSheet({
                                             : "opacity-0",
                                         )}
                                       />
-                                      <span className="inline-flex items-center gap-1.5 border-2 border-border rounded-md pr-1.5 font-mono mr-2">
-                                        <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-2 py-1 rounded text-base">
-                                          {String(item.iid)
-                                            .padStart(4, "0")
-                                            .substring(0, 2)}
-                                        </span>
-                                        <span className="text-base font-semibold px-0.5">
-                                          {String(item.iid)
-                                            .padStart(4, "0")
-                                            .substring(2, 4)}
-                                        </span>
-                                      </span>
+                                      <FormattedId id={item.iid} size="md" className="mr-2" />
                                       <span className="flex-1 group-aria-selected:text-white">
                                         {item.name}
                                       </span>
@@ -887,18 +877,7 @@ export function ReservationDetailSheet({
                           >
                             <div className="flex-1 min-w-0">
                               <div className="flex items-baseline gap-2 mb-1">
-                                <span className="inline-flex items-center gap-1.5 border-2 border-border rounded-md pr-1.5 font-mono mr-2">
-                                  <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-2 py-1 rounded text-base">
-                                    {String(item.iid)
-                                      .padStart(4, "0")
-                                      .substring(0, 2)}
-                                  </span>
-                                  <span className="text-base font-semibold px-0.5">
-                                    {String(item.iid)
-                                      .padStart(4, "0")
-                                      .substring(2, 4)}
-                                  </span>
-                                </span>
+                                <FormattedId id={item.iid} size="md" className="mr-2" />
                                 <span className="font-semibold truncate">
                                   {item.name}
                                 </span>

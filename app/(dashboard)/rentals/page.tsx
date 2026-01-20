@@ -29,6 +29,7 @@ import { getReturnedCopyCount } from '@/lib/utils/partial-returns';
 import { cn } from '@/lib/utils';
 import { createRentalTemplate } from '@/lib/utils/rental-template';
 import { toast } from 'sonner';
+import { FormattedId } from '@/components/ui/formatted-id';
 
 export default function RentalsPage() {
   const searchParams = useSearchParams();
@@ -483,14 +484,7 @@ export default function RentalsPage() {
 
                   return (
                     <span key={item.id} className="inline-block mr-2">
-                      <span className="inline-flex items-center gap-1.5 border-2 border-border rounded-md pr-1.5 font-mono mr-2">
-                        <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-2 py-1 rounded text-base">
-                          {String(item.iid).padStart(4, '0').substring(0, 2)}
-                        </span>
-                        <span className="text-base font-semibold px-0.5">
-                          {String(item.iid).padStart(4, '0').substring(2, 4)}
-                        </span>
-                      </span>
+                      <FormattedId id={item.iid} size="md" className="mr-2" />
                       {item.name}
                       {copyCount > 1 && (
                         <span className="ml-1 text-xs text-muted-foreground font-medium">

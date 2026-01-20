@@ -26,6 +26,7 @@ import { getItemStatusLabel, ITEM_STATUS_COLORS } from '@/lib/constants/statuses
 import { getCategoryLabel } from '@/lib/constants/categories';
 import { enrichItemsWithStats } from '@/lib/utils/item-stats';
 import { cn } from '@/lib/utils';
+import { FormattedId } from '@/components/ui/formatted-id';
 
 export default function ItemsPage() {
   const searchParams = useSearchParams();
@@ -453,13 +454,8 @@ export default function ItemsPage() {
     switch (columnId) {
       case 'iid':
         return (
-          <td key="iid" className={cn("px-4 py-3 font-mono", dividerClass)}>
-            <div className="inline-flex items-center gap-1.5 border-2 border-border rounded-md pr-1.5">
-              <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-2 py-1 rounded text-base">
-                {String(item.iid).padStart(4, '0').substring(0, 2)}
-              </span>
-              <span className="text-base font-semibold px-0.5">{String(item.iid).padStart(4, '0').substring(2, 4)}</span>
-            </div>
+          <td key="iid" className={cn("px-4 py-3", dividerClass)}>
+            <FormattedId id={item.iid} size="lg" />
           </td>
         );
       case 'images':
