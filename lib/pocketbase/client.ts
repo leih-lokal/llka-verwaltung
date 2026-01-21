@@ -10,6 +10,7 @@ import type {
   Reservation,
   Note,
   LogEntry,
+  Settings,
 } from '@/types';
 
 /**
@@ -24,6 +25,7 @@ export interface TypedPocketBase extends PocketBase {
   collection(idOrName: 'reservation'): ReturnType<PocketBase['collection']>;
   collection(idOrName: 'note'): ReturnType<PocketBase['collection']>;
   collection(idOrName: 'log'): ReturnType<PocketBase['collection']>;
+  collection(idOrName: 'settings'): ReturnType<PocketBase['collection']>;
   collection(idOrName: string): ReturnType<PocketBase['collection']>;
 }
 
@@ -98,6 +100,7 @@ export const collections = {
   reservations: () => pb.collection('reservation'),
   notes: () => pb.collection('note'),
   logs: () => pb.collection('log'),
+  settings: () => pb.collection('settings'),
 } as const;
 
 /**

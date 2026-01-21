@@ -6,7 +6,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useAuth } from '@/hooks/use-auth';
+import { usePublicSettings } from '@/hooks/use-settings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,17 +21,20 @@ import {
   CardFooter,
 } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { LogIn, Server, User, Lock, ArrowRight, Activity } from 'lucide-react';
+import { LogIn, Server, User, Lock, ArrowRight, Activity, Info, ExternalLink } from 'lucide-react';
 import { getServerUrl } from '@/lib/pocketbase/client';
 
 export default function LoginPage() {
   const router = useRouter();
   const { login, isAuthenticated } = useAuth();
+  const { settings, getFileUrl, isLoading: settingsLoading } = usePublicSettings();
   const defaultPlaceholderUrl = getServerUrl();
   const [serverUrl, setServerUrl] = useState(defaultPlaceholderUrl);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const logoUrl = getFileUrl(settings.logo);
 
   // Load stored server URL on mount
   useEffect(() => {
@@ -88,13 +93,17 @@ export default function LoginPage() {
 
       <Card className="z-10 w-full max-w-md border border-slate-200 bg-white/80 shadow-2xl backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/80">
         <CardHeader className="space-y-3 text-center pb-2">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/60 shadow-lg text-primary-foreground">
-            <LogIn className="h-7 w-7" />
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/60 shadow-lg text-primary-foreground overflow-hidden">
+            {logoUrl ? (
+              <img src={logoUrl} alt={settings.app_name} className="h-10 w-10 object-contain" />
+            ) : (
+              <LogIn className="h-7 w-7" />
+            )}
           </div>
           <div>
-            <CardTitle className="text-2xl font-bold tracking-tight">leih.lokal</CardTitle>
+            <CardTitle className="text-2xl font-bold tracking-tight">{settings.app_name}</CardTitle>
             <CardDescription className="text-base font-medium text-muted-foreground">
-              Verwaltungszugang
+              {settings.tagline || 'Verwaltungszugang'}
             </CardDescription>
           </div>
         </CardHeader>
@@ -191,9 +200,30 @@ export default function LoginPage() {
         </CardContent>
 
       </Card>
-      
-      <div className="mt-8 text-center text-xs text-muted-foreground opacity-50">
-        &copy; {new Date().getFullYear()} Bürgerstiftung Karlsruhe
+
+      {/* Backend guidance info box */}
+      <div className="z-10 mt-6 w-full max-w-md">
+        <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white/60 p-4 text-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/60">
+          <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+          <div className="space-y-1">
+            <p className="text-muted-foreground">
+              Diese Anwendung benötigt einen PocketBase-Server als Backend.
+            </p>
+            <a
+              href="https://github.com/leih-lokal/leihbackend"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-primary hover:underline"
+            >
+              Backend-Dokumentation
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 text-center text-xs text-muted-foreground opacity-50">
+        &copy; {new Date().getFullYear()} {settings.copyright_holder}
       </div>
     </div>
   );

@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Eye, Calendar, ClipboardList, StickyNote, BarChart3, AlertCircle } from 'lucide-react';
 import type { DashboardComponent } from '@/hooks/use-dashboard-preferences';
+import { useSettings } from '@/hooks/use-settings';
 
 interface DashboardViewMenuProps {
   visibility: Record<DashboardComponent, boolean>;
@@ -56,6 +57,8 @@ const COMPONENT_LABELS: Record<DashboardComponent, { label: string; icon: React.
  * Dropdown menu for controlling which dashboard components are visible
  */
 export function DashboardViewMenu({ visibility, onToggleVisibility }: DashboardViewMenuProps) {
+  const { settings } = useSettings();
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -69,6 +72,10 @@ export function DashboardViewMenu({ visibility, onToggleVisibility }: DashboardV
         <DropdownMenuSeparator />
         {(Object.keys(COMPONENT_LABELS) as DashboardComponent[]).map((component) => {
           const { label, icon } = COMPONENT_LABELS[component];
+          // Hide reservations option when reservations are disabled
+          if (component === 'todays-reservations' && !settings.reservations_enabled) {
+            return null;
+          }
           return (
             <DropdownMenuCheckboxItem
               key={component}

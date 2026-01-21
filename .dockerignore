@@ -1,0 +1,52 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build outputs
+.next
+out
+build
+dist
+
+# Testing
+coverage
+.nyc_output
+
+# Development
+*.log
+npm-debug.log*
+.DS_Store
+*.pem
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Documentation (not needed in image)
+*.md
+!README.md
+
+# CI/CD
+.github
+.gitlab-ci.yml
+
+# Environment files (use Docker env vars instead)
+.env
+.env.*
+!.env.example
+
+# Misc
+.vercel
+.turbo

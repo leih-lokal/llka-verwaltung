@@ -9,6 +9,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Package, CheckCircle, Users, Calendar } from 'lucide-react';
 import { collections } from '@/lib/pocketbase/client';
 import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
+import { useSettings } from '@/hooks/use-settings';
 import type { Rental, Customer, Reservation } from '@/types';
 import { toast } from 'sonner';
 
@@ -27,6 +28,7 @@ export function TodayActivitySection() {
     newCustomers: 0,
     newReservations: 0,
   });
+  const { settings } = useSettings();
 
   const loadCounts = useCallback(async () => {
     try {
@@ -37,32 +39,38 @@ export function TodayActivitySection() {
       today.setHours(0, 0, 0, 0);
       const todayStr = today.toISOString().replace('T', ' ').substring(0, 19);
 
-      // Run all 4 count queries in parallel with perPage=1 to get totalItems
-      const [rentalsToday, returnsToday, reservationsToday, customersToday] =
-        await Promise.all([
-          // Rentals created today (checkouts)
-          collections.rentals().getList(1, 1, {
-            filter: `rented_on >= '${todayStr}'`,
-          }),
-          // Returns today
-          collections.rentals().getList(1, 1, {
-            filter: `returned_on >= '${todayStr}'`,
-          }),
-          // Reservations created today
+      // Build queries array - only include reservations if enabled
+      const queries = [
+        // Rentals created today (checkouts)
+        collections.rentals().getList(1, 1, {
+          filter: `rented_on >= '${todayStr}'`,
+        }),
+        // Returns today
+        collections.rentals().getList(1, 1, {
+          filter: `returned_on >= '${todayStr}'`,
+        }),
+        // New customers registered today
+        collections.customers().getList(1, 1, {
+          filter: `registered_on >= '${todayStr}'`,
+        }),
+      ];
+
+      // Only query reservations if enabled
+      if (settings.reservations_enabled) {
+        queries.push(
           collections.reservations().getList(1, 1, {
             filter: `created >= '${todayStr}'`,
-          }),
-          // New customers registered today
-          collections.customers().getList(1, 1, {
-            filter: `registered_on >= '${todayStr}'`,
-          }),
-        ]);
+          })
+        );
+      }
+
+      const results = await Promise.all(queries);
 
       setCounts({
-        checkouts: rentalsToday.totalItems,
-        returns: returnsToday.totalItems,
-        newReservations: reservationsToday.totalItems,
-        newCustomers: customersToday.totalItems,
+        checkouts: results[0].totalItems,
+        returns: results[1].totalItems,
+        newCustomers: results[2].totalItems,
+        newReservations: settings.reservations_enabled ? results[3].totalItems : 0,
       });
     } catch (error) {
       console.error('Failed to load counts:', error);
@@ -70,7 +78,7 @@ export function TodayActivitySection() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [settings.reservations_enabled]);
 
   useEffect(() => {
     loadCounts();
@@ -93,6 +101,7 @@ export function TodayActivitySection() {
     onCreated: () => loadCounts(),
     onUpdated: () => loadCounts(),
     onDeleted: () => loadCounts(),
+    enabled: settings.reservations_enabled,
   });
 
   if (loading) {
@@ -159,19 +168,21 @@ export function TodayActivitySection() {
         </div>
       </div>
 
-      {/* New Reservations */}
-      <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <Calendar className="h-4 w-4 text-orange-600" />
-          <span className="text-xs font-medium text-orange-700">
-            Reservierungen
-          </span>
+      {/* New Reservations - only show when enabled */}
+      {settings.reservations_enabled && (
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Calendar className="h-4 w-4 text-orange-600" />
+            <span className="text-xs font-medium text-orange-700">
+              Reservierungen
+            </span>
+          </div>
+          <div className="text-2xl font-bold text-orange-900">
+            {counts.newReservations}
+          </div>
+          <div className="text-xs text-orange-600 mt-1">Heute erstellt</div>
         </div>
-        <div className="text-2xl font-bold text-orange-900">
-          {counts.newReservations}
-        </div>
-        <div className="text-xs text-orange-600 mt-1">Heute erstellt</div>
-      </div>
+      )}
     </div>
   );
 }

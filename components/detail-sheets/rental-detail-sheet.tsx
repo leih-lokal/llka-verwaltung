@@ -59,6 +59,7 @@ import { generateRentalPrintContent } from '@/components/print/rental-print-cont
 import { FormHelpPanel } from './form-help-panel';
 import { DOCUMENTATION } from '@/lib/constants/documentation';
 import { useHelpCollapsed } from '@/hooks/use-help-collapsed';
+import { FormattedId } from '@/components/ui/formatted-id';
 
 // Validation schema
 const rentalSchema = z.object({
@@ -1126,13 +1127,8 @@ export function RentalDetailSheet({
                                         selectedItems.some(i => i.id === item.id) ? "opacity-100" : "opacity-0"
                                       )}
                                     />
-                                    <span className="inline-flex items-center gap-1.5 border-2 border-border rounded-md pr-1.5 font-mono mr-2">
-                                      <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-2 py-1 rounded text-base">
-                                        {String(item.iid).padStart(4, '0').substring(0, 2)}
-                                      </span>
-                                      <span className="text-base font-semibold px-0.5">
-                                        {String(item.iid).padStart(4, '0').substring(2, 4)}
-                                      </span>
+                                    <span className="mr-2">
+                                      <FormattedId id={item.iid} size="md" />
                                     </span>
                                     <span className="flex-1 group-aria-selected:text-white">{item.name}</span>
                                     <span className="text-muted-foreground text-xs ml-2 group-aria-selected:text-white">
@@ -1179,14 +1175,7 @@ export function RentalDetailSheet({
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-baseline gap-2 mb-1">
-                                  <span className="inline-flex items-center gap-1.5 border-2 border-border rounded-md pr-1.5 font-mono mr-2">
-                                    <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-2 py-1 rounded text-base">
-                                      {String(item.iid).padStart(4, '0').substring(0, 2)}
-                                    </span>
-                                    <span className="text-base font-semibold px-0.5">
-                                      {String(item.iid).padStart(4, '0').substring(2, 4)}
-                                    </span>
-                                  </span>
+                                  <FormattedId id={item.iid} size="md" className="mr-2" />
                                   <span className="font-semibold truncate">{item.name}</span>
                                 </div>
                                 <div className="flex gap-3 text-xs text-muted-foreground">
@@ -1845,14 +1834,7 @@ export function RentalDetailSheet({
                             }
                           }}
                         />
-                        <span className="inline-flex items-center gap-1.5 border-2 border-border rounded-md pr-1.5 font-mono mr-2">
-                          <span className="inline-flex items-center justify-center bg-red-500 text-white font-bold px-2 py-1 rounded text-base">
-                            {String(item.iid).padStart(4, '0').substring(0, 2)}
-                          </span>
-                          <span className="text-base font-semibold px-0.5">
-                            {String(item.iid).padStart(4, '0').substring(2, 4)}
-                          </span>
-                        </span>
+                        <FormattedId id={item.iid} size="md" className="mr-2" />
                         <span className="font-semibold">{item.name}</span>
                       </div>
 

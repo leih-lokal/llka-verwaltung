@@ -11,7 +11,7 @@ import { SearchBar } from '@/components/search/search-bar';
 import { FilterPopover } from '@/components/search/filter-popover';
 import { SortableHeader, type SortDirection } from '@/components/table/sortable-header';
 import { ColumnSelector } from '@/components/table/column-selector';
-import { HelpButton } from '@/components/table/help-button';
+import { EmptyState } from '@/components/table/empty-state';
 import { Button } from '@/components/ui/button';
 import { CustomerDetailSheet } from '@/components/detail-sheets/customer-detail-sheet';
 import { collections } from '@/lib/pocketbase/client';
@@ -566,11 +566,7 @@ export default function CustomersPage() {
               </p>
             </div>
           ) : customers.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">
-                {debouncedSearch ? 'Keine Ergebnisse gefunden' : 'Keine Kund:innen gefunden'}
-              </p>
-            </div>
+            <EmptyState entity="customers" hasSearch={!!debouncedSearch} />
           ) : (
             <>
               <table className="w-full">
