@@ -51,6 +51,8 @@ const SettingsContext = createContext<SettingsContextType | undefined>(
 
 /**
  * Apply primary color to CSS custom properties
+ * Note: Only applies to primary/accent/ring - destructive and border
+ * retain their semantic meanings (red for destructive, neutral for border)
  */
 function applyPrimaryColor(color: string) {
   if (typeof document === 'undefined') return;
@@ -58,14 +60,13 @@ function applyPrimaryColor(color: string) {
   const root = document.documentElement;
 
   // Set primary color and related variables
+  // Intentionally NOT setting --destructive (should stay red for delete actions)
+  // Intentionally NOT setting --border (should stay neutral)
   root.style.setProperty('--primary', color);
   root.style.setProperty('--accent', color);
   root.style.setProperty('--ring', color);
-  root.style.setProperty('--border', color);
-  root.style.setProperty('--destructive', color);
   root.style.setProperty('--chart-1', color);
   root.style.setProperty('--sidebar-primary', color);
-  root.style.setProperty('--sidebar-border', color);
   root.style.setProperty('--sidebar-ring', color);
 }
 
@@ -75,6 +76,24 @@ function applyPrimaryColor(color: string) {
 function updateDocumentTitle(appName: string, tagline?: string) {
   if (typeof document === 'undefined') return;
   document.title = tagline ? `${appName} - ${tagline}` : appName;
+}
+
+/**
+ * Update favicon link in document head
+ */
+function updateFavicon(faviconUrl: string | null) {
+  if (typeof document === 'undefined') return;
+
+  // Find or create the favicon link element
+  let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+  if (!link) {
+    link = document.createElement('link');
+    link.rel = 'icon';
+    document.head.appendChild(link);
+  }
+
+  // Set the favicon URL (use default if none provided)
+  link.href = faviconUrl || '/favicon.ico';
 }
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
@@ -156,6 +175,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     updateDocumentTitle(settings.app_name, settings.tagline);
   }, [settings.app_name, settings.tagline]);
+
+  // Update favicon when settings change
+  useEffect(() => {
+    const faviconUrl = settings.favicon && rawSettings
+      ? pb.files.getUrl(rawSettings, settings.favicon)
+      : null;
+    updateFavicon(faviconUrl);
+  }, [settings.favicon, rawSettings]);
 
   // Get file URL for uploaded files
   const getFileUrl = useCallback(

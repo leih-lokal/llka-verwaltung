@@ -94,8 +94,11 @@ export function BrandingTab() {
   const [isSaving, setIsSaving] = useState(false)
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const [faviconFile, setFaviconFile] = useState<File | null>(null)
+  const [faviconPreview, setFaviconPreview] = useState<string | null>(null)
 
   const logoInputRef = useRef<HTMLInputElement>(null)
+  const faviconInputRef = useRef<HTMLInputElement>(null)
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -117,6 +120,26 @@ export function BrandingTab() {
     }
   }
 
+  const handleFaviconChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setFaviconFile(file)
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setFaviconPreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const clearFavicon = () => {
+    setFaviconFile(null)
+    setFaviconPreview(null)
+    if (faviconInputRef.current) {
+      faviconInputRef.current.value = ""
+    }
+  }
+
   const handleSave = async () => {
     setIsSaving(true)
     try {
@@ -131,6 +154,12 @@ export function BrandingTab() {
         // Compress image before upload
         const compressedLogo = await compressImage(logoFile)
         formData.append("logo", compressedLogo)
+      }
+
+      if (faviconFile) {
+        // Compress favicon before upload (smaller max size for favicons)
+        const compressedFavicon = await compressImage(faviconFile, 64)
+        formData.append("favicon", compressedFavicon)
       }
 
       // Use PocketBase directly for file upload
@@ -148,6 +177,7 @@ export function BrandingTab() {
 
       await refreshSettings()
       clearLogo()
+      clearFavicon()
       toast.success("Branding-Einstellungen gespeichert")
     } catch (error) {
       console.error("Failed to save branding settings:", error)
@@ -158,6 +188,7 @@ export function BrandingTab() {
   }
 
   const currentLogoUrl = getFileUrl(settings.logo)
+  const currentFaviconUrl = getFileUrl(settings.favicon)
 
   return (
     <div className="space-y-6">
@@ -241,6 +272,64 @@ export function BrandingTab() {
               {logoFile && (
                 <p className="text-sm text-muted-foreground">
                   Ausgewählt: {logoFile.name}
+                </p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Favicon</CardTitle>
+          <CardDescription>
+            Ein kleines Icon für Browser-Tabs (ICO, PNG oder SVG, 16x16 bis 64x64px).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start gap-4">
+            {/* Current/Preview favicon */}
+            <div className="flex-shrink-0 w-16 h-16 border-2 border-dashed flex items-center justify-center bg-muted">
+              {faviconPreview ? (
+                <img src={faviconPreview} alt="Neues Favicon" className="w-full h-full object-contain" />
+              ) : currentFaviconUrl ? (
+                <img src={currentFaviconUrl} alt="Aktuelles Favicon" className="w-full h-full object-contain" />
+              ) : (
+                <ImageIcon className="w-6 h-6 text-muted-foreground" />
+              )}
+            </div>
+
+            <div className="flex-1 space-y-2">
+              <input
+                ref={faviconInputRef}
+                type="file"
+                accept="image/png,image/svg+xml,image/x-icon,image/vnd.microsoft.icon"
+                onChange={handleFaviconChange}
+                className="hidden"
+                id="favicon-upload"
+              />
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => faviconInputRef.current?.click()}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Favicon hochladen
+                </Button>
+                {(faviconPreview || currentFaviconUrl) && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={clearFavicon}
+                    title="Favicon entfernen"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+              {faviconFile && (
+                <p className="text-sm text-muted-foreground">
+                  Ausgewählt: {faviconFile.name}
                 </p>
               )}
             </div>

@@ -5,6 +5,19 @@ import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { toast } from "sonner"
+
+/**
+ * Validates if a string is a valid CSS color
+ */
+function isValidCssColor(color: string): boolean {
+  if (!color || color.trim() === '') return false
+
+  // Use the browser's CSS parser to validate
+  const testEl = new Option()
+  testEl.style.color = color
+  return testEl.style.color !== ''
+}
 
 interface ColorPreset {
   name: string
@@ -41,7 +54,12 @@ export function ColorPicker({ value, onChange, className }: ColorPickerProps) {
 
   const handleInputBlur = () => {
     if (inputValue !== value) {
-      onChange(inputValue)
+      if (isValidCssColor(inputValue)) {
+        onChange(inputValue)
+      } else {
+        toast.error('Ungültiges Farbformat')
+        setInputValue(value) // Reset to previous valid value
+      }
     }
   }
 
