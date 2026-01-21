@@ -208,9 +208,9 @@ const SETTINGS_COLLECTION_SCHEMA = {
   indexes: [],
   listRule: "",
   viewRule: "",
-  createRule: "@request.auth.id != \"\"",
-  updateRule: "@request.auth.id != \"\"",
-  deleteRule: "@request.auth.id != \"\""
+  createRule: null,
+  updateRule: null,
+  deleteRule: null
 }
 
 export default function SettingsPage() {
