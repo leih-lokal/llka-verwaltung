@@ -164,25 +164,22 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     loadSettings();
   }, [loadSettings]);
 
-  // Apply theming when settings change
+  // Apply all theme/branding changes in a single effect to prevent race conditions
   useEffect(() => {
+    // Apply primary color
     if (settings.primary_color) {
       applyPrimaryColor(settings.primary_color);
     }
-  }, [settings.primary_color]);
 
-  // Update document title when settings change
-  useEffect(() => {
+    // Update document title
     updateDocumentTitle(settings.app_name, settings.tagline);
-  }, [settings.app_name, settings.tagline]);
 
-  // Update favicon when settings change
-  useEffect(() => {
+    // Update favicon
     const faviconUrl = settings.favicon && rawSettings
       ? pb.files.getUrl(rawSettings, settings.favicon)
       : null;
     updateFavicon(faviconUrl);
-  }, [settings.favicon, rawSettings]);
+  }, [settings.primary_color, settings.app_name, settings.tagline, settings.favicon, rawSettings]);
 
   // Get file URL for uploaded files
   const getFileUrl = useCallback(
