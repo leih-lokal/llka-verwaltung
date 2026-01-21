@@ -23,7 +23,7 @@ import {
   type SortDirection,
 } from "@/components/table/sortable-header";
 import { ColumnSelector } from "@/components/table/column-selector";
-import { HelpButton } from "@/components/table/help-button";
+import { EmptyState } from "@/components/table/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ReservationDetailSheet } from "@/components/detail-sheets/reservation-detail-sheet";
@@ -701,13 +701,7 @@ export default function ReservationsPage() {
             </p>
           </div>
         ) : reservations.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-muted-foreground">
-              {debouncedSearch
-                ? "Keine Ergebnisse gefunden"
-                : "Keine Reservierungen gefunden"}
-            </p>
-          </div>
+          <EmptyState entity="reservations" hasSearch={!!debouncedSearch} />
         ) : (
           <>
             <table className="w-full">

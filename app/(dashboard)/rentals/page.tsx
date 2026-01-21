@@ -11,7 +11,7 @@ import { SearchBar } from '@/components/search/search-bar';
 import { FilterPopover } from '@/components/search/filter-popover';
 import { SortableHeader, type SortDirection } from '@/components/table/sortable-header';
 import { ColumnSelector } from '@/components/table/column-selector';
-import { HelpButton } from '@/components/table/help-button';
+import { EmptyState } from '@/components/table/empty-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { RentalDetailSheet } from '@/components/detail-sheets/rental-detail-sheet';
@@ -643,11 +643,7 @@ export default function RentalsPage() {
             </p>
           </div>
         ) : rentals.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-muted-foreground">
-              {debouncedSearch ? 'Keine Ergebnisse gefunden' : 'Keine Leihvorgänge gefunden'}
-            </p>
-          </div>
+          <EmptyState entity="rentals" hasSearch={!!debouncedSearch} />
         ) : (
           <>
             <table className="w-full">

@@ -49,9 +49,13 @@ function KeyboardShortcutBridge() {
 /**
  * Component to check if setup is complete and redirect if needed
  * Must be inside SettingsProvider
+ *
+ * Note: Only redirects if the settings collection exists AND setup is not complete.
+ * If the collection doesn't exist, we don't redirect - this preserves compatibility
+ * with existing installations that don't have the settings collection yet.
  */
 function SetupRedirectGuard({ children }: { children: React.ReactNode }) {
-  const { settings, isLoading, isLoaded } = useSettings();
+  const { settings, isLoading, isLoaded, collectionExists } = useSettings();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -61,11 +65,12 @@ function SetupRedirectGuard({ children }: { children: React.ReactNode }) {
     // Don't redirect while loading or if already on setup page
     if (isLoading || !isLoaded || isSetupPage) return;
 
-    // Redirect to setup if not complete
-    if (!settings.setup_complete) {
+    // Only redirect to setup if the collection exists but setup is not complete
+    // If collection doesn't exist, don't auto-redirect (preserves existing installations)
+    if (collectionExists && !settings.setup_complete) {
       router.replace('/setup');
     }
-  }, [settings.setup_complete, isLoading, isLoaded, isSetupPage, router]);
+  }, [settings.setup_complete, isLoading, isLoaded, isSetupPage, collectionExists, router]);
 
   // Show loading state while settings are loading
   if (isLoading || !isLoaded) {
@@ -80,7 +85,8 @@ function SetupRedirectGuard({ children }: { children: React.ReactNode }) {
   }
 
   // Show nothing while redirecting (prevents flash)
-  if (!settings.setup_complete && !isSetupPage) {
+  // Only applies when collection exists and setup is not complete
+  if (collectionExists && !settings.setup_complete && !isSetupPage) {
     return null;
   }
 

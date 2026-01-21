@@ -30,6 +30,9 @@ interface SettingsContextType {
   /** Whether settings have been loaded at least once */
   isLoaded: boolean;
 
+  /** Whether the settings collection exists in PocketBase */
+  collectionExists: boolean;
+
   /** Update settings in PocketBase */
   updateSettings: (
     data: Partial<Omit<Settings, 'id' | 'created' | 'updated'>>
@@ -78,6 +81,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [rawSettings, setRawSettings] = useState<Settings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [collectionExists, setCollectionExists] = useState(true);
 
   // Merge raw settings with defaults
   const settings: Omit<Settings, 'id' | 'created' | 'updated'> = {
@@ -107,14 +111,28 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       // Try to get the first (and only) settings record
       const result = await collections.settings().getList<Settings>(1, 1);
 
+      setCollectionExists(true);
       if (result.items.length > 0) {
         setRawSettings(result.items[0]);
       } else {
         setRawSettings(null);
       }
-    } catch (error) {
-      // Settings collection might not exist yet, use defaults
-      console.warn('Could not load settings, using defaults:', error);
+    } catch (error: unknown) {
+      // Check if the error is because the collection doesn't exist
+      const pbError = error as { status?: number; message?: string };
+      const isCollectionNotFound =
+        pbError.status === 404 ||
+        pbError.message?.toLowerCase().includes('not found') ||
+        pbError.message?.toLowerCase().includes('collection');
+
+      if (isCollectionNotFound) {
+        console.warn('Settings collection does not exist in PocketBase');
+        setCollectionExists(false);
+      } else {
+        // Other errors - collection might exist but have access issues
+        console.warn('Could not load settings, using defaults:', error);
+        setCollectionExists(true);
+      }
       setRawSettings(null);
     } finally {
       setIsLoading(false);
@@ -191,6 +209,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         rawSettings,
         isLoading,
         isLoaded,
+        collectionExists,
         updateSettings,
         refreshSettings,
         getFileUrl,

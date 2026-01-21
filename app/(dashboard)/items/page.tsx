@@ -11,6 +11,7 @@ import { SearchBar } from '@/components/search/search-bar';
 import { FilterPopover } from '@/components/search/filter-popover';
 import { SortableHeader, type SortDirection } from '@/components/table/sortable-header';
 import { ColumnSelector } from '@/components/table/column-selector';
+import { EmptyState } from '@/components/table/empty-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
@@ -680,11 +681,7 @@ export default function ItemsPage() {
             </p>
           </div>
         ) : items.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-muted-foreground">
-              {debouncedSearch ? 'Keine Ergebnisse gefunden' : 'Keine Gegenstände gefunden'}
-            </p>
-          </div>
+          <EmptyState entity="items" hasSearch={!!debouncedSearch} />
         ) : (
           <>
             <table className="w-full">
