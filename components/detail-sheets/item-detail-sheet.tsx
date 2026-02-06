@@ -10,7 +10,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { PencilIcon, SaveIcon, XIcon, ImageIcon, Trash2Icon, UploadIcon, PlusCircleIcon, Tag, CalendarIcon } from 'lucide-react';
+import { PencilIcon, SaveIcon, XIcon, ImageIcon, Trash2Icon, UploadIcon, PlusCircleIcon, Tag, CalendarIcon, ShieldAlertIcon } from 'lucide-react';
 import Link from 'next/link';
 import {
   Sheet,
@@ -67,6 +67,7 @@ const itemSchema = z.object({
   internal_note: z.string().optional(),
   added_on: z.string(),
   msrp: z.number().min(0, 'UVP muss positiv sein').optional(),
+  is_protected: z.boolean().optional(),
 });
 
 type ItemFormValues = z.infer<typeof itemSchema>;
@@ -128,6 +129,7 @@ export function ItemDetailSheet({
       internal_note: '',
       added_on: dateToLocalString(new Date()),
       msrp: undefined,
+      is_protected: false,
     },
   });
 
@@ -155,6 +157,7 @@ export function ItemDetailSheet({
         // Extract just the date part (YYYY-MM-DD) from PocketBase format (YYYY-MM-DD HH:MM:SS.000Z)
         added_on: item.added_on.split(' ')[0],
         msrp: item.msrp,
+        is_protected: item.is_protected || false,
       });
       // Load existing images
       setExistingImages(item.images || []);
@@ -185,6 +188,7 @@ export function ItemDetailSheet({
             internal_note: '',
             added_on: dateToLocalString(new Date()),
             msrp: undefined,
+            is_protected: false,
           });
         } catch (err) {
           // If no items exist yet, start with 1
@@ -206,6 +210,7 @@ export function ItemDetailSheet({
             internal_note: '',
             added_on: dateToLocalString(new Date()),
             msrp: undefined,
+            is_protected: false,
           });
         }
       };
@@ -291,6 +296,7 @@ export function ItemDetailSheet({
       if (data.internal_note) formData.append('internal_note', data.internal_note);
       formData.append('added_on', data.added_on);
       if (data.msrp !== undefined) formData.append('msrp', data.msrp.toString());
+      formData.append('is_protected', data.is_protected ? 'true' : 'false');
 
       // Add new images
       newImages.forEach((file) => {
@@ -454,7 +460,13 @@ export function ItemDetailSheet({
                     </SheetTitle>
                   </div>
                   {!isNewItem && item && (
-                    <div className="text-2xl shrink-0">
+                    <div className="text-2xl shrink-0 flex items-center gap-2">
+                      {item.is_protected && (
+                        <Badge variant="destructive" className="gap-1">
+                          <ShieldAlertIcon className="size-3" />
+                          Geschützt
+                        </Badge>
+                      )}
                       {getStatusBadge(item.status)}
                     </div>
                   )}
@@ -906,6 +918,24 @@ export function ItemDetailSheet({
                       {item ? formatDate(item.added_on) : '—'}
                     </p>
                   )}
+                </div>
+
+                <div className="col-span-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="is_protected"
+                      type="checkbox"
+                      {...form.register('is_protected')}
+                      className="h-4 w-4"
+                    />
+                    <Label htmlFor="is_protected" className="cursor-pointer flex items-center gap-1.5">
+                      <ShieldAlertIcon className="size-4 text-destructive" />
+                      Geschützter Artikel (keine Reservierung möglich)
+                    </Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 ml-6">
+                    Geschützte Artikel können nicht über das Reservierungssystem reserviert werden.
+                  </p>
                 </div>
 
                 <div className="col-span-2">

@@ -260,6 +260,9 @@ export interface Item extends BaseRecord {
 
   /** Manufacturer suggested retail price */
   msrp?: number;
+
+  /** Protected items cannot be reserved */
+  is_protected?: boolean;
 }
 
 /**
@@ -296,6 +299,7 @@ export interface ItemFormData {
   highlight_color?: HighlightColor;
   internal_note?: string;
   msrp?: number;
+  is_protected?: boolean;
 }
 
 // ============================================================================

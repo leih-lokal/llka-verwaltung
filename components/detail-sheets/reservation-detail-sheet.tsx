@@ -238,8 +238,8 @@ export function ReservationDetailSheet({
         filters.push(`brand~'${itemSearch}'`);
         filters.push(`model~'${itemSearch}'`);
 
-        // Only show items that are available (instock only, not reserved)
-        const filter = `(${filters.join(" || ")}) && status='instock'`;
+        // Only show items that are available (instock only, not reserved) and not protected
+        const filter = `(${filters.join(" || ")}) && status='instock' && is_protected=false`;
 
         const result = await collections.items().getList<Item>(1, 20, {
           filter,
@@ -334,6 +334,17 @@ export function ReservationDetailSheet({
   const handleSave = async (data: ReservationFormValues) => {
     setIsLoading(true);
     try {
+      // Validate that no selected items are protected
+      const protectedItems = selectedItems.filter((item) => item.is_protected);
+      if (protectedItems.length > 0) {
+        const itemNames = protectedItems
+          .map((item) => `${item.name} (#${String(item.iid).padStart(4, "0")})`)
+          .join(", ");
+        toast.error(`Folgende Artikel sind geschützt und können nicht reserviert werden: ${itemNames}`);
+        setIsLoading(false);
+        return;
+      }
+
       // Validate that all selected items are available (instock or reserved)
       const unavailableItems = selectedItems.filter(
         (item) => item.status !== "instock" && item.status !== "reserved",
@@ -422,6 +433,12 @@ export function ReservationDetailSheet({
   };
 
   const handleAddItem = (item: Item) => {
+    // Check if item is protected
+    if (item.is_protected) {
+      toast.error("Dieser Artikel ist geschützt und kann nicht reserviert werden");
+      return;
+    }
+
     // Check if item is already selected
     if (selectedItems.some((i) => i.id === item.id)) {
       toast.warning("Dieser Artikel wurde bereits hinzugefügt");
