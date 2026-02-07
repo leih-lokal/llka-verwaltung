@@ -30,7 +30,7 @@ npm run type-check      # Run TypeScript type checking
 ## Architecture Overview
 
 ### Tech Stack
-- **Frontend**: Next.js 15 (App Router), React 19, TypeScript (strict mode)
+- **Frontend**: Next.js 16 (App Router), React 19, TypeScript (strict mode)
 - **Backend**: PocketBase (v0.26.x)
 - **UI**: Shadcn/ui (Radix UI primitives) + Tailwind CSS 4
 - **State**: React Context + Server Components (no global state library)
@@ -335,7 +335,7 @@ When working on specific features, check these files:
 
 ## Migration Context
 
-This project is a rewrite from Svelte 3 → Next.js 15 (see PLAN.md for details). Key differences:
+This project is a rewrite from Svelte 3 → Next.js 16 (see PLAN.md for details). Key differences:
 - Uses Next.js App Router (not Pages Router)
 - Server Components by default (different from client-only Svelte)
 - PocketBase backend remains unchanged (same schema)
@@ -343,7 +343,7 @@ This project is a rewrite from Svelte 3 → Next.js 15 (see PLAN.md for details)
 
 ## References
 
-- [Next.js 15 Docs](https://nextjs.org/docs) - App Router, Server Components
+- [Next.js 16 Docs](https://nextjs.org/docs) - App Router, Server Components
 - [Shadcn/ui](https://ui.shadcn.com) - Component library
 - [PocketBase Docs](https://pocketbase.io/docs/) - Backend API
 - [React Hook Form](https://react-hook-form.com) - Form handling
