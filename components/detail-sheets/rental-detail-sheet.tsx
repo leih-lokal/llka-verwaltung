@@ -115,6 +115,7 @@ interface RentalDetailSheetProps {
   onSave?: (rental: Rental) => void;
   preloadedItems?: Item[];
   sourceReservationId?: string;
+  sourceBookingId?: string;
 }
 
 export function RentalDetailSheet({
@@ -124,6 +125,7 @@ export function RentalDetailSheet({
   onSave,
   preloadedItems = [],
   sourceReservationId,
+  sourceBookingId,
 }: RentalDetailSheetProps) {
   const { currentIdentity } = useIdentity();
   const [isLoading, setIsLoading] = useState(false);
@@ -658,9 +660,38 @@ export function RentalDetailSheet({
             toast.warning('Leihvorgang erstellt, aber Reservierung konnte nicht aktualisiert werden');
           }
         }
+
+        // Mark source booking as active and link the rental
+        if (sourceBookingId) {
+          try {
+            await collections.bookings().update(sourceBookingId, {
+              status: 'active',
+              associated_rental: savedRental.id,
+            });
+          } catch (err) {
+            console.error('Error marking booking as active:', err);
+            toast.warning('Leihvorgang erstellt, aber Buchung konnte nicht aktualisiert werden');
+          }
+        }
       } else if (rental) {
         savedRental = await collections.rentals().update<Rental>(rental.id, formData);
         toast.success('Leihvorgang erfolgreich aktualisiert');
+
+        // If rental is now returned, mark associated booking as returned
+        if (formData.returned_on) {
+          try {
+            const linked = await collections.bookings().getFullList({
+              filter: `associated_rental="${rental.id}"`,
+            });
+            await Promise.all(
+              linked.map((b) =>
+                collections.bookings().update(b.id, { status: 'returned' })
+              )
+            );
+          } catch {
+            // Silently ignore — booking may not exist
+          }
+        }
       } else {
         return;
       }

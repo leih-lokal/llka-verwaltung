@@ -4,6 +4,7 @@
 
 import PocketBase from 'pocketbase';
 import type {
+  Booking,
   Customer,
   Item,
   Rental,
@@ -23,6 +24,7 @@ export interface TypedPocketBase extends PocketBase {
   collection(idOrName: 'item'): ReturnType<PocketBase['collection']>;
   collection(idOrName: 'rental'): ReturnType<PocketBase['collection']>;
   collection(idOrName: 'reservation'): ReturnType<PocketBase['collection']>;
+  collection(idOrName: 'booking'): ReturnType<PocketBase['collection']>;
   collection(idOrName: 'note'): ReturnType<PocketBase['collection']>;
   collection(idOrName: 'log'): ReturnType<PocketBase['collection']>;
   collection(idOrName: 'settings'): ReturnType<PocketBase['collection']>;
@@ -98,6 +100,7 @@ export const collections = {
   items: () => pb.collection('item'),
   rentals: () => pb.collection('rental'),
   reservations: () => pb.collection('reservation'),
+  bookings: () => pb.collection('booking'),
   notes: () => pb.collection('note'),
   logs: () => pb.collection('log'),
   settings: () => pb.collection('settings'),
