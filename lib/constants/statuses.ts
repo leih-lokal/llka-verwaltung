@@ -2,7 +2,7 @@
  * Status constants and utilities
  */
 
-import { ItemStatus, RentalStatus } from '@/types';
+import { BookingStatus, ItemStatus, RentalStatus } from '@/types';
 
 /**
  * Item status labels (German)
@@ -70,6 +70,43 @@ export const RENTAL_STATUS_COLORS: Record<RentalStatus, string> = {
   [RentalStatus.DueToday]: 'hsl(210 70% 92%)', // more visible light blue
   [RentalStatus.ReturnedToday]: 'hsl(120 60% 92%)', // more visible light green
 };
+
+/**
+ * Booking status labels (German)
+ */
+export const BOOKING_STATUS_LABELS: Record<BookingStatus, string> = {
+  [BookingStatus.Reserved]: 'Reserviert',
+  [BookingStatus.Active]: 'Aktiv',
+  [BookingStatus.Returned]: 'Zurückgegeben',
+  [BookingStatus.Overdue]: 'Überfällig',
+};
+
+/**
+ * Booking status colors (for grid blocks)
+ */
+export const BOOKING_STATUS_COLORS: Record<BookingStatus, string> = {
+  [BookingStatus.Reserved]: 'hsl(210 70% 92%)',
+  [BookingStatus.Active]: 'hsl(120 60% 92%)',
+  [BookingStatus.Returned]: 'hsl(0 0% 92%)',
+  [BookingStatus.Overdue]: 'hsl(0 80% 92%)',
+};
+
+/**
+ * Booking status text colors (for grid block text)
+ */
+export const BOOKING_STATUS_TEXT_COLORS: Record<BookingStatus, string> = {
+  [BookingStatus.Reserved]: 'hsl(210 70% 30%)',
+  [BookingStatus.Active]: 'hsl(120 60% 25%)',
+  [BookingStatus.Returned]: 'hsl(0 0% 40%)',
+  [BookingStatus.Overdue]: 'hsl(0 80% 30%)',
+};
+
+/**
+ * Get booking status label
+ */
+export function getBookingStatusLabel(status: BookingStatus): string {
+  return BOOKING_STATUS_LABELS[status] || status;
+}
 
 /**
  * Get item status label

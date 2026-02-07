@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**LeihLokal Verwaltung** is a modern library/rental shop management system built with Next.js 15, React 19, and PocketBase. It manages customers, items (inventory), rentals, and reservations with a focus on performance, accessibility, and offline-first PWA capabilities.
+**LLKA-V** is a modern library/rental shop management system built with Next.js 16, React 19, and PocketBase. It manages customers, items (inventory), rentals, and reservations with a focus on performance, accessibility, and offline-first PWA capabilities.
 
 ## Development Commands
 

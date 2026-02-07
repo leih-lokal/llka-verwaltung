@@ -35,6 +35,16 @@ export enum ItemStatus {
 }
 
 /**
+ * Booking status values
+ */
+export enum BookingStatus {
+  Reserved = 'reserved',
+  Active = 'active',
+  Returned = 'returned',
+  Overdue = 'overdue',
+}
+
+/**
  * Rental status values (computed from dates)
  */
 export enum RentalStatus {
@@ -502,6 +512,70 @@ export interface ReservationFormData {
   item_ids: string[];
   pickup: Date;
   on_premises: boolean;
+}
+
+// ============================================================================
+// BOOKING (Buchungen)
+// ============================================================================
+
+/**
+ * Booking record from database
+ */
+export interface Booking extends BaseRecord {
+  /** Item ID reference (single protected item) */
+  item: string;
+
+  /** Customer ID reference (optional for walk-ins) */
+  customer?: string;
+
+  /** Customer name (always required) */
+  customer_name: string;
+
+  /** Customer phone */
+  customer_phone?: string;
+
+  /** Customer email */
+  customer_email?: string;
+
+  /** Pickup / start date */
+  start_date: string;
+
+  /** Return / end date */
+  end_date: string;
+
+  /** Booking status */
+  status: BookingStatus;
+
+  /** Staff notes */
+  notes?: string;
+
+  /** Associated rental ID (set when booking is converted to a rental) */
+  associated_rental?: string;
+}
+
+/**
+ * Booking with expanded item and customer details
+ */
+export interface BookingExpanded extends Booking {
+  expand: {
+    item: Item;
+    customer?: Customer;
+  };
+}
+
+/**
+ * Form data for creating/editing a booking
+ */
+export interface BookingFormData {
+  item: string;
+  customer?: string;
+  customer_name: string;
+  customer_phone?: string;
+  customer_email?: string;
+  start_date: Date;
+  end_date: Date;
+  status: BookingStatus;
+  notes?: string;
 }
 
 // ============================================================================
