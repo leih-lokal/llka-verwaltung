@@ -1,11 +1,11 @@
-# Multi-stage Dockerfile for LLKA-V (Next.js 15 + standalone output)
+# Multi-stage Dockerfile for LLKA-V (Next.js 16 + standalone output)
 # Build: docker build -t llka-verwaltung .
 # Run:   docker run -p 3000:3000 llka-verwaltung
 
 # ============================================
 # Stage 1: Dependencies
 # ============================================
-FROM node:20-alpine AS deps
+FROM node:24-alpine AS deps
 
 WORKDIR /app
 
@@ -21,7 +21,7 @@ RUN npm ci --ignore-scripts
 # ============================================
 # Stage 2: Builder
 # ============================================
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -40,7 +40,7 @@ RUN npm run build
 # ============================================
 # Stage 3: Runner (Production)
 # ============================================
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 
 WORKDIR /app
 
