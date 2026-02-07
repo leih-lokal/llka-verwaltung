@@ -682,9 +682,9 @@ export function RentalDetailSheet({
           try {
             const linked = await collections.bookings().getFullList({
               filter: `associated_rental="${rental.id}"`,
-            });
+            }) as { id: string }[];
             await Promise.all(
-              linked.map((b: { id: string }) =>
+              linked.map((b) =>
                 collections.bookings().update(b.id, { status: 'returned' })
               )
             );
