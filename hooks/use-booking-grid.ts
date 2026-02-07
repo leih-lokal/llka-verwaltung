@@ -71,7 +71,7 @@ export function useBookingGrid(): UseBookingGridReturn {
       const [itemsResult, bookingsResult] = await Promise.all([
         collections.items().getFullList<Item>({
           filter: "is_protected=true && status!='deleted'",
-          sort: 'name',
+          sort: 'iid',
         }),
         collections.bookings().getFullList<BookingExpanded>({
           filter: `start_date<='${lastDayStr}' && end_date>='${firstDayStr}'`,
