@@ -684,7 +684,7 @@ export function RentalDetailSheet({
               filter: `associated_rental="${rental.id}"`,
             });
             await Promise.all(
-              linked.map((b) =>
+              linked.map((b: { id: string }) =>
                 collections.bookings().update(b.id, { status: 'returned' })
               )
             );
