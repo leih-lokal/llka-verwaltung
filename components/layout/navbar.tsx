@@ -33,7 +33,6 @@ import {
   ArrowRight,
   Menu,
   Palette,
-  Bug,
 } from 'lucide-react';
 import { NavLink } from './nav-link';
 import { IdentityPicker } from './identity-picker';
@@ -198,55 +197,6 @@ export function Navbar() {
     });
   };
 
-  const seedTestData = async () => {
-    const firstNames = ['Anna', 'Ben', 'Clara', 'David', 'Eva', 'Felix', 'Greta', 'Hans', 'Ida', 'Jan'];
-    const lastNames = ['Müller', 'Schmidt', 'Schneider', 'Fischer', 'Weber', 'Meyer', 'Wagner', 'Becker', 'Schulz', 'Koch'];
-    const items = [
-      { name: 'Bohrmaschine', copies: 3 },
-      { name: 'Stichsäge', copies: 2 },
-      { name: 'Dampfreiniger', copies: 1 },
-      { name: 'Beamer', copies: 2 },
-      { name: 'Pavillon', copies: 1 },
-    ];
-
-    try {
-      toast.info('Erstelle Testdaten...');
-
-      // Create 10 customers
-      const customerPromises = firstNames.map((fn, i) =>
-        collections.customers().create({
-          firstname: fn,
-          lastname: lastNames[i],
-          email: `${fn.toLowerCase()}.${lastNames[i].toLowerCase()}@example.com`,
-          phone: `+4917${String(Math.floor(Math.random() * 100000000)).padStart(8, '0')}`,
-          registered_on: new Date().toISOString(),
-          newsletter: false,
-        })
-      );
-
-      // Create 5 protected items
-      const itemPromises = items.map((item) =>
-        collections.items().create({
-          name: item.name,
-          copies: item.copies,
-          status: 'instock',
-          is_protected: true,
-          deposit: Math.floor(Math.random() * 30 + 10),
-          category: ['diy'],
-          synonyms: [],
-          images: [],
-          added_on: new Date().toISOString(),
-        })
-      );
-
-      await Promise.all([...customerPromises, ...itemPromises]);
-      toast.success('10 Nutzer:innen + 5 Gegenstände erstellt');
-    } catch (err) {
-      console.error('Seed error:', err);
-      toast.error('Fehler beim Erstellen der Testdaten');
-    }
-  };
-
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 h-16 border-b-2 border-primary bg-background">
       <div className="flex h-full items-center px-4">
@@ -400,12 +350,6 @@ export function Navbar() {
                       description="Sieh eine Liste aller Kurzbefehle an."
                       shortcut={{ keys: ['/'] }}
                       onClick={() => setKeyboardShortcutsOpen(true)}
-                    />
-                    <MenuTile
-                      icon={<Bug className="h-4 w-4" />}
-                      label="Testdaten"
-                      description="Erstelle 10 Nutzer und 5 geschützte Gegenstände."
-                      onClick={seedTestData}
                     />
                     <MenuTile
                       icon={<LogOut className="h-4 w-4" />}
