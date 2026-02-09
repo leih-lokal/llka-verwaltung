@@ -39,7 +39,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { collections } from '@/lib/pocketbase/client';
 import { BookingStatus } from '@/types';
-import type { BookingExpanded } from '@/types';
+import type { Booking, BookingExpanded } from '@/types';
 import {
   BOOKING_STATUS_LABELS,
   BOOKING_STATUS_COLORS,
@@ -149,8 +149,18 @@ export function BookingDetailSheet({
     if (!booking) return;
     setIsSaving(true);
     try {
-      await collections.bookings().delete(booking.id);
-      toast.success('Buchung gelöscht');
+      // Find all sibling records (same item + customer + dates = one logical group)
+      const siblings = await collections.bookings().getFullList<Booking>({
+        filter: `item='${booking.item}' && customer_name='${booking.customer_name}' && start_date='${booking.start_date}' && end_date='${booking.end_date}'`,
+      });
+      await Promise.all(
+        siblings.map((s) => collections.bookings().delete(s.id))
+      );
+      toast.success(
+        siblings.length > 1
+          ? `${siblings.length} Buchungen gelöscht`
+          : 'Buchung gelöscht'
+      );
       onSave?.();
       onOpenChange(false);
     } catch (err) {

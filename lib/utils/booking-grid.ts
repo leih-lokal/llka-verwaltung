@@ -5,21 +5,24 @@
 import type { BookingExpanded, Item } from '@/types';
 
 /**
- * A column in the booking grid representing one copy of a protected item
+ * A column in the booking grid: a data lane, a "plus" column for
+ * creating bookings on multi-copy items, or a single-copy column.
  */
 export interface ItemColumn {
-  /** Unique key: `${item.id}-${copyIndex}` */
+  /** Unique key for this column */
   key: string;
   /** The item record */
   item: Item;
-  /** 1-based copy index */
-  copyIndex: number;
+  /** 1-based lane index for data/single columns, 0 for plus columns */
+  laneIndex: number;
   /** Total copies for this item */
   totalCopies: number;
+  /** Plus column: always empty, narrow, used for creating new bookings */
+  isPlusColumn: boolean;
 }
 
 /**
- * A booking positioned in a specific lane (copy column)
+ * A booking positioned in a specific lane (column)
  */
 export interface BookingSlot {
   booking: BookingExpanded;
@@ -44,35 +47,20 @@ export function generateMonthDates(year: number, month: number): Date[] {
 }
 
 /**
- * Build item columns: one entry per item × copy
- * Items with copies=1 get a single column, copies=3 gets 3 columns
+ * Build columns and assign bookings to lanes in a single pass.
+ *
+ * - Single-copy items (copies=1): one column, bookings assigned directly.
+ * - Multi-copy items (copies>1): dynamic data columns based on max concurrent
+ *   booking groups, plus a narrow "+" column for creating bookings.
+ *   Bookings sharing (customer_name, start_date, end_date) form one visual
+ *   group per lane. Lane count = max(1, max concurrent groups).
  */
-export function buildItemColumns(items: Item[]): ItemColumn[] {
+export function buildBookingGrid(
+  items: Item[],
+  bookings: BookingExpanded[]
+): { columns: ItemColumn[]; bookingSlots: BookingSlot[] } {
   const columns: ItemColumn[] = [];
-  for (const item of items) {
-    const copies = Math.max(1, item.copies);
-    for (let i = 1; i <= copies; i++) {
-      columns.push({
-        key: `${item.id}-${i}`,
-        item,
-        copyIndex: i,
-        totalCopies: copies,
-      });
-    }
-  }
-  return columns;
-}
-
-/**
- * Assign bookings to lanes (copy columns) using a greedy algorithm.
- * For each item, sort bookings by start_date, then assign each to the
- * first lane whose last booking ended before this one starts.
- */
-export function assignBookingsToLanes(
-  bookings: BookingExpanded[],
-  items: Item[]
-): BookingSlot[] {
-  const slots: BookingSlot[] = [];
+  const bookingSlots: BookingSlot[] = [];
 
   for (const item of items) {
     const copies = Math.max(1, item.copies);
@@ -83,41 +71,110 @@ export function assignBookingsToLanes(
           new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
       );
 
-    // Track end date of last booking assigned to each lane
-    const laneEnds: (Date | null)[] = Array.from(
-      { length: copies },
-      () => null
-    );
+    if (copies <= 1) {
+      // Single-copy item: one column
+      columns.push({
+        key: `${item.id}-1`,
+        item,
+        laneIndex: 1,
+        totalCopies: 1,
+        isPlusColumn: false,
+      });
+      for (const booking of itemBookings) {
+        bookingSlots.push({
+          booking,
+          columnKey: `${item.id}-1`,
+          startDate: new Date(booking.start_date),
+          endDate: new Date(booking.end_date),
+        });
+      }
+    } else {
+      // Multi-copy: group bookings by identity, assign groups to visual lanes
+      const groupKeyFn = (b: BookingExpanded) =>
+        `${b.customer_name}|${b.start_date}|${b.end_date}`;
 
-    for (const booking of itemBookings) {
-      const startDate = new Date(booking.start_date);
-      const endDate = new Date(booking.end_date);
+      interface BookingGroup {
+        bookings: BookingExpanded[];
+        startDate: Date;
+        endDate: Date;
+      }
 
-      // Find first lane where the last booking ended before this one starts
-      let assignedLane = -1;
-      for (let lane = 0; lane < copies; lane++) {
-        if (laneEnds[lane] === null || laneEnds[lane]! < startDate) {
-          assignedLane = lane;
-          break;
+      const groupMap = new Map<string, BookingGroup>();
+      for (const booking of itemBookings) {
+        const k = groupKeyFn(booking);
+        let group = groupMap.get(k);
+        if (!group) {
+          group = {
+            bookings: [],
+            startDate: new Date(booking.start_date),
+            endDate: new Date(booking.end_date),
+          };
+          groupMap.set(k, group);
+        }
+        group.bookings.push(booking);
+      }
+
+      const groups = Array.from(groupMap.values()).sort(
+        (a, b) => a.startDate.getTime() - b.startDate.getTime()
+      );
+
+      // Greedy lane assignment on groups (leftmost first)
+      const laneEnds: (Date | null)[] = [];
+      const groupLanes: number[] = [];
+      for (const group of groups) {
+        let assignedLane = -1;
+        for (let lane = 0; lane < laneEnds.length; lane++) {
+          if (laneEnds[lane] === null || laneEnds[lane]! < group.startDate) {
+            assignedLane = lane;
+            break;
+          }
+        }
+        if (assignedLane === -1) {
+          assignedLane = laneEnds.length;
+          laneEnds.push(null);
+        }
+        laneEnds[assignedLane] = group.endDate;
+        groupLanes.push(assignedLane);
+      }
+
+      const laneCount = Math.max(1, laneEnds.length);
+
+      // Data columns (one per visual lane)
+      for (let lane = 1; lane <= laneCount; lane++) {
+        columns.push({
+          key: `${item.id}-lane-${lane}`,
+          item,
+          laneIndex: lane,
+          totalCopies: copies,
+          isPlusColumn: false,
+        });
+      }
+
+      // Plus column
+      columns.push({
+        key: `${item.id}-plus`,
+        item,
+        laneIndex: 0,
+        totalCopies: copies,
+        isPlusColumn: true,
+      });
+
+      // Assign booking records to their group's lane
+      for (let gi = 0; gi < groups.length; gi++) {
+        const lane = groupLanes[gi] + 1; // 1-based
+        for (const booking of groups[gi].bookings) {
+          bookingSlots.push({
+            booking,
+            columnKey: `${item.id}-lane-${lane}`,
+            startDate: new Date(booking.start_date),
+            endDate: new Date(booking.end_date),
+          });
         }
       }
-
-      // If no lane is free, force-assign to the first lane (overlap — shouldn't happen with valid data)
-      if (assignedLane === -1) {
-        assignedLane = 0;
-      }
-
-      laneEnds[assignedLane] = endDate;
-      slots.push({
-        booking,
-        columnKey: `${item.id}-${assignedLane + 1}`,
-        startDate,
-        endDate,
-      });
     }
   }
 
-  return slots;
+  return { columns, bookingSlots };
 }
 
 /**
@@ -130,7 +187,6 @@ export function getBookingForCell(
 ): BookingSlot | undefined {
   return slots.find((slot) => {
     if (slot.columnKey !== columnKey) return false;
-    // Normalize to day boundaries for comparison
     const start = new Date(
       slot.startDate.getFullYear(),
       slot.startDate.getMonth(),
@@ -153,10 +209,7 @@ export function getBookingForCell(
 /**
  * Check if a date is the start date of a booking slot
  */
-export function isBookingStart(
-  date: Date,
-  slot: BookingSlot
-): boolean {
+export function isBookingStart(date: Date, slot: BookingSlot): boolean {
   return (
     date.getFullYear() === slot.startDate.getFullYear() &&
     date.getMonth() === slot.startDate.getMonth() &&
@@ -176,7 +229,6 @@ export function getBookingSpanInMonth(
   const monthStart = dates[0];
   const monthEnd = dates[dates.length - 1];
 
-  // Clamp booking dates to the month boundaries
   const clampedStart =
     slot.startDate < monthStart ? monthStart : slot.startDate;
   const clampedEnd = slot.endDate > monthEnd ? monthEnd : slot.endDate;
@@ -205,8 +257,11 @@ export function getBookingSpanInMonth(
  * Format a column header label
  */
 export function getColumnLabel(column: ItemColumn): string {
-  if (column.totalCopies === 1) {
+  if (column.isPlusColumn) {
+    return '+';
+  }
+  if (column.totalCopies <= 1) {
     return column.item.name;
   }
-  return `${column.item.name} ${column.copyIndex}/${column.totalCopies}`;
+  return `${column.item.name} (${column.totalCopies}×)`;
 }

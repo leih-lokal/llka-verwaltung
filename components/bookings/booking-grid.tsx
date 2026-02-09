@@ -1,21 +1,22 @@
 /**
- * CSS Grid rendering: date rows × item-copy columns
+ * CSS Grid rendering: date rows × item columns
  * Handles drag interaction for creating bookings and renders booking blocks.
  *
  * Booking blocks are rendered as direct grid children with explicit
  * gridRow / gridColumn so they natively span multiple date rows.
  *
- * Drag supports both Y (date range) and X (multiple copies of same item).
+ * Multi-copy items get dynamic lane columns (based on concurrent booking
+ * groups) plus a narrow "+" column for creating new bookings.
+ * Drag is single-column (vertical date range only); quantity is set via picker.
  */
 
 'use client';
 
-import { useRef, useState, useCallback, useMemo } from 'react';
+import { Fragment, useRef, useState, useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { BookingBlock } from './booking-block';
 import {
   getBookingSpanInMonth,
-  getColumnLabel,
   type BookingSlot,
   type ItemColumn,
 } from '@/lib/utils/booking-grid';
@@ -23,12 +24,8 @@ import type { BookingExpanded } from '@/types';
 import { FormattedId } from '@/components/ui/formatted-id';
 
 interface DragState {
-  /** Item ID that the drag is constrained to */
-  itemId: string;
-  /** Index into `columns` array where drag started */
+  /** Index into `columns` array where drag started (locked for the duration) */
   startColIndex: number;
-  /** Index into `columns` array where drag currently is */
-  endColIndex: number;
   startDateIndex: number;
   endDateIndex: number;
 }
@@ -92,6 +89,32 @@ export function BookingGrid({
   // Grid column index: columns array index + 2 (col 1 = date labels, 1-indexed)
   const gridColIndex = (arrIndex: number) => arrIndex + 2;
 
+  // Group adjacent columns by item for spanning headers
+  const itemGroups = useMemo(() => {
+    const groups: {
+      item: ItemColumn['item'];
+      startIndex: number;
+      endIndex: number; // inclusive
+      isMultiCopy: boolean;
+    }[] = [];
+    let i = 0;
+    while (i < columns.length) {
+      const item = columns[i].item;
+      const startIndex = i;
+      while (i + 1 < columns.length && columns[i + 1].item.id === item.id) {
+        i++;
+      }
+      groups.push({
+        item,
+        startIndex,
+        endIndex: i,
+        isMultiCopy: Math.max(1, item.copies) > 1,
+      });
+      i++;
+    }
+    return groups;
+  }, [columns]);
+
   const handleMouseDown = useCallback(
     (columnKey: string, dateIndex: number, e: React.MouseEvent) => {
       if (e.button !== 0) return;
@@ -101,9 +124,7 @@ export function BookingGrid({
       if (colIndex === undefined) return;
 
       const state: DragState = {
-        itemId: columns[colIndex].item.id,
         startColIndex: colIndex,
-        endColIndex: colIndex,
         startDateIndex: dateIndex,
         endDateIndex: dateIndex,
       };
@@ -111,40 +132,30 @@ export function BookingGrid({
       setDragState(state);
       e.preventDefault();
     },
-    [columnKeyToIndex, columns]
+    [columnKeyToIndex]
   );
 
   const handleMouseMove = useCallback(
-    (columnKey: string, dateIndex: number, e: React.MouseEvent) => {
+    (_columnKey: string, dateIndex: number, e: React.MouseEvent) => {
       mousePositionRef.current = { x: e.clientX, y: e.clientY };
       if (!dragRef.current) return;
 
-      const colIndex = columnKeyToIndex.get(columnKey);
-      if (colIndex === undefined) return;
-
-      // Allow cross-column drag only within the same item
-      const col = columns[colIndex];
-      if (col.item.id !== dragRef.current.itemId) return;
-
       const newState: DragState = {
         ...dragRef.current,
-        endColIndex: colIndex,
         endDateIndex: dateIndex,
       };
       dragRef.current = newState;
       setDragState(newState);
     },
-    [columnKeyToIndex, columns]
+    []
   );
 
   const handleMouseUp = useCallback(() => {
     if (!dragRef.current) return;
 
-    const { startColIndex, endColIndex, startDateIndex, endDateIndex } = dragRef.current;
+    const { startColIndex, startDateIndex, endDateIndex } = dragRef.current;
     const minDate = Math.min(startDateIndex, endDateIndex);
     const maxDate = Math.max(startDateIndex, endDateIndex);
-    const minCol = Math.min(startColIndex, endColIndex);
-    const maxCol = Math.max(startColIndex, endColIndex);
 
     dragRef.current = null;
     setDragState(null);
@@ -153,12 +164,8 @@ export function BookingGrid({
     if (minDate === maxDate) return;
 
     if (dates[minDate] && dates[maxDate]) {
-      const selectedKeys = columns
-        .slice(minCol, maxCol + 1)
-        .map((c) => c.key);
-
       onCreateBooking(
-        selectedKeys,
+        [columns[startColIndex].key],
         dates[minDate],
         dates[maxDate],
         mousePositionRef.current
@@ -174,17 +181,17 @@ export function BookingGrid({
   const isDragSelected = useCallback(
     (colIndex: number, dateIndex: number): boolean => {
       if (!dragState) return false;
-      const minCol = Math.min(dragState.startColIndex, dragState.endColIndex);
-      const maxCol = Math.max(dragState.startColIndex, dragState.endColIndex);
+      if (colIndex !== dragState.startColIndex) return false;
       const minDate = Math.min(dragState.startDateIndex, dragState.endDateIndex);
       const maxDate = Math.max(dragState.startDateIndex, dragState.endDateIndex);
-      return colIndex >= minCol && colIndex <= maxCol && dateIndex >= minDate && dateIndex <= maxDate;
+      return dateIndex >= minDate && dateIndex <= maxDate;
     },
     [dragState]
   );
 
-  // Merge adjacent booking slots that share (item, customer_name, start_date, end_date)
-  // into a single wide block spanning multiple grid columns.
+  // Merge booking slots that share (item, customer_name, start_date, end_date)
+  // into single blocks. For multi-copy items all records in a group share one
+  // column, so same-index entries merge with copyCount = record count.
   const mergedBlocks = useMemo(() => {
     interface MergedBlock {
       key: string;
@@ -196,11 +203,9 @@ export function BookingGrid({
       copyCount: number;
     }
 
-    // Group key: item + customer_name + start_date + end_date
     const groupKey = (s: BookingSlot) =>
       `${s.booking.item}|${s.booking.customer_name}|${s.booking.start_date}|${s.booking.end_date}`;
 
-    // Build groups of slots with the same logical booking
     const groups = new Map<string, { slot: BookingSlot; colIndex: number }[]>();
     for (const slot of bookingSlots) {
       const ci = columnKeyToIndex.get(slot.columnKey);
@@ -214,13 +219,15 @@ export function BookingGrid({
     const blocks: MergedBlock[] = [];
 
     for (const entries of groups.values()) {
-      // Sort by column index
       entries.sort((a, b) => a.colIndex - b.colIndex);
 
-      // Find runs of adjacent columns
+      // Find runs of adjacent or same-index columns (same-index = multi-copy group)
       let runStart = 0;
       for (let i = 1; i <= entries.length; i++) {
-        const isEnd = i === entries.length || entries[i].colIndex !== entries[i - 1].colIndex + 1;
+        const isEnd =
+          i === entries.length ||
+          (entries[i].colIndex !== entries[i - 1].colIndex + 1 &&
+            entries[i].colIndex !== entries[i - 1].colIndex);
         if (isEnd) {
           const run = entries.slice(runStart, i);
           const firstSlot = run[0].slot;
@@ -257,6 +264,11 @@ export function BookingGrid({
     );
   }
 
+  // Per-column widths: narrow for plus columns, regular for data/single columns
+  const colWidths = columns
+    .map((c) => (c.isPlusColumn ? '40px' : 'minmax(140px, 1fr)'))
+    .join(' ');
+
   return (
     <div
       ref={gridRef}
@@ -267,36 +279,69 @@ export function BookingGrid({
       <div
         className="grid min-w-max"
         style={{
-          gridTemplateColumns: `auto repeat(${columns.length}, minmax(140px, 1fr))`,
+          gridTemplateColumns: `auto ${colWidths}`,
           gridTemplateRows: `auto repeat(${dates.length}, 36px)`,
         }}
       >
         {/* Top-left corner cell */}
         <div className="sticky left-0 top-0 z-30 bg-background border-b border-r p-2" />
 
-        {/* Column headers */}
-        {columns.map((col) => (
-          <div
-            key={col.key}
-            className="sticky top-0 z-20 bg-background border-b p-2 text-center text-xs font-semibold truncate flex items-center justify-center gap-1.5"
-            title={getColumnLabel(col)}
-          >
-            <FormattedId id={col.item.iid} size="sm" />
-            {getColumnLabel(col)}
-          </div>
-        ))}
+        {/* Column headers — multi-copy items get a spanning header + separate plus header */}
+        {itemGroups.map((group) => {
+          if (!group.isMultiCopy) {
+            return (
+              <div
+                key={group.item.id}
+                className="sticky top-0 z-20 bg-background border-b p-2 text-center text-xs font-semibold truncate flex items-center justify-center gap-1.5"
+                style={{ gridColumn: gridColIndex(group.startIndex) }}
+                title={group.item.name}
+              >
+                <FormattedId id={group.item.iid} size="sm" />
+                {group.item.name}
+              </div>
+            );
+          }
 
-        {/* Date rows — cells only (no booking blocks here) */}
+          // Multi-copy: data header spans all data columns, plus header is separate
+          const dataEnd = group.endIndex - 1; // last column before plus
+          const plusIndex = group.endIndex; // plus is always last
+
+          return (
+            <Fragment key={group.item.id}>
+              <div
+                className="sticky top-0 z-20 bg-background border-b p-2 text-center text-xs font-semibold truncate flex items-center justify-center gap-1.5"
+                style={{
+                  gridColumn: `${gridColIndex(group.startIndex)} / ${gridColIndex(dataEnd) + 1}`,
+                }}
+                title={`${group.item.name} (${group.item.copies}×)`}
+              >
+                <FormattedId id={group.item.iid} size="sm" />
+                {group.item.name}
+                <span className="text-muted-foreground font-normal">
+                  ({group.item.copies}×)
+                </span>
+              </div>
+              <div
+                className="sticky top-0 z-20 bg-background border-b p-1 text-center font-bold flex items-center justify-center"
+                style={{ gridColumn: gridColIndex(plusIndex) }}
+                title="Neue Buchung erstellen"
+              >
+                +
+              </div>
+            </Fragment>
+          );
+        })}
+
+        {/* Date rows */}
         {dates.map((date, dateIndex) => {
           const isToday = isSameDay(date, today);
           const closed = isClosedDay(date);
           const gridRow = dateIndex + 2;
 
           return (
-            <>
+            <Fragment key={dateIndex}>
               {/* Date label cell */}
               <div
-                key={`date-${dateIndex}`}
                 className={cn(
                   'sticky left-0 z-10 border-b border-r px-3 py-1 text-xs font-mono whitespace-nowrap flex items-center bg-background',
                   closed && 'bg-muted',
@@ -307,7 +352,7 @@ export function BookingGrid({
                 {formatGridDate(date)}
               </div>
 
-              {/* Empty cells for mouse interaction */}
+              {/* Cells for mouse interaction */}
               {columns.map((col, colIndex) => {
                 const selected = isDragSelected(colIndex, dateIndex);
 
@@ -322,14 +367,20 @@ export function BookingGrid({
                     style={{ gridRow, gridColumn: gridColIndex(colIndex) }}
                     onMouseDown={(e) => handleMouseDown(col.key, dateIndex, e)}
                     onMouseMove={(e) => handleMouseMove(col.key, dateIndex, e)}
-                  />
+                  >
+                    {col.isPlusColumn && (
+                      <span className="flex items-center justify-center h-full text-muted-foreground/25 font-bold text-sm select-none">
+                        +
+                      </span>
+                    )}
+                  </div>
                 );
               })}
-            </>
+            </Fragment>
           );
         })}
 
-        {/* Booking blocks — merge adjacent same-group slots into wide blocks */}
+        {/* Booking blocks */}
         {mergedBlocks.map((block) => (
           <BookingBlock
             key={block.key}
@@ -339,7 +390,12 @@ export function BookingGrid({
             gridColumnStart={block.gridColumnStart}
             gridColumnEnd={block.gridColumnEnd}
             copyCount={block.copyCount}
-            onClick={(e) => onBookingClick(block.slot.booking, { x: e.clientX, y: e.clientY })}
+            onClick={(e) =>
+              onBookingClick(block.slot.booking, {
+                x: e.clientX,
+                y: e.clientY,
+              })
+            }
           />
         ))}
       </div>

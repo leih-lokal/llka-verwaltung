@@ -10,8 +10,7 @@ import { collections } from '@/lib/pocketbase/client';
 import type { BookingExpanded, Item } from '@/types';
 import {
   generateMonthDates,
-  buildItemColumns,
-  assignBookingsToLanes,
+  buildBookingGrid,
   type ItemColumn,
   type BookingSlot,
 } from '@/lib/utils/booking-grid';
@@ -51,10 +50,9 @@ export function useBookingGrid(): UseBookingGridReturn {
   const [unsupported, setUnsupported] = useState(false);
 
   const dates = useMemo(() => generateMonthDates(year, month), [year, month]);
-  const columns = useMemo(() => buildItemColumns(items), [items]);
-  const bookingSlots = useMemo(
-    () => assignBookingsToLanes(bookings, items),
-    [bookings, items]
+  const { columns, bookingSlots } = useMemo(
+    () => buildBookingGrid(items, bookings),
+    [items, bookings]
   );
 
   const fetchData = useCallback(async () => {

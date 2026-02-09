@@ -39,6 +39,10 @@ export default function BookingsPage() {
     columnKeys: string[];
     startDate: Date;
     endDate: Date;
+    /** Item ID resolved from column lookup */
+    itemId: string;
+    /** Total copies for multi-copy items (shows quantity picker) */
+    maxCopies?: number;
   } | null>(null);
 
   // Detail popover state
@@ -69,20 +73,27 @@ export default function BookingsPage() {
       endDate: Date,
       mousePosition: { x: number; y: number }
     ) => {
-      setPendingBooking({ columnKeys, startDate, endDate });
+      const col = grid.columns.find((c) => c.key === columnKeys[0]);
+      if (!col) return;
+      setPendingBooking({
+        columnKeys,
+        startDate,
+        endDate,
+        itemId: col.item.id,
+        maxCopies: col.totalCopies > 1 ? col.totalCopies : undefined,
+      });
       setPickerAnchor(mousePosition);
       setPickerOpen(true);
     },
-    []
+    [grid.columns]
   );
 
   const handleCustomerSelected = useCallback(
-    async (customer: Customer | null, manualName?: string) => {
+    async (customer: Customer | null, manualName?: string, quantity?: number) => {
       if (!pendingBooking) return;
 
-      // Extract item ID from first column key (format: "itemId-copyIndex")
-      const itemId = pendingBooking.columnKeys[0].split('-').slice(0, -1).join('-');
-      const count = pendingBooking.columnKeys.length;
+      const itemId = pendingBooking.itemId;
+      const count = quantity ?? pendingBooking.columnKeys.length;
 
       const customerName = customer
         ? `${customer.firstname} ${customer.lastname}`
@@ -257,6 +268,7 @@ export default function BookingsPage() {
         }}
         anchorPosition={pickerAnchor}
         onSelect={handleCustomerSelected}
+        maxCopies={pendingBooking?.maxCopies}
       />
 
       <BookingDetailPopover

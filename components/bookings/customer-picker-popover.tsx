@@ -32,7 +32,9 @@ interface CustomerPickerPopoverProps {
   onOpenChange: (open: boolean) => void;
   /** Anchor position (x, y) in viewport coordinates */
   anchorPosition: { x: number; y: number } | null;
-  onSelect: (customer: Customer | null, manualName?: string) => void;
+  onSelect: (customer: Customer | null, manualName?: string, quantity?: number) => void;
+  /** When set, shows a quantity picker for collapsed (high-copy) items */
+  maxCopies?: number;
 }
 
 export function CustomerPickerPopover({
@@ -40,11 +42,13 @@ export function CustomerPickerPopover({
   onOpenChange,
   anchorPosition,
   onSelect,
+  maxCopies,
 }: CustomerPickerPopoverProps) {
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<Customer[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [manualName, setManualName] = useState('');
+  const [quantity, setQuantity] = useState(1);
 
   // Reset state when popover opens
   useEffect(() => {
@@ -52,6 +56,7 @@ export function CustomerPickerPopover({
       setSearch('');
       setResults([]);
       setManualName('');
+      setQuantity(1);
     }
   }, [open]);
 
@@ -105,13 +110,13 @@ export function CustomerPickerPopover({
   }, [search]);
 
   const handleSelectCustomer = (customer: Customer) => {
-    onSelect(customer);
+    onSelect(customer, undefined, maxCopies ? quantity : undefined);
     onOpenChange(false);
   };
 
   const handleManualSubmit = () => {
     if (manualName.trim()) {
-      onSelect(null, manualName.trim());
+      onSelect(null, manualName.trim(), maxCopies ? quantity : undefined);
       onOpenChange(false);
     }
   };
@@ -132,6 +137,31 @@ export function CustomerPickerPopover({
         sideOffset={8}
       >
         <Command shouldFilter={false}>
+          {maxCopies && (
+            <div className="p-3 border-b space-y-1.5">
+              <Label className="text-xs font-medium">Anzahl</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={1}
+                  max={maxCopies}
+                  value={quantity}
+                  onChange={(e) =>
+                    setQuantity(
+                      Math.max(
+                        1,
+                        Math.min(maxCopies, parseInt(e.target.value) || 1)
+                      )
+                    )
+                  }
+                  className="h-8 w-20 text-sm"
+                />
+                <span className="text-xs text-muted-foreground">
+                  von {maxCopies}
+                </span>
+              </div>
+            </div>
+          )}
           <CommandInput
             placeholder="Nutzer:in suchen (Name, Nr)..."
             value={search}
