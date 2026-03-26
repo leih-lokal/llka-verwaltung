@@ -16,9 +16,10 @@ import { Fragment, useRef, useState, useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { BookingBlock } from './booking-block';
 import {
-  getBookingSpanInMonth,
+  getBookingSpan,
   type BookingSlot,
   type ItemColumn,
+  type GridDate,
 } from '@/lib/utils/booking-grid';
 import type { BookingExpanded } from '@/types';
 import { FormattedId } from '@/components/ui/formatted-id';
@@ -31,7 +32,7 @@ interface DragState {
 }
 
 interface BookingGridProps {
-  dates: Date[];
+  dates: GridDate[];
   columns: ItemColumn[];
   bookingSlots: BookingSlot[];
   onCreateBooking: (
@@ -166,8 +167,8 @@ export function BookingGrid({
     if (dates[minDate] && dates[maxDate]) {
       onCreateBooking(
         [columns[startColIndex].key],
-        dates[minDate],
-        dates[maxDate],
+        dates[minDate].date,
+        dates[maxDate].date,
         mousePositionRef.current
       );
     }
@@ -231,7 +232,7 @@ export function BookingGrid({
         if (isEnd) {
           const run = entries.slice(runStart, i);
           const firstSlot = run[0].slot;
-          const span = getBookingSpanInMonth(firstSlot, dates);
+          const span = getBookingSpan(firstSlot, dates);
           if (span) {
             blocks.push({
               key: run.map((r) => r.slot.booking.id).join('+'),
@@ -333,52 +334,65 @@ export function BookingGrid({
         })}
 
         {/* Date rows */}
-        {dates.map((date, dateIndex) => {
-          const isToday = isSameDay(date, today);
-          const closed = isClosedDay(date);
-          const gridRow = dateIndex + 2;
+        {(() => {
+          const firstMainIndex = dates.findIndex((d) => !d.isOverflow);
+          const lastMainIndex =
+            dates.length - 1 - [...dates].reverse().findIndex((d) => !d.isOverflow);
 
-          return (
-            <Fragment key={dateIndex}>
-              {/* Date label cell */}
-              <div
-                className={cn(
-                  'sticky left-0 z-10 border-b border-r px-3 py-1 text-xs font-mono whitespace-nowrap flex items-center bg-background',
-                  closed && 'bg-muted',
-                  isToday && 'border-l-2 border-l-primary font-bold'
-                )}
-                style={{ gridRow, gridColumn: 1 }}
-              >
-                {formatGridDate(date)}
-              </div>
+          return dates.map((gridDate, dateIndex) => {
+            const { date, isOverflow } = gridDate;
+            const isToday = isSameDay(date, today);
+            const closed = isClosedDay(date);
+            const gridRow = dateIndex + 2;
 
-              {/* Cells for mouse interaction */}
-              {columns.map((col, colIndex) => {
-                const selected = isDragSelected(colIndex, dateIndex);
+            return (
+              <Fragment key={dateIndex}>
+                {/* Date label cell */}
+                <div
+                  className={cn(
+                    'sticky left-0 z-10 border-b border-r px-3 py-1 text-xs font-mono whitespace-nowrap flex items-center bg-background',
+                    closed && 'bg-muted',
+                    isOverflow && 'bg-muted/50 text-muted-foreground',
+                    isToday && !isOverflow && 'border-l-2 border-l-primary font-bold',
+                    dateIndex === firstMainIndex && 'border-t-2 border-t-primary/30',
+                    dateIndex === lastMainIndex && 'border-b-2 border-b-primary/30'
+                  )}
+                  style={{ gridRow, gridColumn: 1 }}
+                >
+                  {formatGridDate(date)}
+                </div>
 
-                return (
-                  <div
-                    key={`${col.key}-${dateIndex}`}
-                    className={cn(
-                      'border-b border-r cursor-crosshair',
-                      closed && 'bg-muted',
-                      selected && 'bg-primary/20'
-                    )}
-                    style={{ gridRow, gridColumn: gridColIndex(colIndex) }}
-                    onMouseDown={(e) => handleMouseDown(col.key, dateIndex, e)}
-                    onMouseMove={(e) => handleMouseMove(col.key, dateIndex, e)}
-                  >
-                    {col.isPlusColumn && (
-                      <span className="flex items-center justify-center h-full text-muted-foreground/25 font-bold text-sm select-none">
-                        +
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </Fragment>
-          );
-        })}
+                {/* Cells for mouse interaction */}
+                {columns.map((col, colIndex) => {
+                  const selected = isDragSelected(colIndex, dateIndex);
+
+                  return (
+                    <div
+                      key={`${col.key}-${dateIndex}`}
+                      className={cn(
+                        'border-b border-r cursor-crosshair',
+                        closed && 'bg-muted',
+                        isOverflow && 'bg-muted/50',
+                        selected && 'bg-primary/20',
+                        dateIndex === firstMainIndex && 'border-t-2 border-t-primary/30',
+                        dateIndex === lastMainIndex && 'border-b-2 border-b-primary/30'
+                      )}
+                      style={{ gridRow, gridColumn: gridColIndex(colIndex) }}
+                      onMouseDown={(e) => handleMouseDown(col.key, dateIndex, e)}
+                      onMouseMove={(e) => handleMouseMove(col.key, dateIndex, e)}
+                    >
+                      {col.isPlusColumn && (
+                        <span className="flex items-center justify-center h-full text-muted-foreground/25 font-bold text-sm select-none">
+                          +
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </Fragment>
+            );
+          });
+        })()}
 
         {/* Booking blocks */}
         {mergedBlocks.map((block) => (
