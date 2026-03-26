@@ -5,7 +5,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PlusIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BookingStatus } from '@/types';
 import type { BookingSlot } from '@/lib/utils/booking-grid';
@@ -32,6 +32,7 @@ interface BookingToolbarProps {
   onPrevMonth: () => void;
   onNextMonth: () => void;
   onToday: () => void;
+  onCreateNew: () => void;
 }
 
 export function BookingToolbar({
@@ -41,6 +42,7 @@ export function BookingToolbar({
   onPrevMonth,
   onNextMonth,
   onToday,
+  onCreateNew,
 }: BookingToolbarProps) {
   const stats = useMemo(() => {
     let reserved = 0;
@@ -63,6 +65,10 @@ export function BookingToolbar({
 
   return (
     <div className="border-b-2 border-primary bg-background p-4 flex items-center gap-2">
+      <Button onClick={onCreateNew} size="sm" className="h-10">
+        <PlusIcon className="size-4 mr-2" />
+        Neu
+      </Button>
       <Button variant="outline" size="icon" onClick={onPrevMonth} aria-label="Vorheriger Monat">
         <ChevronLeft className="h-4 w-4" />
       </Button>
