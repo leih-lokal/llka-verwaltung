@@ -4,6 +4,13 @@
 
 import type { BookingExpanded, Item } from '@/types';
 
+export const OVERFLOW_DAYS = 5;
+
+export interface GridDate {
+  date: Date;
+  isOverflow: boolean;
+}
+
 /**
  * A column in the booking grid: a data lane, a "plus" column for
  * creating bookings on multi-copy items, or a single-copy column.
@@ -35,14 +42,42 @@ export interface BookingSlot {
 }
 
 /**
- * Generate all dates in a given month
+ * Generate all dates in a given month, optionally with overflow days
+ * from the previous and next months.
  */
-export function generateMonthDates(year: number, month: number): Date[] {
-  const dates: Date[] = [];
+export function generateMonthDates(
+  year: number,
+  month: number,
+  overflowDays: number = 0
+): GridDate[] {
+  const dates: GridDate[] = [];
+
+  // Previous month overflow
+  if (overflowDays > 0) {
+    const firstDay = new Date(year, month, 1);
+    for (let i = overflowDays; i > 0; i--) {
+      const d = new Date(firstDay);
+      d.setDate(d.getDate() - i);
+      dates.push({ date: d, isOverflow: true });
+    }
+  }
+
+  // Current month
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   for (let day = 1; day <= daysInMonth; day++) {
-    dates.push(new Date(year, month, day));
+    dates.push({ date: new Date(year, month, day), isOverflow: false });
   }
+
+  // Next month overflow
+  if (overflowDays > 0) {
+    const lastDay = new Date(year, month + 1, 0);
+    for (let i = 1; i <= overflowDays; i++) {
+      const d = new Date(lastDay);
+      d.setDate(d.getDate() + i);
+      dates.push({ date: d, isOverflow: true });
+    }
+  }
+
   return dates;
 }
 
@@ -218,16 +253,16 @@ export function isBookingStart(date: Date, slot: BookingSlot): boolean {
 }
 
 /**
- * Count how many days a booking spans within a given month
+ * Count how many days a booking spans within a given date range (including overflow)
  */
-export function getBookingSpanInMonth(
+export function getBookingSpan(
   slot: BookingSlot,
-  dates: Date[]
+  dates: GridDate[]
 ): { startRow: number; endRow: number } | null {
   if (dates.length === 0) return null;
 
-  const monthStart = dates[0];
-  const monthEnd = dates[dates.length - 1];
+  const monthStart = dates[0].date;
+  const monthEnd = dates[dates.length - 1].date;
 
   const clampedStart =
     slot.startDate < monthStart ? monthStart : slot.startDate;
@@ -235,16 +270,16 @@ export function getBookingSpanInMonth(
 
   const startRow = dates.findIndex(
     (d) =>
-      d.getFullYear() === clampedStart.getFullYear() &&
-      d.getMonth() === clampedStart.getMonth() &&
-      d.getDate() === clampedStart.getDate()
+      d.date.getFullYear() === clampedStart.getFullYear() &&
+      d.date.getMonth() === clampedStart.getMonth() &&
+      d.date.getDate() === clampedStart.getDate()
   );
 
   const endRow = dates.findIndex(
     (d) =>
-      d.getFullYear() === clampedEnd.getFullYear() &&
-      d.getMonth() === clampedEnd.getMonth() &&
-      d.getDate() === clampedEnd.getDate()
+      d.date.getFullYear() === clampedEnd.getFullYear() &&
+      d.date.getMonth() === clampedEnd.getMonth() &&
+      d.date.getDate() === clampedEnd.getDate()
   );
 
   if (startRow === -1 || endRow === -1) return null;
