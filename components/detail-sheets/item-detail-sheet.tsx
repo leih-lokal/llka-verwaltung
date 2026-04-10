@@ -60,13 +60,19 @@ const itemSchema = z.object({
   synonyms: z.string().optional(), // Comma-separated
   packaging: z.string().optional(),
   manual: z.string().optional(),
-  parts: z.number().int().min(0, 'Teile muss positiv sein').optional(),
+  parts: z.preprocess(
+    v => v === '' || v == null || Number.isNaN(v) ? undefined : v,
+    z.number().int().min(0, 'Teile muss positiv sein').optional()
+  ),
   copies: z.number().int().min(1, 'Anzahl muss mindestens 1 sein'),
   status: z.enum(['instock', 'outofstock', 'reserved', 'onbackorder', 'lost', 'repairing', 'forsale', 'deleted']),
   highlight_color: z.enum(['red', 'orange', 'yellow', 'green', 'teal', 'blue', 'purple', 'pink', '']).optional(),
   internal_note: z.string().optional(),
   added_on: z.string(),
-  msrp: z.number().min(0, 'UVP muss positiv sein').optional(),
+  msrp: z.preprocess(
+    v => v === '' || v == null || Number.isNaN(v) ? undefined : v,
+    z.number().min(0, 'UVP muss positiv sein').optional()
+  ),
   is_protected: z.boolean().optional(),
 });
 
@@ -78,6 +84,11 @@ interface ItemDetailSheetProps {
   onOpenChange: (open: boolean) => void;
   onSave?: (item: Item) => void;
 }
+
+// Sentinel value for number inputs that should appear empty in the DOM.
+// form.reset({ parts: undefined }) does NOT clear uncontrolled number inputs;
+// an empty string does.
+const EMPTY_NUMBER = '' as unknown as number | undefined;
 
 export function ItemDetailSheet({
   item,
@@ -122,21 +133,22 @@ export function ItemDetailSheet({
       synonyms: '',
       packaging: '',
       manual: '',
-      parts: undefined,
+      parts: EMPTY_NUMBER,
       copies: 1,
       status: 'instock',
       highlight_color: '',
       internal_note: '',
       added_on: dateToLocalString(new Date()),
-      msrp: undefined,
+      msrp: EMPTY_NUMBER,
       is_protected: false,
     },
   });
 
   const { formState: { isDirty } } = form;
 
-  // Load item data when item changes
+  // Load item data when item changes or when the sheet opens
   useEffect(() => {
+    if (!open) return;
     if (item) {
       form.reset({
         iid: item.iid,
@@ -146,17 +158,19 @@ export function ItemDetailSheet({
         description: item.description || '',
         category: item.category as any, // Database stores German strings, not enum values
         deposit: item.deposit,
-        synonyms: Array.isArray(item.synonyms) ? item.synonyms.join(', ') : '',
+        synonyms: typeof item.synonyms === 'string'
+          ? item.synonyms
+          : (Array.isArray(item.synonyms) ? item.synonyms.join(', ') : ''),
         packaging: item.packaging || '',
         manual: item.manual || '',
-        parts: typeof item.parts === 'number' ? item.parts : undefined,
+        parts: typeof item.parts === 'number' ? item.parts : EMPTY_NUMBER,
         copies: item.copies,
         status: item.status,
         highlight_color: (item.highlight_color || '') as '' | 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'purple' | 'pink',
         internal_note: item.internal_note || '',
         // Extract just the date part (YYYY-MM-DD) from PocketBase format (YYYY-MM-DD HH:MM:SS.000Z)
         added_on: item.added_on.split(' ')[0],
-        msrp: item.msrp,
+        msrp: typeof item.msrp === 'number' ? item.msrp : EMPTY_NUMBER,
         is_protected: item.is_protected || false,
       });
       // Load existing images
@@ -181,13 +195,13 @@ export function ItemDetailSheet({
             synonyms: '',
             packaging: '',
             manual: '',
-            parts: undefined,
+            parts: EMPTY_NUMBER,
             copies: 1,
             status: 'instock',
             highlight_color: '',
             internal_note: '',
             added_on: dateToLocalString(new Date()),
-            msrp: undefined,
+            msrp: EMPTY_NUMBER,
             is_protected: false,
           });
         } catch (err) {
@@ -203,13 +217,13 @@ export function ItemDetailSheet({
             synonyms: '',
             packaging: '',
             manual: '',
-            parts: undefined,
+            parts: EMPTY_NUMBER,
             copies: 1,
             status: 'instock',
             highlight_color: '',
             internal_note: '',
             added_on: dateToLocalString(new Date()),
-            msrp: undefined,
+            msrp: EMPTY_NUMBER,
             is_protected: false,
           });
         }
@@ -220,7 +234,7 @@ export function ItemDetailSheet({
       setImagesToDelete([]);
       setIsEditMode(true);
     }
-  }, [item, isNewItem, form]);
+  }, [item, isNewItem, open]);
 
   // Load rental history
   useEffect(() => {
@@ -283,9 +297,14 @@ export function ItemDetailSheet({
 
       formData.append('deposit', data.deposit.toString());
 
-      // Add synonyms array
-      const synonyms = data.synonyms ? data.synonyms.split(',').map(s => s.trim()).filter(Boolean) : [];
-      synonyms.forEach(syn => formData.append('synonyms', syn));
+      // Normalize and send as a single comma-separated string.
+      // Always append (even empty) so PATCH can clear the field.
+      const synonymsStr = (data.synonyms ?? '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean)
+        .join(', ');
+      formData.append('synonyms', synonymsStr);
 
       if (data.packaging) formData.append('packaging', data.packaging);
       if (data.manual) formData.append('manual', data.manual);
@@ -312,26 +331,9 @@ export function ItemDetailSheet({
       if (isNewItem) {
         savedItem = await collections.items().create<Item>(formData);
         toast.success('Artikel erfolgreich erstellt');
-        // Reset form to defaults before closing to prevent stale data on next open
-        form.reset({
-          iid: 1,
-          name: '',
-          brand: '',
-          model: '',
-          description: '',
-          category: [],
-          deposit: 0,
-          synonyms: '',
-          packaging: '',
-          manual: '',
-          parts: undefined,
-          copies: 1,
-          status: 'instock',
-          highlight_color: '',
-          internal_note: '',
-          added_on: dateToLocalString(new Date()),
-          msrp: undefined,
-        });
+        // No inline reset needed: closing and reopening the sheet re-runs the
+        // load-defaults effect (which now has `open` in its dep array), so
+        // the form will be cleanly reset with a fresh IID on next open.
         setExistingImages([]);
         setNewImages([]);
         setImagesToDelete([]);
