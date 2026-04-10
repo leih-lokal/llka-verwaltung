@@ -60,19 +60,13 @@ const itemSchema = z.object({
   synonyms: z.string().optional(), // Comma-separated
   packaging: z.string().optional(),
   manual: z.string().optional(),
-  parts: z.preprocess(
-    v => v === '' || v == null || Number.isNaN(v) ? undefined : v,
-    z.number().int().min(0, 'Teile muss positiv sein').optional()
-  ),
+  parts: z.number().int().min(0, 'Teile muss positiv sein').optional(),
   copies: z.number().int().min(1, 'Anzahl muss mindestens 1 sein'),
   status: z.enum(['instock', 'outofstock', 'reserved', 'onbackorder', 'lost', 'repairing', 'forsale', 'deleted']),
   highlight_color: z.enum(['red', 'orange', 'yellow', 'green', 'teal', 'blue', 'purple', 'pink', '']).optional(),
   internal_note: z.string().optional(),
   added_on: z.string(),
-  msrp: z.preprocess(
-    v => v === '' || v == null || Number.isNaN(v) ? undefined : v,
-    z.number().min(0, 'UVP muss positiv sein').optional()
-  ),
+  msrp: z.number().min(0, 'UVP muss positiv sein').optional(),
   is_protected: z.boolean().optional(),
 });
 
@@ -645,7 +639,10 @@ export function ItemDetailSheet({
                         id="msrp"
                         type="number"
                         step="0.01"
-                        {...form.register('msrp', { valueAsNumber: true })}
+                        {...form.register('msrp', {
+                          setValueAs: (v) =>
+                            v === '' || v == null ? undefined : Number(v),
+                        })}
                         className="mt-1"
                       />
                       {form.formState.errors.msrp && (
@@ -677,7 +674,10 @@ export function ItemDetailSheet({
                       <Input
                         id="parts"
                         type="number"
-                        {...form.register('parts', { valueAsNumber: true })}
+                        {...form.register('parts', {
+                          setValueAs: (v) =>
+                            v === '' || v == null ? undefined : Number(v),
+                        })}
                         className="mt-1"
                       />
                       {form.formState.errors.parts && (
