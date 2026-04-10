@@ -64,6 +64,12 @@ import { FormHelpPanel } from "./form-help-panel";
 import { DOCUMENTATION } from "@/lib/constants/documentation";
 import { useHelpCollapsed } from "@/hooks/use-help-collapsed";
 import { FormattedId } from "@/components/ui/formatted-id";
+import { format, parse } from "date-fns";
+
+// Local-time helpers for datetime-local inputs — keep UTC conversion at DB boundaries only
+const toLocalInput = (d: Date) => format(d, "yyyy-MM-dd'T'HH:mm");
+const fromLocalInput = (s: string) =>
+  parse(s, "yyyy-MM-dd'T'HH:mm", new Date());
 
 // Validation schema
 const reservationSchema = z.object({
@@ -141,7 +147,7 @@ export function ReservationDetailSheet({
       customer_email: "",
       is_new_customer: false,
       item_ids: [],
-      pickup: new Date().toISOString().slice(0, 16), // YYYY-MM-DDTHH:MM
+      pickup: toLocalInput(new Date()), // YYYY-MM-DDTHH:mm (local time)
       comments: "",
       done: false,
       on_premises: false,
@@ -303,7 +309,7 @@ export function ReservationDetailSheet({
           customer_email: reservation.customer_email || "",
           is_new_customer: reservation.is_new_customer,
           item_ids: reservation.items,
-          pickup: reservation.pickup.slice(0, 16), // Convert to datetime-local format
+          pickup: toLocalInput(new Date(reservation.pickup)), // UTC ISO → local datetime-local
           comments: reservation.comments || "",
           done: reservation.done,
           on_premises: reservation.on_premises,
@@ -320,7 +326,7 @@ export function ReservationDetailSheet({
           customer_email: "",
           is_new_customer: false,
           item_ids: [],
-          pickup: new Date().toISOString().slice(0, 16),
+          pickup: toLocalInput(new Date()),
           comments: "",
           done: false,
           on_premises: false,
@@ -359,8 +365,8 @@ export function ReservationDetailSheet({
         return;
       }
 
-      // Convert datetime-local format (YYYY-MM-DDTHH:MM) to ISO 8601 with seconds
-      const pickupDate = new Date(data.pickup);
+      // Convert datetime-local (local time) → UTC ISO 8601 for DB storage
+      const pickupDate = fromLocalInput(data.pickup);
       const pickupISO = pickupDate.toISOString();
 
       const formData: Partial<Reservation> = {
@@ -993,7 +999,7 @@ export function ReservationDetailSheet({
                                   const currentTime = currentPickup
                                     ? currentPickup.slice(11, 16)
                                     : "10:00";
-                                  const newDate = `${date.toISOString().slice(0, 10)}T${currentTime}`;
+                                  const newDate = `${format(date, 'yyyy-MM-dd')}T${currentTime}`;
                                   setValue("pickup", newDate, {
                                     shouldDirty: true,
                                   });
@@ -1016,7 +1022,7 @@ export function ReservationDetailSheet({
                           const currentPickup = form.watch("pickup");
                           const currentDate = currentPickup
                             ? currentPickup.slice(0, 10)
-                            : new Date().toISOString().slice(0, 10);
+                            : format(new Date(), 'yyyy-MM-dd');
                           const newPickup = `${currentDate}T${e.target.value}`;
                           setValue("pickup", newPickup, { shouldDirty: true });
                         }}
