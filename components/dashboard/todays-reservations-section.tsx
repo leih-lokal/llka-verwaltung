@@ -4,6 +4,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -28,6 +29,7 @@ interface TodaysReservationsSectionProps {
 export function TodaysReservationsSection({
   onReservationCompleted,
 }: TodaysReservationsSectionProps) {
+  const router = useRouter();
   const [reservations, setReservations] = useState<ReservationExpanded[]>([]);
   const [loading, setLoading] = useState(true);
   const [completingId, setCompletingId] = useState<string | null>(null);
@@ -145,7 +147,7 @@ export function TodaysReservationsSection({
       params.set("item_ids", itemIids);
     }
 
-    window.location.href = `/rentals?${params.toString()}`;
+    router.push(`/rentals?${params.toString()}`);
   }
 
   async function handleMarkAsDone(reservationId: string) {
