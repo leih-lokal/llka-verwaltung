@@ -180,7 +180,8 @@ export function Navbar() {
   const { setOpen: setSequentialModeOpen } = useSequentialMode();
   const { setOpen: setCommandMenuOpen } = useCommandMenu();
   const { setOpen: setKeyboardShortcutsOpen } = useKeyboardShortcutsReferenceContext();
-  const { settings } = useSettings();
+  const { settings, getFileUrl } = useSettings();
+  const logoUrl = getFileUrl(settings.logo);
   const userEmail = (user as any)?.email || 'admin@leihlokal.de';
 
   // Detect OS for keyboard shortcut display
@@ -200,11 +201,11 @@ export function Navbar() {
         >
           <Link href="/dashboard" className="flex items-center">
             <Image
-              src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/smile.svg`}
-              alt="LeihLokal"
+              src={logoUrl || `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/smile.svg`}
+              alt={settings.app_name || 'LeihLokal'}
               width={40}
               height={40}
-              className="h-10 w-10"
+              className="h-10 w-10 object-contain"
               unoptimized
               priority
             />

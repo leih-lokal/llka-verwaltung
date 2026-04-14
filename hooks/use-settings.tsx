@@ -52,8 +52,8 @@ const SettingsContext = createContext<SettingsContextType | undefined>(
 
 /**
  * Apply primary color to CSS custom properties
- * Note: Only applies to primary/accent/ring - destructive and border
- * retain their semantic meanings (red for destructive, neutral for border)
+ * Note: Only --destructive is excluded as it retains its semantic meaning
+ * (red for delete actions). All other accent-derived variables are updated.
  */
 function applyPrimaryColor(color: string) {
   if (typeof document === 'undefined') return;
@@ -62,12 +62,13 @@ function applyPrimaryColor(color: string) {
 
   // Set primary color and related variables
   // Intentionally NOT setting --destructive (should stay red for delete actions)
-  // Intentionally NOT setting --border (should stay neutral)
   root.style.setProperty('--primary', color);
   root.style.setProperty('--accent', color);
   root.style.setProperty('--ring', color);
+  root.style.setProperty('--border', color);
   root.style.setProperty('--chart-1', color);
   root.style.setProperty('--sidebar-primary', color);
+  root.style.setProperty('--sidebar-border', color);
   root.style.setProperty('--sidebar-ring', color);
 }
 
