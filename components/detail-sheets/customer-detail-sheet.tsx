@@ -52,8 +52,14 @@ const customerSchema = z.object({
   iid: z.number().int().min(1, 'ID muss mindestens 1 sein'),
   firstname: z.string().min(1, 'Vorname ist erforderlich'),
   lastname: z.string().min(1, 'Nachname ist erforderlich'),
-  email: z.string().min(1, 'E-Mail ist erforderlich').email('Ungültige E-Mail-Adresse'),
-  phone: z.string().min(1, 'Telefon ist erforderlich'),
+  // Optional at the schema level so legacy customers without email/phone
+  // can still be opened for editing. If provided, email must be valid.
+  email: z
+    .string()
+    .email('Ungültige E-Mail-Adresse')
+    .optional()
+    .or(z.literal('')),
+  phone: z.string().optional().or(z.literal('')),
   street: z.string().optional(),
   postal_code: z.string().optional(),
   city: z.string().optional(),

@@ -150,7 +150,7 @@ export function ItemDetailSheet({
         brand: item.brand || '',
         model: item.model || '',
         description: item.description || '',
-        category: item.category as any, // Database stores German strings, not enum values
+        category: item.category,
         deposit: item.deposit,
         synonyms: typeof item.synonyms === 'string'
           ? item.synonyms

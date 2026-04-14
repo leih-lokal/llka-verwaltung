@@ -14,12 +14,13 @@ import {
   setupAutoRefresh,
 } from '@/lib/pocketbase/auth';
 import { pb } from '@/lib/pocketbase/client';
+import type { AuthUser } from '@/types';
 
 interface UseAuthReturn {
   /** Is user authenticated? */
   isAuthenticated: boolean;
   /** Current user */
-  user: unknown | null;
+  user: AuthUser | null;
   /** Is auth check in progress? */
   isLoading: boolean;
   /** Login function */
@@ -37,7 +38,7 @@ interface UseAuthReturn {
 export function useAuth(): UseAuthReturn {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<unknown | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Initialize auth state
@@ -45,7 +46,7 @@ export function useAuth(): UseAuthReturn {
     const checkAuthStatus = () => {
       const authenticated = checkAuth();
       setIsAuthenticated(authenticated);
-      setUser(authenticated ? getUser() : null);
+      setUser(authenticated ? (getUser() as AuthUser | null) : null);
       setIsLoading(false);
     };
 
@@ -77,7 +78,7 @@ export function useAuth(): UseAuthReturn {
 
     if (result.success) {
       setIsAuthenticated(true);
-      setUser(getUser());
+      setUser(getUser() as AuthUser | null);
     }
 
     setIsLoading(false);

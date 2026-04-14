@@ -8,7 +8,13 @@
 // ============================================================================
 
 /**
- * Item categories in the library
+ * Item categories in the library.
+ *
+ * NOTE: PocketBase stores these as the German display strings
+ * (see `GermanCategory` below) — not the English enum values. This
+ * enum is kept for the English-key → German-label mapping in
+ * `lib/constants/categories.ts`, but for the data stored on `Item`
+ * use the `GermanCategory` type.
  */
 export enum ItemCategory {
   Kitchen = 'kitchen',
@@ -19,6 +25,18 @@ export enum ItemCategory {
   DIY = 'diy',
   Other = 'other',
 }
+
+/**
+ * Actual category values persisted in PocketBase.
+ */
+export type GermanCategory =
+  | 'Küche'
+  | 'Haushalt'
+  | 'Garten'
+  | 'Kinder'
+  | 'Freizeit'
+  | 'Heimwerken'
+  | 'Sonstige';
 
 /**
  * Item status values
@@ -81,6 +99,16 @@ export interface BaseRecord {
   id: string;
   created: string;
   updated: string;
+}
+
+/**
+ * Authenticated superuser returned by `pb.authStore.model`.
+ * Narrow shape — PocketBase's own SDK types this as `unknown`.
+ */
+export interface AuthUser extends BaseRecord {
+  email: string;
+  verified?: boolean;
+  emailVisibility?: boolean;
 }
 
 /**
@@ -232,8 +260,8 @@ export interface Item extends BaseRecord {
   /** Description */
   description?: string;
 
-  /** Categories (can be multiple) */
-  category: ItemCategory[];
+  /** Categories (can be multiple). Stored as German strings. */
+  category: GermanCategory[];
 
   /** Deposit amount in EUR */
   deposit: number;
@@ -425,29 +453,6 @@ export interface RentalReturnStatus {
   itemStatuses: ItemReturnStatus[];
 }
 
-/**
- * Form data for creating/editing a rental
- */
-export interface RentalFormData {
-  customer_id: string;
-  item_ids: string[];
-  deposit: number;
-  rented_on: Date;
-  expected_on: Date;
-  remark?: string;
-  employee?: string;
-}
-
-/**
- * Form data for returning a rental
- */
-export interface ReturnRentalFormData {
-  returned_on: Date;
-  deposit_back: number;
-  employee_back?: string;
-  remark?: string;
-}
-
 // ============================================================================
 // RESERVATION (Reservierungen)
 // ============================================================================
@@ -499,21 +504,6 @@ export interface ReservationExpanded extends Reservation {
   };
 }
 
-/**
- * Form data for creating/editing a reservation
- */
-export interface ReservationFormData {
-  customer_iid?: number;
-  customer_name: string;
-  customer_phone?: string;
-  customer_email?: string;
-  is_new_customer: boolean;
-  comments?: string;
-  item_ids: string[];
-  pickup: Date;
-  on_premises: boolean;
-}
-
 // ============================================================================
 // BOOKING (Buchungen)
 // ============================================================================
@@ -561,21 +551,6 @@ export interface BookingExpanded extends Booking {
     item: Item;
     customer?: Customer;
   };
-}
-
-/**
- * Form data for creating/editing a booking
- */
-export interface BookingFormData {
-  item: string;
-  customer?: string;
-  customer_name: string;
-  customer_phone?: string;
-  customer_email?: string;
-  start_date: Date;
-  end_date: Date;
-  status: BookingStatus;
-  notes?: string;
 }
 
 // ============================================================================

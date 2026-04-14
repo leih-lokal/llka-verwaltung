@@ -2,7 +2,7 @@
  * Item category constants and utilities
  */
 
-import { ItemCategory } from '@/types';
+import { ItemCategory, type GermanCategory } from '@/types';
 
 /**
  * Category labels (German) - these are the actual values stored in the database
@@ -51,11 +51,11 @@ export const CATEGORY_OPTIONS = [
 /**
  * Get category label by value (supports both English enum and German values)
  */
-export function getCategoryLabel(category: ItemCategory | string): string {
-  // If it's already a German category, return it as is
-  if (GERMAN_CATEGORY_VALUES.includes(category as any)) {
+export function getCategoryLabel(category: ItemCategory | GermanCategory | string): string {
+  // If it's already a German category, return it as is.
+  if ((GERMAN_CATEGORY_VALUES as readonly string[]).includes(category)) {
     return category;
   }
-  // Otherwise look it up in the labels map
+  // Otherwise look it up in the labels map.
   return CATEGORY_LABELS[category as ItemCategory] || category;
 }

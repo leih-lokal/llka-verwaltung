@@ -76,7 +76,7 @@ const secondaryItems = [
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const { user, logout } = useAuth();
-  const userEmail = (user as any)?.email || 'admin@leihlokal.de';
+  const userEmail = user?.email || 'admin@leihlokal.de';
 
   return (
     <aside

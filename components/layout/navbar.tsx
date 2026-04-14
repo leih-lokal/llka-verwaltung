@@ -182,7 +182,7 @@ export function Navbar() {
   const { setOpen: setKeyboardShortcutsOpen } = useKeyboardShortcutsReferenceContext();
   const { settings, getFileUrl } = useSettings();
   const logoUrl = getFileUrl(settings.logo);
-  const userEmail = (user as any)?.email || 'admin@leihlokal.de';
+  const userEmail = user?.email || 'admin@leihlokal.de';
 
   // Detect OS for keyboard shortcut display
   const [isMac, setIsMac] = useState(false);
