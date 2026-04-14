@@ -5,7 +5,7 @@
 
 'use client';
 
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useMemo, useState, ReactNode } from 'react';
 
 interface QuickFindContextType {
   open: boolean;
@@ -16,9 +16,10 @@ const QuickFindContext = createContext<QuickFindContextType | undefined>(undefin
 
 export function QuickFindProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const value = useMemo(() => ({ open, setOpen }), [open]);
 
   return (
-    <QuickFindContext.Provider value={{ open, setOpen }}>
+    <QuickFindContext.Provider value={value}>
       {children}
     </QuickFindContext.Provider>
   );

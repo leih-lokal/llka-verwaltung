@@ -6,7 +6,7 @@
 
 'use client';
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, useState, useCallback, type ReactNode } from 'react';
 import type { Customer, Item } from '@/types';
 
 export type SequentialModeStep = 1 | 2 | 3 | 4;
@@ -118,31 +118,53 @@ export function SequentialModeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Computed values
-  const totalDeposit = selectedItems.reduce(
-    (sum, { item, quantity }) => sum + (item.deposit || 0) * quantity,
-    0
+  const totalDeposit = useMemo(
+    () =>
+      selectedItems.reduce(
+        (sum, { item, quantity }) => sum + (item.deposit || 0) * quantity,
+        0
+      ),
+    [selectedItems]
   );
 
-  const value: SequentialModeContextValue = {
-    open,
-    setOpen,
-    step,
-    setStep,
-    goBack,
-    goNext,
-    reset,
-    selectedCustomer,
-    setSelectedCustomer,
-    selectedItems,
-    addItem,
-    removeItem,
-    updateItemQuantity,
-    expectedDate,
-    setExpectedDate,
-    employee,
-    setEmployee,
-    totalDeposit,
-  };
+  const value = useMemo<SequentialModeContextValue>(
+    () => ({
+      open,
+      setOpen,
+      step,
+      setStep,
+      goBack,
+      goNext,
+      reset,
+      selectedCustomer,
+      setSelectedCustomer,
+      selectedItems,
+      addItem,
+      removeItem,
+      updateItemQuantity,
+      expectedDate,
+      setExpectedDate,
+      employee,
+      setEmployee,
+      totalDeposit,
+    }),
+    [
+      open,
+      setOpen,
+      step,
+      goBack,
+      goNext,
+      reset,
+      selectedCustomer,
+      selectedItems,
+      addItem,
+      removeItem,
+      updateItemQuantity,
+      expectedDate,
+      employee,
+      totalDeposit,
+    ]
+  );
 
   return (
     <SequentialModeContext.Provider value={value}>

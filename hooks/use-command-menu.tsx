@@ -5,7 +5,7 @@
 
 'use client';
 
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface CommandMenuContextType {
@@ -20,13 +20,15 @@ export function CommandMenuProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
 
-  const navigateTo = (path: string) => {
+  const navigateTo = useCallback((path: string) => {
     setOpen(false);
     router.push(path);
-  };
+  }, [router]);
+
+  const value = useMemo(() => ({ open, setOpen, navigateTo }), [open, navigateTo]);
 
   return (
-    <CommandMenuContext.Provider value={{ open, setOpen, navigateTo }}>
+    <CommandMenuContext.Provider value={value}>
       {children}
     </CommandMenuContext.Provider>
   );

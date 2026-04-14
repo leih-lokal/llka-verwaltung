@@ -152,6 +152,28 @@ const navigationItems = [
   },
 ];
 
+/**
+ * Isolated date display — re-renders every 60s so the calendar date
+ * updates past midnight without forcing the rest of the navbar
+ * (and every useSettings consumer) to re-render.
+ */
+function NavbarDate() {
+  const [today, setToday] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setToday(new Date()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <div className="font-mono">
+      {today.toLocaleDateString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit',
+      })}
+    </div>
+  );
+}
+
 export function Navbar() {
   const { user, logout } = useAuth();
   const { setOpen } = useQuickFind();
@@ -161,41 +183,11 @@ export function Navbar() {
   const { settings } = useSettings();
   const userEmail = (user as any)?.email || 'admin@leihlokal.de';
 
-  // State for current time
-  const [currentTime, setCurrentTime] = useState(new Date());
-
   // Detect OS for keyboard shortcut display
   const [isMac, setIsMac] = useState(false);
   useEffect(() => {
     setIsMac(navigator.platform.toUpperCase().indexOf('MAC') >= 0);
   }, []);
-
-  // Update time every second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
-
-  // Format time and date
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('de-DE', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
-  };
-
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('de-DE', {
-      weekday: 'short',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 h-16 border-b-2 border-primary bg-background">
@@ -235,14 +227,7 @@ export function Navbar() {
 
         {/* Time and Date */}
         <div className="flex flex-col items-end mr-4 text-sm">
-
-          <div className="font-mono">
-            {currentTime.toLocaleDateString('de-DE', { 
-              day: '2-digit', 
-              month: '2-digit', 
-              year: '2-digit' 
-            })}
-          </div>
+          <NavbarDate />
         </div>
 
         {/* Identity Picker */}

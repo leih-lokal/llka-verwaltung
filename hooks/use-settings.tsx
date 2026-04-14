@@ -9,6 +9,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useMemo,
   useState,
   useCallback,
   ReactNode,
@@ -102,8 +103,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [collectionExists, setCollectionExists] = useState(true);
 
-  // Merge raw settings with defaults
-  const settings: Omit<Settings, 'id' | 'created' | 'updated'> = {
+  // Merge raw settings with defaults. Memoized so consumers only re-render
+  // when rawSettings actually changes, not on every provider render.
+  const settings = useMemo<Omit<Settings, 'id' | 'created' | 'updated'>>(() => ({
     ...DEFAULT_SETTINGS,
     ...(rawSettings
       ? {
@@ -121,7 +123,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           opening_hours: rawSettings.opening_hours,
         }
       : {}),
-  };
+  }), [rawSettings]);
 
   // Load settings from PocketBase
   const loadSettings = useCallback(async () => {
@@ -227,19 +229,33 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     await loadSettings();
   }, [loadSettings]);
 
+  // Memoize the provider value so consumers only re-render when the
+  // underlying data actually changes.
+  const value = useMemo<SettingsContextType>(
+    () => ({
+      settings,
+      rawSettings,
+      isLoading,
+      isLoaded,
+      collectionExists,
+      updateSettings,
+      refreshSettings,
+      getFileUrl,
+    }),
+    [
+      settings,
+      rawSettings,
+      isLoading,
+      isLoaded,
+      collectionExists,
+      updateSettings,
+      refreshSettings,
+      getFileUrl,
+    ]
+  );
+
   return (
-    <SettingsContext.Provider
-      value={{
-        settings,
-        rawSettings,
-        isLoading,
-        isLoaded,
-        collectionExists,
-        updateSettings,
-        refreshSettings,
-        getFileUrl,
-      }}
-    >
+    <SettingsContext.Provider value={value}>
       {children}
     </SettingsContext.Provider>
   );
