@@ -346,8 +346,14 @@ export function Navbar() {
                   </div>
                 </section>
 
-                {/* Footer with settings link */}
-                <div className="border-t pt-3 mt-2 flex justify-end">
+                {/* Footer with settings link + build metadata */}
+                <div className="border-t pt-3 mt-2 flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-mono text-muted-foreground/80 tabular-nums">
+                    v{process.env.NEXT_PUBLIC_APP_VERSION}
+                    {process.env.NEXT_PUBLIC_BUILD_COMMIT ? (
+                      <> · {process.env.NEXT_PUBLIC_BUILD_COMMIT}</>
+                    ) : null}
+                  </span>
                   <Link
                     href="/settings"
                     className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
