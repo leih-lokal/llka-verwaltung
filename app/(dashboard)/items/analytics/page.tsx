@@ -37,9 +37,10 @@ export default function ItemAnalyticsPage() {
     try {
       setLoading(true);
 
-      // Fetch all items and all rentals in parallel
+      // Fetch all items (excluding soft-deleted) and all rentals in parallel
       const [items, rentals] = await Promise.all([
         collections.items().getFullList<Item>({
+          filter: 'status != "deleted"',
           fields: 'id,iid,name,category,status,added_on,copies',
         }),
         collections.rentals().getFullList<Rental>({
