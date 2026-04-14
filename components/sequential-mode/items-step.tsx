@@ -9,7 +9,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Package, Loader2, X, Plus, Minus, ChevronRight } from 'lucide-react';
-import { collections } from '@/lib/pocketbase/client';
+import { collections, pb } from '@/lib/pocketbase/client';
 import type { Item } from '@/types';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/utils/formatting';
@@ -49,9 +49,8 @@ export function ItemsStep() {
           filters.push(`iid=${parseInt(searchQuery, 10)}`);
         }
 
-        filters.push(`name~'${searchQuery}'`);
-        filters.push(`brand~'${searchQuery}'`);
-        filters.push(`model~'${searchQuery}'`);
+        const q = pb.filter('name ~ {:q} || brand ~ {:q} || model ~ {:q}', { q: searchQuery });
+        filters.push(q);
 
         // Only show available items (instock or reserved)
         const filter = `(${filters.join(' || ')}) && (status='instock' || status='reserved')`;

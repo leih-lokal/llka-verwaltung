@@ -55,7 +55,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
-import { collections } from "@/lib/pocketbase/client";
+import { collections, pb } from "@/lib/pocketbase/client";
 import { formatDate, formatCurrency } from "@/lib/utils/formatting";
 import { cn } from "@/lib/utils";
 import type { Reservation, ReservationExpanded, Customer, Item } from "@/types";
@@ -239,10 +239,7 @@ export function ReservationDetailSheet({
           filters.push(`iid=${parseInt(itemSearch, 10)}`);
         }
 
-        // Always search by name
-        filters.push(`name~'${itemSearch}'`);
-        filters.push(`brand~'${itemSearch}'`);
-        filters.push(`model~'${itemSearch}'`);
+        filters.push(pb.filter('name ~ {:q} || brand ~ {:q} || model ~ {:q}', { q: itemSearch }));
 
         // Only show items that are available (instock only, not reserved) and not protected
         const filter = `(${filters.join(" || ")}) && status='instock' && is_protected=false`;

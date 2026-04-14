@@ -47,7 +47,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Checkbox } from '@/components/ui/checkbox';
-import { collections } from '@/lib/pocketbase/client';
+import { collections, pb } from '@/lib/pocketbase/client';
 import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate } from '@/lib/utils/formatting';
 import { cn } from '@/lib/utils';
 import { useIdentity } from '@/hooks/use-identity';
@@ -391,10 +391,7 @@ export function RentalDetailSheet({
           filters.push(`iid=${parseInt(itemSearch, 10)}`);
         }
 
-        // Always search by name
-        filters.push(`name~'${itemSearch}'`);
-        filters.push(`brand~'${itemSearch}'`);
-        filters.push(`model~'${itemSearch}'`);
+        filters.push(pb.filter('name ~ {:q} || brand ~ {:q} || model ~ {:q}', { q: itemSearch }));
 
         // Only show items that are available (instock) or reserved
         const filter = `(${filters.join(' || ')}) && (status='instock' || status='reserved')`;
