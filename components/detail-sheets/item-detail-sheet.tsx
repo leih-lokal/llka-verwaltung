@@ -302,13 +302,14 @@ export function ItemDetailSheet({
 
       if (data.packaging) formData.append('packaging', data.packaging);
       if (data.manual) formData.append('manual', data.manual);
-      if (data.parts !== undefined) formData.append('parts', data.parts.toString());
+      // Always append parts/msrp (even empty) so PATCH can clear a previously-set value.
+      formData.append('parts', data.parts !== undefined ? data.parts.toString() : '');
       formData.append('copies', data.copies.toString());
       formData.append('status', data.status);
       if (data.highlight_color) formData.append('highlight_color', data.highlight_color);
       if (data.internal_note) formData.append('internal_note', data.internal_note);
       formData.append('added_on', data.added_on);
-      if (data.msrp !== undefined) formData.append('msrp', data.msrp.toString());
+      formData.append('msrp', data.msrp !== undefined ? data.msrp.toString() : '');
       formData.append('is_protected', data.is_protected ? 'true' : 'false');
 
       // Add new images
@@ -640,8 +641,11 @@ export function ItemDetailSheet({
                         type="number"
                         step="0.01"
                         {...form.register('msrp', {
-                          setValueAs: (v) =>
-                            v === '' || v == null ? undefined : Number(v),
+                          setValueAs: (v) => {
+                            if (v === '' || v == null) return undefined;
+                            const n = Number(v);
+                            return Number.isNaN(n) ? undefined : n;
+                          },
                         })}
                         className="mt-1"
                       />
@@ -675,8 +679,11 @@ export function ItemDetailSheet({
                         id="parts"
                         type="number"
                         {...form.register('parts', {
-                          setValueAs: (v) =>
-                            v === '' || v == null ? undefined : Number(v),
+                          setValueAs: (v) => {
+                            if (v === '' || v == null) return undefined;
+                            const n = Number(v);
+                            return Number.isNaN(n) ? undefined : n;
+                          },
                         })}
                         className="mt-1"
                       />

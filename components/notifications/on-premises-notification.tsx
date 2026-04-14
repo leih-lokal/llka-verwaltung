@@ -6,6 +6,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { X, MapPin, Package, User, Clock } from 'lucide-react';
 import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
 import { collections } from '@/lib/pocketbase/client';
@@ -20,6 +21,7 @@ interface NotificationData extends ReservationExpanded {
 }
 
 export function OnPremisesNotification() {
+  const router = useRouter();
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -194,9 +196,7 @@ export function OnPremisesNotification() {
             <div className="mt-4">
               <Button
                 className="w-full bg-white text-orange-600 hover:bg-white/90 font-semibold"
-                onClick={() => {
-                  window.location.href = `/reservations?view=${notification.id}`;
-                }}
+                onClick={() => router.push(`/reservations?view=${notification.id}`)}
               >
                 Details anzeigen
               </Button>
