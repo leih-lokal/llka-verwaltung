@@ -10,79 +10,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Upload, X, Image as ImageIcon } from "lucide-react"
 import { toast } from "sonner"
 import { pb } from "@/lib/pocketbase/client"
+import { compressBrandingAsset } from "@/lib/image/compress"
 
-const MAX_IMAGE_SIZE = 500
-
-/**
- * Compress and resize an image file to max dimensions
- * Returns a new File object with the compressed image
- */
-async function compressImage(file: File, maxSize: number = MAX_IMAGE_SIZE): Promise<File> {
-  // SVGs don't need compression
-  if (file.type === "image/svg+xml") {
-    return file
-  }
-
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    const canvas = document.createElement("canvas")
-    const ctx = canvas.getContext("2d")
-
-    img.onload = () => {
-      let { width, height } = img
-
-      // Calculate new dimensions while maintaining aspect ratio
-      if (width > maxSize || height > maxSize) {
-        if (width > height) {
-          height = Math.round((height * maxSize) / width)
-          width = maxSize
-        } else {
-          width = Math.round((width * maxSize) / height)
-          height = maxSize
-        }
-      }
-
-      canvas.width = width
-      canvas.height = height
-
-      if (!ctx) {
-        reject(new Error("Could not get canvas context"))
-        return
-      }
-
-      ctx.drawImage(img, 0, 0, width, height)
-
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            reject(new Error("Could not compress image"))
-            return
-          }
-
-          // Create new file with original name
-          const compressedFile = new File([blob], file.name, {
-            type: "image/png",
-            lastModified: Date.now(),
-          })
-
-          resolve(compressedFile)
-        },
-        "image/png",
-        0.9
-      )
-    }
-
-    img.onerror = () => reject(new Error("Could not load image"))
-
-    // Load image from file
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      img.src = e.target?.result as string
-    }
-    reader.onerror = () => reject(new Error("Could not read file"))
-    reader.readAsDataURL(file)
-  })
-}
+const LOGO_MAX = 500
+const FAVICON_MAX = 64
 
 export function BrandingTab() {
   const { settings, rawSettings, updateSettings, getFileUrl, refreshSettings } = useSettings()
@@ -151,14 +82,12 @@ export function BrandingTab() {
       formData.append("show_powered_by", String(showPoweredBy))
 
       if (logoFile) {
-        // Compress image before upload
-        const compressedLogo = await compressImage(logoFile)
+        const compressedLogo = await compressBrandingAsset(logoFile, settings.image_compression, LOGO_MAX)
         formData.append("logo", compressedLogo)
       }
 
       if (faviconFile) {
-        // Compress favicon before upload (smaller max size for favicons)
-        const compressedFavicon = await compressImage(faviconFile, 64)
+        const compressedFavicon = await compressBrandingAsset(faviconFile, settings.image_compression, FAVICON_MAX)
         formData.append("favicon", compressedFavicon)
       }
 

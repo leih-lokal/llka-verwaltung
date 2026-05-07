@@ -122,6 +122,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           reservations_enabled: rawSettings.reservations_enabled,
           setup_complete: rawSettings.setup_complete,
           opening_hours: rawSettings.opening_hours,
+          image_compression: rawSettings.image_compression ?? DEFAULT_SETTINGS.image_compression,
         }
       : {}),
   }), [rawSettings]);
@@ -303,6 +304,7 @@ export function usePublicSettings() {
             reservations_enabled: record.reservations_enabled,
             setup_complete: record.setup_complete,
             opening_hours: record.opening_hours,
+            image_compression: record.image_compression ?? DEFAULT_SETTINGS.image_compression,
           });
         }
       } catch (error) {

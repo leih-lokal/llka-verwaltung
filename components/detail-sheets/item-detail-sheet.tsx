@@ -41,6 +41,20 @@ import { Badge } from '@/components/ui/badge';
 import { collections, pb } from '@/lib/pocketbase/client';
 import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate } from '@/lib/utils/formatting';
 import type { Item, ItemFormData, RentalExpanded, ItemCategory, ItemStatus, HighlightColor } from '@/types';
+import { compressImage } from '@/lib/image/compress';
+import { useSettings } from '@/hooks/use-settings';
+
+const COMPRESS_CONCURRENCY = 4;
+
+async function compressInBatches(files: File[], cfg: Parameters<typeof compressImage>[1]): Promise<File[]> {
+  const out: File[] = [];
+  for (let i = 0; i < files.length; i += COMPRESS_CONCURRENCY) {
+    const batch = files.slice(i, i + COMPRESS_CONCURRENCY);
+    const done = await Promise.all(batch.map((f) => compressImage(f, cfg)));
+    out.push(...done);
+  }
+  return out;
+}
 import { CATEGORY_OPTIONS, GERMAN_CATEGORY_VALUES } from '@/lib/constants/categories';
 import { RentalDetailSheet } from './rental-detail-sheet';
 import { FormHelpPanel } from './form-help-panel';
@@ -90,6 +104,7 @@ export function ItemDetailSheet({
   onOpenChange,
   onSave,
 }: ItemDetailSheetProps) {
+  const { settings } = useSettings();
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -257,10 +272,20 @@ export function ItemDetailSheet({
   };
 
   // Image handling functions
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files) {
-      setNewImages((prev) => [...prev, ...Array.from(files)]);
+    if (!files) return;
+    const fileArray = Array.from(files);
+    try {
+      const compressed = await compressInBatches(fileArray, settings.image_compression);
+      setNewImages((prev) => [...prev, ...compressed]);
+    } catch (err) {
+      console.error('Image compression failed', err);
+      toast.error('Bildkomprimierung fehlgeschlagen, Bilder werden unverändert übernommen');
+      setNewImages((prev) => [...prev, ...fileArray]);
+    } finally {
+      // Reset input so re-selecting the same file triggers onChange again
+      e.target.value = '';
     }
   };
 

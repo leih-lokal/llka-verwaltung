@@ -19,6 +19,7 @@ import { OpeningHoursTab } from "@/components/settings/opening-hours-tab"
 import { useSettings } from "@/hooks/use-settings"
 import { Button } from "@/components/ui/button"
 import { pb } from "@/lib/pocketbase/client"
+import { IMAGE_COMPRESSION_FIELD } from "@/lib/pocketbase/settings-schema"
 import { toast } from "sonner"
 import Link from "next/link"
 
@@ -191,6 +192,7 @@ const SETTINGS_COLLECTION_SCHEMA = {
       system: false,
       type: "json"
     },
+    IMAGE_COMPRESSION_FIELD,
     {
       hidden: false,
       id: "autodate2990389176",

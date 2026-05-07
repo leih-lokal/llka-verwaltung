@@ -17,71 +17,9 @@ import { Upload, X, Check, ArrowRight, ArrowLeft, Sparkles, Palette, Building2, 
 import { toast } from 'sonner';
 import { pb } from '@/lib/pocketbase/client';
 import { cn } from '@/lib/utils';
+import { compressBrandingAsset } from '@/lib/image/compress';
 
-const MAX_IMAGE_SIZE = 500;
-
-async function compressImage(file: File, maxSize: number = MAX_IMAGE_SIZE): Promise<File> {
-  if (file.type === 'image/svg+xml') {
-    return file;
-  }
-
-  return new Promise((resolve, reject) => {
-    const img = new window.Image();
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-
-    img.onload = () => {
-      let { width, height } = img;
-
-      if (width > maxSize || height > maxSize) {
-        if (width > height) {
-          height = Math.round((height * maxSize) / width);
-          width = maxSize;
-        } else {
-          width = Math.round((width * maxSize) / height);
-          height = maxSize;
-        }
-      }
-
-      canvas.width = width;
-      canvas.height = height;
-
-      if (!ctx) {
-        reject(new Error('Could not get canvas context'));
-        return;
-      }
-
-      ctx.drawImage(img, 0, 0, width, height);
-
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            reject(new Error('Could not compress image'));
-            return;
-          }
-
-          const compressedFile = new File([blob], file.name, {
-            type: 'image/png',
-            lastModified: Date.now(),
-          });
-
-          resolve(compressedFile);
-        },
-        'image/png',
-        0.9
-      );
-    };
-
-    img.onerror = () => reject(new Error('Could not load image'));
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      img.src = e.target?.result as string;
-    };
-    reader.onerror = () => reject(new Error('Could not read file'));
-    reader.readAsDataURL(file);
-  });
-}
+const LOGO_MAX = 500;
 
 const STEPS = [
   { id: 'welcome', title: 'Willkommen', icon: Sparkles },
@@ -164,7 +102,7 @@ export default function SetupPage() {
       formData.append('setup_complete', 'true');
 
       if (logoFile) {
-        const compressedLogo = await compressImage(logoFile);
+        const compressedLogo = await compressBrandingAsset(logoFile, settings.image_compression, LOGO_MAX);
         formData.append('logo', compressedLogo);
       }
 

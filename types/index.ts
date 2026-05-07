@@ -737,7 +737,38 @@ export interface Settings extends BaseRecord {
 
   /** Opening hours as array of [day, open, close] tuples */
   opening_hours: [string, string, string][];
+
+  /** Image auto-compression settings applied client-side before upload */
+  image_compression: ImageCompressionSettings;
 }
+
+/**
+ * Output format for compressed images.
+ * - `keep`: re-encode in the source format (PNG stays PNG, JPEG stays JPEG)
+ * - `webp`: re-encode all to WebP (smaller files, but the target field's
+ *   `mimeTypes` validator must allow image/webp)
+ * - `jpeg`: re-encode all to JPEG (no transparency, broadest compatibility)
+ */
+export type ImageOutputFormat = 'keep' | 'webp' | 'jpeg';
+
+export interface ImageCompressionSettings {
+  enabled: boolean;
+  /** Longest-edge cap in pixels; smaller images are not upscaled */
+  max_dimension_px: number;
+  /** Encoder quality 1-100 (used for jpeg/webp output) */
+  quality: number;
+  output_format: ImageOutputFormat;
+  /** Files smaller than this are uploaded as-is */
+  skip_if_smaller_than_kb: number;
+}
+
+export const DEFAULT_IMAGE_COMPRESSION: ImageCompressionSettings = {
+  enabled: true,
+  max_dimension_px: 1600,
+  quality: 82,
+  output_format: 'keep',
+  skip_if_smaller_than_kb: 200,
+};
 
 /**
  * Settings form data for editing
@@ -776,6 +807,7 @@ export const DEFAULT_SETTINGS: Omit<Settings, keyof BaseRecord> = {
     ['fri', '15:00', '19:00'],
     ['sat', '10:00', '14:00'],
   ],
+  image_compression: DEFAULT_IMAGE_COMPRESSION,
 };
 
 // ============================================================================
