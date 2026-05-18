@@ -56,7 +56,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { collections, pb } from "@/lib/pocketbase/client";
-import { formatDate, formatCurrency } from "@/lib/utils/formatting";
+import { formatDate, formatCurrency, formatPhoneNumber, isValidPhoneNumber } from "@/lib/utils/formatting";
 import { cn } from "@/lib/utils";
 import type { Reservation, ReservationExpanded, Customer, Item } from "@/types";
 import { CustomerDetailSheet } from "./customer-detail-sheet";
@@ -75,7 +75,10 @@ const fromLocalInput = (s: string) =>
 const reservationSchema = z.object({
   customer_iid: z.number().optional(),
   customer_name: z.string().optional(),
-  customer_phone: z.string().optional(),
+  customer_phone: z
+    .string()
+    .optional()
+    .refine((val) => isValidPhoneNumber(val ?? ""), { message: "Ungültige Telefonnummer" }),
   customer_email: z
     .string()
     .email("Ungültige E-Mail-Adresse")
@@ -268,7 +271,7 @@ export function ReservationDetailSheet({
         "customer_name",
         `${selectedCustomer.firstname} ${selectedCustomer.lastname}`,
       );
-      form.setValue("customer_phone", selectedCustomer.phone || "");
+      form.setValue("customer_phone", formatPhoneNumber(selectedCustomer.phone || ""));
       form.setValue("customer_email", selectedCustomer.email || "");
     }
   }, [selectedCustomer, isNewCustomer, form]);
@@ -302,7 +305,7 @@ export function ReservationDetailSheet({
         form.reset({
           customer_iid: reservation.customer_iid || undefined,
           customer_name: reservation.customer_name,
-          customer_phone: reservation.customer_phone || "",
+          customer_phone: formatPhoneNumber(reservation.customer_phone || ""),
           customer_email: reservation.customer_email || "",
           is_new_customer: reservation.is_new_customer,
           item_ids: reservation.items,
@@ -369,7 +372,7 @@ export function ReservationDetailSheet({
       const formData: Partial<Reservation> = {
         customer_iid: data.is_new_customer ? undefined : data.customer_iid,
         customer_name: data.customer_name,
-        customer_phone: data.customer_phone || undefined,
+        customer_phone: formatPhoneNumber(data.customer_phone || "") || undefined,
         customer_email: data.customer_email || undefined,
         is_new_customer: data.is_new_customer,
         items: data.item_ids,
@@ -482,7 +485,7 @@ export function ReservationDetailSheet({
       firstname,
       lastname,
       email: formValues.customer_email || undefined,
-      phone: formValues.customer_phone || undefined,
+      phone: formatPhoneNumber(formValues.customer_phone || "") || undefined,
     });
 
     setShowCustomerSheet(true);
@@ -723,7 +726,7 @@ export function ReservationDetailSheet({
                                 <p>{selectedCustomer.email}</p>
                               )}
                               {selectedCustomer.phone && (
-                                <p>{selectedCustomer.phone}</p>
+                                <p>{formatPhoneNumber(selectedCustomer.phone)}</p>
                               )}
                               {selectedCustomer.street && (
                                 <p>
@@ -762,6 +765,11 @@ export function ReservationDetailSheet({
                           className="mt-1"
                           readOnly={!isNewCustomer && !!selectedCustomer}
                         />
+                        {form.formState.errors.customer_phone && (
+                          <p className="text-sm text-destructive mt-1">
+                            {form.formState.errors.customer_phone.message}
+                          </p>
+                        )}
                       </div>
 
                       <div>

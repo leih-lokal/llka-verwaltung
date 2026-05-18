@@ -48,7 +48,7 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { collections, pb } from '@/lib/pocketbase/client';
-import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate } from '@/lib/utils/formatting';
+import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate, formatPhoneNumber, formatPhoneNumberForTel } from '@/lib/utils/formatting';
 import { cn } from '@/lib/utils';
 import { useIdentity } from '@/hooks/use-identity';
 import type { Rental, RentalExpanded, Customer, Item } from '@/types';
@@ -1114,11 +1114,11 @@ export function RentalDetailSheet({
                             {selectedCustomer.phone && (
                               <p>
                                 <a
-                                  href={`tel:${selectedCustomer.phone.replace(/\s/g, '')}`}
+                                  href={`tel:${formatPhoneNumberForTel(selectedCustomer.phone)}`}
                                   className="hover:underline font-mono text-base text-foreground"
                                   title="Zum Anrufen klicken"
                                 >
-                                  {selectedCustomer.phone.replace(/\s/g, '').match(/.{1,4}/g)?.join(' ') || selectedCustomer.phone}
+                                  {formatPhoneNumber(selectedCustomer.phone)}
                                 </a>
                               </p>
                             )}

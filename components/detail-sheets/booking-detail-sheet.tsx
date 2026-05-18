@@ -38,6 +38,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { collections } from '@/lib/pocketbase/client';
+import { formatPhoneNumber, isValidPhoneNumber } from '@/lib/utils/formatting';
 import { BookingStatus } from '@/types';
 import type { Booking, BookingExpanded } from '@/types';
 import {
@@ -48,7 +49,10 @@ import {
 
 const bookingSchema = z.object({
   customer_name: z.string().min(1, 'Name ist erforderlich'),
-  customer_phone: z.string().optional(),
+  customer_phone: z
+    .string()
+    .optional()
+    .refine((val) => isValidPhoneNumber(val ?? ''), { message: 'Ungültige Telefonnummer' }),
   customer_email: z
     .string()
     .email('Ungültige E-Mail-Adresse')
@@ -94,7 +98,7 @@ export function BookingDetailSheet({
     if (booking) {
       form.reset({
         customer_name: booking.customer_name,
-        customer_phone: booking.customer_phone || '',
+        customer_phone: formatPhoneNumber(booking.customer_phone || ''),
         customer_email: booking.customer_email || '',
         start_date: booking.start_date.split(' ')[0] || booking.start_date.split('T')[0],
         end_date: booking.end_date.split(' ')[0] || booking.end_date.split('T')[0],
@@ -109,7 +113,7 @@ export function BookingDetailSheet({
     try {
       await collections.bookings().update(booking.id, {
         customer_name: values.customer_name,
-        customer_phone: values.customer_phone || '',
+        customer_phone: formatPhoneNumber(values.customer_phone || ''),
         customer_email: values.customer_email || '',
         start_date: values.start_date + ' 00:00:00.000Z',
         end_date: values.end_date + ' 00:00:00.000Z',
@@ -223,6 +227,11 @@ export function BookingDetailSheet({
                 {...form.register('customer_phone')}
                 placeholder="Telefonnummer"
               />
+              {form.formState.errors.customer_phone && (
+                <p className="text-xs text-destructive">
+                  {form.formState.errors.customer_phone.message}
+                </p>
+              )}
             </div>
 
             {/* Customer Email */}
