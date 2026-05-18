@@ -39,7 +39,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { collections } from '@/lib/pocketbase/client';
-import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate } from '@/lib/utils/formatting';
+import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate, formatPhoneNumber, formatPhoneNumberForTel, isValidPhoneNumber } from '@/lib/utils/formatting';
 import { getRentalStatusLabel } from '@/lib/constants/statuses';
 import { generateCustomerPrintContent } from '@/components/print/customer-print-content';
 import type { Customer, CustomerFormData, Rental, RentalExpanded, Reservation, ReservationExpanded, HighlightColor } from '@/types';
@@ -59,7 +59,11 @@ const customerSchema = z.object({
     .email('Ungültige E-Mail-Adresse')
     .optional()
     .or(z.literal('')),
-  phone: z.string().optional().or(z.literal('')),
+  phone: z
+    .string()
+    .optional()
+    .or(z.literal(''))
+    .refine((val) => isValidPhoneNumber(val ?? ''), { message: 'Ungültige Telefonnummer' }),
   street: z.string().optional(),
   postal_code: z.string().optional(),
   city: z.string().optional(),
@@ -132,7 +136,7 @@ export function CustomerDetailSheet({
         firstname: customer.firstname,
         lastname: customer.lastname,
         email: customer.email || '',
-        phone: customer.phone || '',
+        phone: formatPhoneNumber(customer.phone || ''),
         street: customer.street || '',
         postal_code: customer.postal_code || '',
         city: customer.city || '',
@@ -159,7 +163,7 @@ export function CustomerDetailSheet({
             firstname: customer.firstname || '',
             lastname: customer.lastname || '',
             email: customer.email || '',
-            phone: customer.phone || '',
+            phone: formatPhoneNumber(customer.phone || ''),
             street: customer.street || '',
             postal_code: customer.postal_code || '',
             city: customer.city || '',
@@ -262,7 +266,7 @@ export function CustomerDetailSheet({
         firstname: data.firstname,
         lastname: data.lastname,
         email: data.email,
-        phone: data.phone,
+        phone: formatPhoneNumber(data.phone || ''),
         street: data.street || undefined,
         postal_code: data.postal_code || undefined,
         city: data.city || undefined,
@@ -439,7 +443,7 @@ export function CustomerDetailSheet({
                   <div className="flex gap-4 text-sm text-muted-foreground">
                     {customer.email && <span>{customer.email}</span>}
                     {customer.phone && <span>•</span>}
-                    {customer.phone && <span>{customer.phone}</span>}
+                    {customer.phone && <span>{formatPhoneNumber(customer.phone)}</span>}
                   </div>
                 )}
               </div>
@@ -901,8 +905,8 @@ export function CustomerDetailSheet({
                     {customer?.phone && (
                       <div className="flex items-center gap-3">
                         <PhoneIcon className="size-5 text-muted-foreground shrink-0" />
-                        <a href={`tel:${customer.phone}`} className="text-base hover:underline">
-                          {customer.phone}
+                        <a href={`tel:${formatPhoneNumberForTel(customer.phone)}`} className="text-base hover:underline">
+                          {formatPhoneNumber(customer.phone)}
                         </a>
                       </div>
                     )}

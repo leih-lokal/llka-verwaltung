@@ -4,8 +4,16 @@
 
 import { format, formatDistance, differenceInDays, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { parsePhoneNumberFromString, type CountryCode, type PhoneNumber } from 'libphonenumber-js/min';
 import { RentalStatus, type Rental } from '@/types';
 import { getRentalReturnStatus } from './partial-returns';
+
+const DEFAULT_PHONE_COUNTRY: CountryCode = 'DE';
+
+function parsePhone(phone: string, country: CountryCode): PhoneNumber | undefined {
+  const trimmed = phone?.trim();
+  return trimmed ? parsePhoneNumberFromString(trimmed, country) : undefined;
+}
 
 /**
  * Format date to German locale
@@ -169,24 +177,36 @@ export function calculateDaysOverdue(
 }
 
 /**
- * Format phone number (German format)
+ * Format a phone number for display. Falls back to the raw input if unparseable.
  */
-export function formatPhoneNumber(phone: string): string {
-  // Remove all non-digit characters
-  const cleaned = phone.replace(/\D/g, '');
+export function formatPhoneNumber(
+  phone: string,
+  defaultCountry: CountryCode = DEFAULT_PHONE_COUNTRY
+): string {
+  if (!phone?.trim()) return '';
+  return parsePhone(phone, defaultCountry)?.formatInternational() ?? phone;
+}
 
-  // Format as German phone number
-  if (cleaned.length === 11 && cleaned.startsWith('49')) {
-    // +49 123 45678910 -> +49 123 456 789 10
-    return `+49 ${cleaned.slice(2, 5)} ${cleaned.slice(5, 8)} ${cleaned.slice(8, 11)}`;
-  }
+/**
+ * E.164 form for use in `tel:` hrefs. Falls back to the raw input if unparseable.
+ */
+export function formatPhoneNumberForTel(
+  phone: string,
+  defaultCountry: CountryCode = DEFAULT_PHONE_COUNTRY
+): string {
+  if (!phone?.trim()) return '';
+  return parsePhone(phone, defaultCountry)?.number ?? phone;
+}
 
-  if (cleaned.length === 10) {
-    // 0123456789 -> 0123 456 789
-    return `${cleaned.slice(0, 4)} ${cleaned.slice(4, 7)} ${cleaned.slice(7)}`;
-  }
-
-  return phone;
+/**
+ * Empty input is treated as valid (the field is optional).
+ */
+export function isValidPhoneNumber(
+  phone: string,
+  defaultCountry: CountryCode = DEFAULT_PHONE_COUNTRY
+): boolean {
+  if (!phone?.trim()) return true;
+  return parsePhone(phone, defaultCountry)?.isValid() ?? false;
 }
 
 /**
