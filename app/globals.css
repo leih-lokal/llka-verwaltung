@@ -261,6 +261,12 @@
   outline-offset: -2px;
 }
 
+/* On red surfaces (e.g. the on-premises notification) the red ring colour
+   would be invisible; use white there. */
+.focus-ring-light :focus-visible {
+  outline-color: #fff;
+}
+
 /* ============================================
    CRT System Check Mode Styles
    ============================================ */

@@ -6,10 +6,12 @@
 
 'use client';
 
+import type { CSSProperties } from 'react';
 import { CircleCheckBig, PackageCheck, TriangleAlert } from 'lucide-react';
 import { BookingStatus } from '@/types';
 import { BOOKING_STATUS_LABELS } from '@/lib/constants/statuses';
 import { formatDate } from '@/lib/utils/formatting';
+import { cn } from '@/lib/utils';
 import type { BookingSlot } from '@/lib/utils/booking-grid';
 
 /** Soft pastel palette — bg, text, border */
@@ -108,7 +110,12 @@ export function BookingBlock({
     <button
       data-booking-block
       onClick={onClick}
-      className="relative rounded-md shadow-sm border cursor-pointer hover:shadow-md transition-shadow text-left overflow-hidden px-1.5 py-0.5 mx-1"
+      className={cn(
+        'relative rounded-md shadow-sm border cursor-pointer hover:shadow-md transition-shadow text-left overflow-hidden px-1.5 py-0.5 mx-1',
+        // A class, not an inline style: inline outlines would override the
+        // global :focus-visible outline and hide keyboard focus
+        slot.conflict && 'outline-2 outline-dashed -outline-offset-2 outline-(--conflict-color)'
+      )}
       style={{
         gridRow: `${gridRowStart} / ${gridRowEnd}`,
         gridColumn: `${gridColumnStart} / ${gridColumnEnd}`,
@@ -118,9 +125,8 @@ export function BookingBlock({
         borderLeftWidth: accentStatus ? 3 : undefined,
         borderLeftColor: accentColor,
         opacity: isReturned ? 0.8 : undefined,
-        outline: slot.conflict ? `2px dashed ${CONFLICT_COLOR}` : undefined,
-        outlineOffset: slot.conflict ? -2 : undefined,
-      }}
+        ...(slot.conflict && { '--conflict-color': CONFLICT_COLOR }),
+      } as CSSProperties}
       title={`${slot.booking.customer_name} — ${statusLabel}${copyCount > 1 ? ` (${copyCount}×)` : ''}${conflictLabel ? ` — ${conflictLabel}` : ''}`}
       aria-label={ariaLabel}
     >

@@ -97,7 +97,7 @@ export function OnPremisesNotification() {
         <div
           key={notification.id}
           role="alert"
-          className="pointer-events-auto bg-linear-to-tl from-red-800 to-red-700 text-white rounded-lg shadow-2xl border-2 border-white animate-in slide-in-from-right-5 duration-300"
+          className="pointer-events-auto focus-ring-light bg-linear-to-tl from-red-800 to-red-700 text-white rounded-lg shadow-2xl border-2 border-white animate-in slide-in-from-right-5 duration-300"
         >
           <div className="p-5">
             {/* Header */}
