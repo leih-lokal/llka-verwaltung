@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -99,6 +99,31 @@ interface ItemDetailSheetProps {
 // form.reset({ parts: undefined }) does NOT clear uncontrolled number inputs;
 // an empty string does.
 const EMPTY_NUMBER = '' as unknown as number | undefined;
+
+/**
+ * Preview of an image that hasn't been uploaded yet. Creates the object URL
+ * when the <img> mounts (once per file, not on every render) and revokes it
+ * when the file changes or the preview unmounts.
+ */
+function NewImagePreview({ file }: { file: File }) {
+  const showFile = useCallback(
+    (img: HTMLImageElement | null) => {
+      if (!img) return;
+      const url = URL.createObjectURL(file);
+      img.src = url;
+      return () => URL.revokeObjectURL(url);
+    },
+    [file]
+  );
+
+  return (
+    <img
+      ref={showFile}
+      alt="New upload"
+      className="w-full h-full object-cover"
+    />
+  );
+}
 
 export function ItemDetailSheet({
   item,
@@ -785,11 +810,7 @@ export function ItemDetailSheet({
                     {newImages.map((file, index) => (
                       <div key={`new-${index}`} className="relative group">
                         <div className="aspect-square rounded-lg border border-border overflow-hidden bg-muted">
-                          <img
-                            src={URL.createObjectURL(file)}
-                            alt="New upload"
-                            className="w-full h-full object-cover"
-                          />
+                          <NewImagePreview file={file} />
                         </div>
                         {isEditMode && (
                           <button
