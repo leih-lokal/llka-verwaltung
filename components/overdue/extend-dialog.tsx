@@ -26,8 +26,8 @@ import { CalendarIcon } from 'lucide-react';
 import type { RentalExpanded } from '@/types';
 import { collections } from '@/lib/pocketbase/client';
 import { toast } from 'sonner';
-import { formatDate, formatFullName, dateToLocalString, localStringToDate } from '@/lib/utils/formatting';
-import { addDays, parseISO } from 'date-fns';
+import { formatDate, formatFullName, dateToLocalString } from '@/lib/utils/formatting';
+import { extendedDueDate } from '@/lib/utils/rental-extension';
 
 interface ExtendDialogProps {
   open: boolean;
@@ -40,8 +40,6 @@ export function ExtendDialog({ open, onOpenChange, rental, onSuccess }: ExtendDi
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
 
-  const currentExpectedDate = parseISO(rental.expected_on);
-
   const customerName = rental.expand?.customer
     ? formatFullName(rental.expand.customer.firstname, rental.expand.customer.lastname)
     : 'Unbekannt';
@@ -50,15 +48,15 @@ export function ExtendDialog({ open, onOpenChange, rental, onSuccess }: ExtendDi
     try {
       setIsSubmitting(true);
 
-      const newExpectedDate = addDays(currentExpectedDate, days);
-      const newExpectedDateStr = dateToLocalString(newExpectedDate);
+      // From today if already overdue, otherwise from the current due date
+      const newExpectedDateStr = extendedDueDate(rental.expected_on, days);
 
       await collections.rentals().update(rental.id, {
         expected_on: newExpectedDateStr,
         extended_on: dateToLocalString(new Date()), // Track when extension was made
       });
 
-      toast.success(`Frist um ${days} Tage verlängert`);
+      toast.success(`Neue Rückgabefrist: ${formatDate(newExpectedDateStr)}`);
       onSuccess();
       onOpenChange(false);
     } catch (error) {
@@ -122,6 +120,9 @@ export function ExtendDialog({ open, onOpenChange, rental, onSuccess }: ExtendDi
           {/* Quick Extend Buttons */}
           <div className="space-y-2">
             <Label>Schnellverlängerung</Label>
+            <p className="text-xs text-muted-foreground">
+              Ab der aktuellen Frist, bei überfälligen Ausleihen ab heute
+            </p>
             <div className="flex gap-2">
               <Button
                 variant="outline"
