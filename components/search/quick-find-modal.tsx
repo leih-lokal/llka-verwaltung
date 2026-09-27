@@ -27,9 +27,7 @@ import { collections, pb } from '@/lib/pocketbase/client';
 import type {
   Customer,
   Item,
-  Rental,
   RentalExpanded,
-  Reservation,
   ReservationExpanded,
 } from '@/types';
 import { Loader2, UserIcon, PackageIcon, RepeatIcon, CalendarIcon } from 'lucide-react';
@@ -294,7 +292,7 @@ export function QuickFindModal() {
                     <h3 className="text-xs font-semibold text-muted-foreground mb-2">
                       KUND:INNEN ({results.customers.length})
                     </h3>
-                    {results.customers.map((customer, idx) => {
+                    {results.customers.map((customer) => {
                       const globalIndex = allResults.findIndex(
                         (r) => r.type === 'customer' && r.data.id === customer.id
                       );
@@ -507,7 +505,7 @@ export function QuickFindModal() {
           customer={selectedEntity.data as Customer}
           open={isSheetOpen}
           onOpenChange={setIsSheetOpen}
-          onSave={(updated) => {
+          onSave={() => {
             // Optionally refresh the search results
             handleCloseSheet();
           }}
@@ -519,7 +517,7 @@ export function QuickFindModal() {
           item={selectedEntity.data as Item}
           open={isSheetOpen}
           onOpenChange={setIsSheetOpen}
-          onSave={(updated) => {
+          onSave={() => {
             handleCloseSheet();
           }}
         />
@@ -530,7 +528,7 @@ export function QuickFindModal() {
           rental={selectedEntity.data as RentalExpanded}
           open={isSheetOpen}
           onOpenChange={setIsSheetOpen}
-          onSave={(updated) => {
+          onSave={() => {
             handleCloseSheet();
           }}
         />
@@ -541,7 +539,7 @@ export function QuickFindModal() {
           reservation={selectedEntity.data as ReservationExpanded}
           open={isSheetOpen}
           onOpenChange={setIsSheetOpen}
-          onSave={(updated) => {
+          onSave={() => {
             handleCloseSheet();
           }}
         />

@@ -33,17 +33,6 @@ function getCacheKey(): string {
 }
 
 /**
- * Gets the latest value from a monthly stats object
- */
-function getLatestValue(monthlyStats: MonthlyStats): number {
-  const months = Object.keys(monthlyStats).sort();
-  if (months.length === 0) return 0;
-
-  const latestMonth = months[months.length - 1];
-  return monthlyStats[latestMonth] || 0;
-}
-
-/**
  * Fetches stats from cache if valid, otherwise from API
  */
 export async function fetchStats(): Promise<StatsResponse> {
@@ -111,13 +100,6 @@ function setCachedStats(cacheKey: string, data: StatsResponse): void {
   } catch (error) {
     console.error('Error caching stats:', error);
   }
-}
-
-/**
- * Extracts the current total items count from stats response
- */
-export function getTotalItemsFromStats(stats: StatsResponse): number {
-  return getLatestValue(stats.total_items);
 }
 
 /**

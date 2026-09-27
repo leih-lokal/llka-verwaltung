@@ -237,7 +237,7 @@ export default function DashboardPage() {
               isCollapsed={componentCollapsed['active-rentals']}
               onToggleCollapse={() => toggleCollapse('active-rentals')}
             >
-              <ActiveRentalsSection onRentalReturned={loadStats} />
+              <ActiveRentalsSection />
             </CollapsibleSection>
           )}
         </div>

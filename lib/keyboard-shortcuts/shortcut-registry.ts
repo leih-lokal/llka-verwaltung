@@ -158,13 +158,6 @@ export const SHORTCUT_REGISTRY: Record<string, ShortcutDefinition[]> = {
 };
 
 /**
- * Get all available shortcuts as a flat array
- */
-export function getAllShortcuts(): ShortcutDefinition[] {
-  return Object.values(SHORTCUT_REGISTRY).flat();
-}
-
-/**
  * Get shortcuts for a specific first key
  */
 export function getShortcutsForKey(firstKey: string): ShortcutDefinition[] {

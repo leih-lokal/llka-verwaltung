@@ -2,7 +2,7 @@
  * Filter configurations for each entity type
  */
 
-import { ItemStatus, ItemCategory, RentalStatus } from '@/types';
+import { RentalStatus } from '@/types';
 import {
   ITEM_STATUS_LABELS,
   RENTAL_STATUS_LABELS,
@@ -367,23 +367,3 @@ export const logsFilterConfig: EntityFilterConfig = {
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
-
-/**
- * Get filter config for entity type
- */
-export function getFilterConfig(
-  entity: 'customers' | 'items' | 'rentals' | 'reservations' | 'logs'
-): EntityFilterConfig {
-  switch (entity) {
-    case 'customers':
-      return customersFilterConfig;
-    case 'items':
-      return itemsFilterConfig;
-    case 'rentals':
-      return rentalsFilterConfig;
-    case 'reservations':
-      return reservationsFilterConfig;
-    case 'logs':
-      return logsFilterConfig;
-  }
-}

@@ -134,7 +134,7 @@ export function buildPocketBaseFilter(
   });
 
   // Build included filter strings
-  includedByField.forEach((fieldFilters, field) => {
+  includedByField.forEach((fieldFilters) => {
     const fieldParts: string[] = [];
 
     fieldFilters.forEach((filter) => {
@@ -381,13 +381,6 @@ export function buildBookingSiblingFilter(
 export function buildRecordInListFilter(id: string, listFilter: string): string {
   const idFilter = pb.filter('id = {:id}', { id });
   return listFilter ? `${idFilter} && (${listFilter})` : idFilter;
-}
-
-/**
- * Format filter label for display
- */
-export function formatFilterLabel(filter: ActiveFilter): string {
-  return filter.label;
 }
 
 /**

@@ -10,17 +10,14 @@ import { Badge } from "@/components/ui/badge";
 import {
   CheckCircle2,
   ExternalLink,
-  ArrowRight,
   ArrowsUpFromLine,
 } from "lucide-react";
 import { collections, pb } from "@/lib/pocketbase/client";
 import { useRealtimeSubscription } from "@/hooks/use-realtime-subscription";
-import { formatDateTime } from "@/lib/utils/formatting";
 import type { Reservation, ReservationExpanded } from "@/types";
 import { toast } from "sonner";
 import Link from "next/link";
 import { parseISO, startOfDay, endOfDay } from "date-fns";
-import { generateReservationPrintContent } from "@/components/print/reservation-print-content";
 
 interface TodaysReservationsSectionProps {
   onReservationCompleted?: () => void;
@@ -174,16 +171,6 @@ export function TodaysReservationsSection({
       toast.error("Fehler beim Aktualisieren der Reservierung");
     } finally {
       setCompletingId(null);
-    }
-  }
-
-  function handlePrint() {
-    const htmlContent = generateReservationPrintContent(reservations);
-    const printWindow = window.open('', '', 'width=800,height=600');
-    if (printWindow) {
-      printWindow.document.write(htmlContent);
-      printWindow.document.close();
-      printWindow.print();
     }
   }
 

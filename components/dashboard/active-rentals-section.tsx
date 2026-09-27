@@ -13,11 +13,7 @@ import type { RentalExpanded } from '@/types';
 import { RentalStatus } from '@/types';
 import Link from 'next/link';
 
-interface ActiveRentalsSectionProps {
-  onRentalReturned?: () => void;
-}
-
-export function ActiveRentalsSection({ onRentalReturned }: ActiveRentalsSectionProps) {
+export function ActiveRentalsSection() {
   const { rentals, loading } = useUnreturnedRentals();
 
   // Categorize rentals by status (the list is ordered by expected_on)

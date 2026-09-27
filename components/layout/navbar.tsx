@@ -17,11 +17,6 @@ import {
   Settings,
   FileText,
   LogOut,
-  MoreVertical,
-  User,
-  Command,
-  ArrowBigUp as Shift,
-  Option,
   Zap,
   Tag,
   ClipboardCheck,
@@ -32,7 +27,6 @@ import {
   Keyboard,
   ArrowRight,
   Menu,
-  Palette,
 } from 'lucide-react';
 import { NavLink } from './nav-link';
 import { IdentityPicker } from './identity-picker';
@@ -48,8 +42,6 @@ import { useSequentialMode } from '@/hooks/use-sequential-mode';
 import { useCommandMenu } from '@/hooks/use-command-menu';
 import { useKeyboardShortcutsReferenceContext } from '@/components/keyboard-shortcuts/keyboard-shortcuts-reference';
 import { useSettings } from '@/hooks/use-settings';
-import { collections } from '@/lib/pocketbase/client';
-import { toast } from 'sonner';
 
 interface MenuTileProps {
   icon: React.ReactNode;
@@ -178,20 +170,13 @@ function NavbarDate() {
 }
 
 export function Navbar() {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const { setOpen } = useQuickFind();
   const { setOpen: setSequentialModeOpen } = useSequentialMode();
   const { setOpen: setCommandMenuOpen } = useCommandMenu();
   const { setOpen: setKeyboardShortcutsOpen } = useKeyboardShortcutsReferenceContext();
   const { settings, getFileUrl } = useSettings();
   const logoUrl = getFileUrl(settings.logo);
-  const userEmail = user?.email || 'admin@leihlokal.de';
-
-  // Detect OS for keyboard shortcut display
-  const [isMac, setIsMac] = useState(false);
-  useEffect(() => {
-    setIsMac(navigator.platform.toUpperCase().indexOf('MAC') >= 0);
-  }, []);
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 h-16 border-b-2 border-primary bg-background">

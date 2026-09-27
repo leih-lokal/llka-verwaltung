@@ -6,7 +6,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
@@ -39,11 +39,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { collections } from '@/lib/pocketbase/client';
-import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate, formatPhoneNumber, formatPhoneNumberForTel, isValidPhoneNumber, toBusinessDay } from '@/lib/utils/formatting';
+import { formatDate, calculateRentalStatus, dateToLocalString, formatPhoneNumber, formatPhoneNumberForTel, isValidPhoneNumber, toBusinessDay } from '@/lib/utils/formatting';
 import { fetchNextIid } from '@/lib/utils/next-iid';
 import { getRentalStatusLabel } from '@/lib/constants/statuses';
 import { generateCustomerPrintContent } from '@/components/print/customer-print-content';
-import type { Customer, CustomerFormData, Rental, RentalExpanded, Reservation, ReservationExpanded, HighlightColor } from '@/types';
+import type { Customer, RentalExpanded, ReservationExpanded, HighlightColor } from '@/types';
 import { FormHelpPanel } from './form-help-panel';
 import { HighlightColorPicker } from './highlight-color-picker';
 import { DOCUMENTATION } from '@/lib/constants/documentation';

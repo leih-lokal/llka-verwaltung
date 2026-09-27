@@ -81,13 +81,6 @@ export function getCurrentUser() {
 }
 
 /**
- * Get current auth token
- */
-export function getAuthToken(): string | null {
-  return pb.authStore.token;
-}
-
-/**
  * Refresh authentication
  * Call this before token expires
  */
@@ -150,20 +143,4 @@ export function setupAutoRefresh(): () => void {
       autoRefreshIntervalId = null;
     }
   };
-}
-
-/**
- * Initialize auth from stored credentials
- * Call this on app startup
- */
-export function initAuth(): void {
-  // PocketBase automatically loads auth from localStorage
-  // Just verify it's still valid
-  if (pb.authStore.isValid) {
-    // Optionally refresh to ensure token is fresh
-    refreshAuth().catch(() => {
-      // If refresh fails, clear auth
-      pb.authStore.clear();
-    });
-  }
 }

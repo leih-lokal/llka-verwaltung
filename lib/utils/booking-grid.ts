@@ -274,46 +274,6 @@ export function buildBookingGrid(
 }
 
 /**
- * Get the booking slot for a given date and column, if any
- */
-export function getBookingForCell(
-  date: Date,
-  columnKey: string,
-  slots: BookingSlot[]
-): BookingSlot | undefined {
-  return slots.find((slot) => {
-    if (slot.columnKey !== columnKey) return false;
-    const start = new Date(
-      slot.startDate.getFullYear(),
-      slot.startDate.getMonth(),
-      slot.startDate.getDate()
-    ).getTime();
-    const end = new Date(
-      slot.endDate.getFullYear(),
-      slot.endDate.getMonth(),
-      slot.endDate.getDate()
-    ).getTime();
-    const target = new Date(
-      date.getFullYear(),
-      date.getMonth(),
-      date.getDate()
-    ).getTime();
-    return target >= start && target <= end;
-  });
-}
-
-/**
- * Check if a date is the start date of a booking slot
- */
-export function isBookingStart(date: Date, slot: BookingSlot): boolean {
-  return (
-    date.getFullYear() === slot.startDate.getFullYear() &&
-    date.getMonth() === slot.startDate.getMonth() &&
-    date.getDate() === slot.startDate.getDate()
-  );
-}
-
-/**
  * Count how many days a booking spans within a given date range (including overflow)
  */
 export function getBookingSpan(
@@ -347,17 +307,4 @@ export function getBookingSpan(
 
   // +2 because grid row 1 is the header, and CSS grid rows are 1-indexed
   return { startRow: startRow + 2, endRow: endRow + 3 };
-}
-
-/**
- * Format a column header label
- */
-export function getColumnLabel(column: ItemColumn): string {
-  if (column.isPlusColumn) {
-    return '+';
-  }
-  if (column.totalCopies <= 1) {
-    return column.item.name;
-  }
-  return `${column.item.name} (${column.totalCopies}×)`;
 }

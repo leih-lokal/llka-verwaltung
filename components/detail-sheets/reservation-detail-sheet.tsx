@@ -167,7 +167,6 @@ export function ReservationDetailSheet({
     setValue,
   } = form;
   const isNewCustomer = watch("is_new_customer");
-  const selectedItemIds = watch("item_ids");
 
   // Search customers
   useEffect(() => {

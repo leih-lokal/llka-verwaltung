@@ -302,7 +302,7 @@ export default function ItemsPage() {
   };
 
   // Handle item save
-  const handleItemSave = (savedItem: Item) => {
+  const handleItemSave = () => {
     // Refresh the list
     setItems([]);
     setCurrentPage(1);

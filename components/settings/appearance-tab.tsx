@@ -36,7 +36,6 @@ const PADDING_OPTIONS = [
 // "shit" stays as "shit" for SH.IT notation
 const toSelectValue = (format: string) => format === "" ? "none" : format
 const toStorageValue = (format: string) => format === "none" ? "" : format
-const toPreviewFormat = (format: string) => format === "none" ? "" : format
 
 export function AppearanceTab() {
   const { settings, updateSettings } = useSettings()

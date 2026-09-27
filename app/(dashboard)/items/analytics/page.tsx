@@ -6,9 +6,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { RefreshCwIcon, TrendingUpIcon, PackageIcon, BarChart3Icon } from 'lucide-react';
+import { RefreshCwIcon, PackageIcon } from 'lucide-react';
 import { collections } from '@/lib/pocketbase/client';
 import {
   calculateItemAnalytics,
@@ -114,10 +114,7 @@ export default function ItemAnalyticsPage() {
           <UnderutilizedTable items={itemsAnalytics} />
 
           {/* Category Performance */}
-          <CategoryPerformance
-            analytics={aggregateAnalytics}
-            items={itemsAnalytics}
-          />
+          <CategoryPerformance analytics={aggregateAnalytics} />
         </div>
       ) : (
         <Card>

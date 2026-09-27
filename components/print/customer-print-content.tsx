@@ -4,7 +4,7 @@
  * Follows print standards: no fills, borders/outlines only, proper margins
  */
 
-import { formatDate, formatCurrency } from '@/lib/utils/formatting';
+import { formatDate } from '@/lib/utils/formatting';
 import type { Customer, RentalExpanded, ReservationExpanded } from '@/types';
 import { calculateRentalStatus } from '@/lib/utils/formatting';
 import { getRentalStatusLabel } from '@/lib/constants/statuses';

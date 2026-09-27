@@ -109,13 +109,6 @@ export function FilterPopover({
     ? 'numeric'
     : 'text';
 
-  // Check if a filter is active
-  const isFilterActive = (field: string, value: string) => {
-    return activeFilters.some(
-      (f) => f.field === field && String(f.value) === value
-    );
-  };
-
   // Get tri-state for a filter option
   const getFilterState = (field: string, value: string): 'unchecked' | 'checked' | 'excluded' => {
     const filter = activeFilters.find(f => f.field === field && String(f.value) === value);

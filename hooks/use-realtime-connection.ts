@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect, useSyncExternalStore } from 'react';
+import { useSyncExternalStore } from 'react';
 import type { RealtimeConnectionInfo } from '@/types';
 import {
   getRealtimeConnectionState,
@@ -47,33 +47,4 @@ export function useRealtimeConnection(): RealtimeConnectionInfo & {
     ...connectionInfo,
     reconnect: requestRealtimeReconnect,
   };
-}
-
-/**
- * Monitor page visibility and pause subscriptions when hidden
- * This helps conserve resources when the page is not visible
- *
- * @returns Boolean indicating if page is visible
- */
-export function usePageVisibility(): boolean {
-  const [isVisible, setIsVisible] = useState(() => {
-    if (typeof document !== 'undefined') {
-      return !document.hidden;
-    }
-    return true;
-  });
-
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      setIsVisible(!document.hidden);
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, []);
-
-  return isVisible;
 }

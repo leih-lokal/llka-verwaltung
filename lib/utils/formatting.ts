@@ -2,7 +2,7 @@
  * Formatting utilities for dates, currency, etc.
  */
 
-import { format, formatDistance, differenceInCalendarDays, parseISO } from 'date-fns';
+import { format, differenceInCalendarDays, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { parsePhoneNumberFromString, type CountryCode, type PhoneNumber } from 'libphonenumber-js/min';
 import { RentalStatus, type Rental } from '@/types';
@@ -67,21 +67,6 @@ export function formatDate(
  */
 export function formatDateTime(date: string | Date): string {
   return formatDate(date, 'dd.MM.yyyy HH:mm');
-}
-
-/**
- * Format relative time (e.g., "vor 2 Tagen")
- */
-export function formatRelativeTime(date: string | Date): string {
-  try {
-    const dateObj = typeof date === 'string' ? parseISO(date) : date;
-    return formatDistance(dateObj, new Date(), {
-      addSuffix: true,
-      locale: de,
-    });
-  } catch {
-    return '';
-  }
 }
 
 /**
@@ -196,13 +181,6 @@ export function truncate(text: string, maxLength: number): string {
     return text;
   }
   return text.slice(0, maxLength - 3) + '...';
-}
-
-/**
- * Get initials from name
- */
-export function getInitials(firstname: string, lastname: string): string {
-  return `${firstname.charAt(0)}${lastname.charAt(0)}`.toUpperCase();
 }
 
 /**

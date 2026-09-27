@@ -18,7 +18,6 @@ import {
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
-  SHORTCUT_REGISTRY,
   type ShortcutContext,
   getShortcutsForKey,
 } from '@/lib/keyboard-shortcuts/shortcut-registry';

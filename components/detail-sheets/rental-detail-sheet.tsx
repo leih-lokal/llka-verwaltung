@@ -11,7 +11,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { SaveIcon, XIcon, Grid2x2Check, CornerDownLeft, Blocks,  CheckIcon, ChevronsUpDownIcon, CalendarIcon, TrashIcon, MinusIcon, PlusIcon, PrinterIcon } from 'lucide-react';
+import { SaveIcon, XIcon, Grid2x2Check, Blocks,  CheckIcon, ChevronsUpDownIcon, CalendarIcon, TrashIcon, MinusIcon, PlusIcon, PrinterIcon } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -241,7 +241,7 @@ export function RentalDetailSheet({
     },
   });
 
-  const { formState: { isDirty }, watch, setValue, getValues } = form;
+  const { formState: { isDirty }, watch, setValue } = form;
   const watchedValues = watch(['rented_on', 'expected_on', 'extended_on', 'returned_on']);
   const [rentedOn, expectedOn, extendedOn, returnedOn] = watchedValues;
 
@@ -1958,7 +1958,8 @@ export function RentalDetailSheet({
                               setItemsToReturn((prev) => ({ ...prev, [item.id]: remainingCopies }));
                             } else {
                               setItemsToReturn((prev) => {
-                                const { [item.id]: _, ...rest } = prev;
+                                const rest = { ...prev };
+                                delete rest[item.id];
                                 return rest;
                               });
                             }

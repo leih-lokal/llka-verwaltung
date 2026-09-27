@@ -6,14 +6,12 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { toast } from "sonner";
 import {
   PlusIcon,
   CheckCircle2Icon,
   UserPlus,
   Check,
   X,
-  ArrowRightIcon,
   ArrowsUpFromLine,
 } from "lucide-react";
 import { SearchBar } from "@/components/search/search-bar";

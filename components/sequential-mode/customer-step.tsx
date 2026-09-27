@@ -106,13 +106,6 @@ export function CustomerStep() {
     goNext(); // Auto-advance to items step
   };
 
-  // Get active rentals count for display
-  const getActiveRentalsText = (customer: Customer) => {
-    // This is a simplified version - in production, you might want to fetch this
-    // For now, we'll just show a placeholder
-    return '';
-  };
-
   // The input stays focused while arrow keys move through the results, so it
   // is a combobox pointing at the highlighted option
   const showResults = !isSearching && results.length > 0;

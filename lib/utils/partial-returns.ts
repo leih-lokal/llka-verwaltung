@@ -25,24 +25,6 @@ export function getReturnedCopyCount(
 }
 
 /**
- * Set the returned copy count for a specific item
- * @param returnedItems - The returned_items object from a rental record
- * @param itemId - The item ID to update
- * @param count - The returned copy count to set
- * @returns New returned_items object with updated count
- */
-export function setReturnedCopyCount(
-  returnedItems: ReturnedItemsData | undefined,
-  itemId: string,
-  count: number
-): ReturnedItemsData {
-  return {
-    ...(returnedItems || {}),
-    [itemId]: count,
-  };
-}
-
-/**
  * Get return status for a specific item in a rental
  * @param rental - The rental record
  * @param itemId - The item ID to check
@@ -97,17 +79,6 @@ export function getRentalReturnStatus(rental: Rental): RentalReturnStatus {
     totalItemsReturned,
     itemStatuses,
   };
-}
-
-/**
- * Check if an item can have more copies returned
- * @param rental - The rental record
- * @param itemId - The item ID to check
- * @returns True if there are unreturned copies of this item
- */
-export function canReturnMoreCopies(rental: Rental, itemId: string): boolean {
-  const status = getItemReturnStatus(rental, itemId);
-  return status.remainingCopies > 0;
 }
 
 /**

@@ -39,8 +39,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { collections, pb } from '@/lib/pocketbase/client';
-import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate, toBusinessDay } from '@/lib/utils/formatting';
-import type { Item, ItemFormData, RentalExpanded, ItemCategory, ItemStatus, HighlightColor } from '@/types';
+import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, toBusinessDay } from '@/lib/utils/formatting';
+import type { Item, RentalExpanded, ItemStatus, HighlightColor } from '@/types';
 import { fetchNextIid } from '@/lib/utils/next-iid';
 import { compressImage } from '@/lib/image/compress';
 import { useSettings } from '@/hooks/use-settings';
@@ -56,7 +56,7 @@ async function compressInBatches(files: File[], cfg: Parameters<typeof compressI
   }
   return out;
 }
-import { CATEGORY_OPTIONS, GERMAN_CATEGORY_VALUES } from '@/lib/constants/categories';
+import { CATEGORY_OPTIONS } from '@/lib/constants/categories';
 import { ITEM_STATUS_OPTIONS, getItemStatusLabel, getRentalStatusLabel } from '@/lib/constants/statuses';
 import { RentalDetailSheet } from './rental-detail-sheet';
 import { FormHelpPanel } from './form-help-panel';
@@ -1441,7 +1441,7 @@ export function ItemDetailSheet({
           open={isRentalSheetOpen}
           onOpenChange={setIsRentalSheetOpen}
           preloadedItems={[item]}
-          onSave={(newRental) => {
+          onSave={() => {
             setIsRentalSheetOpen(false);
             // Optionally refresh rental history
             toast.success('Ausleihe erfolgreich erstellt');

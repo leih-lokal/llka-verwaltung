@@ -17,7 +17,7 @@ const LOGO_MAX = 500
 const FAVICON_MAX = 64
 
 export function BrandingTab() {
-  const { settings, rawSettings, updateSettings, getFileUrl, refreshSettings } = useSettings()
+  const { settings, rawSettings, getFileUrl, refreshSettings } = useSettings()
 
   const [appName, setAppName] = useState(settings.app_name)
   const [tagline, setTagline] = useState(settings.tagline)

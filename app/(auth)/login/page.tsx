@@ -6,7 +6,6 @@
 
 import { useMemo, useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { useAuth } from '@/hooks/use-auth';
 import { usePublicSettings } from '@/hooks/use-settings';
 import { Button } from '@/components/ui/button';
@@ -18,7 +17,6 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-  CardFooter,
 } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { LogIn, Server, User, Lock, ArrowRight, Activity, Info, ExternalLink } from 'lucide-react';
@@ -30,7 +28,7 @@ const subscribeNoop = () => () => {};
 export default function LoginPage() {
   const router = useRouter();
   const { login, isAuthenticated } = useAuth();
-  const { settings, getFileUrl, isLoading: settingsLoading } = usePublicSettings();
+  const { settings, getFileUrl } = usePublicSettings();
   // Server URL of the last successful login (or the default). Read from
   // localStorage on the client only; the prerendered HTML and hydration use
   // '' so they agree.

@@ -6,7 +6,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { PlusIcon, BadgeCheckIcon, CoinsIcon, WalletIcon, SmileIcon, ChevronLeft, ChevronRight, CircleCheckBig, CheckLine, Check } from 'lucide-react';
+import { PlusIcon, BadgeCheckIcon, CoinsIcon, WalletIcon, SmileIcon, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { SearchBar } from '@/components/search/search-bar';
 import { FilterPopover } from '@/components/search/filter-popover';
 import { SortableHeader, ariaSort, type SortDirection } from '@/components/table/sortable-header';

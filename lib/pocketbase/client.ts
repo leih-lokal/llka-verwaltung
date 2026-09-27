@@ -3,16 +3,6 @@
  */
 
 import PocketBase, { type SendOptions } from 'pocketbase';
-import type {
-  Booking,
-  Customer,
-  Item,
-  Rental,
-  Reservation,
-  Note,
-  LogEntry,
-  Settings,
-} from '@/types';
 
 /**
  * PocketBase collections
@@ -26,7 +16,6 @@ export interface TypedPocketBase extends PocketBase {
   collection(idOrName: 'reservation'): ReturnType<PocketBase['collection']>;
   collection(idOrName: 'booking'): ReturnType<PocketBase['collection']>;
   collection(idOrName: 'note'): ReturnType<PocketBase['collection']>;
-  collection(idOrName: 'log'): ReturnType<PocketBase['collection']>;
   collection(idOrName: 'settings'): ReturnType<PocketBase['collection']>;
   collection(idOrName: string): ReturnType<PocketBase['collection']>;
 }
@@ -206,39 +195,8 @@ export const collections = {
   reservations: () => pb.collection('reservation'),
   bookings: () => pb.collection('booking'),
   notes: () => pb.collection('note'),
-  logs: () => pb.collection('log'),
   settings: () => pb.collection('settings'),
 } as const;
-
-/**
- * Check if user is authenticated
- */
-export function isAuthenticated(): boolean {
-  return pb.authStore.isValid;
-}
-
-/**
- * Get current auth token
- */
-export function getAuthToken(): string | null {
-  return pb.authStore.token;
-}
-
-/**
- * Get current user
- */
-export function getCurrentUser() {
-  return pb.authStore.model;
-}
-
-/**
- * Subscribe to auth state changes
- */
-export function onAuthStateChange(
-  callback: (token: string, model: unknown) => void
-) {
-  return pb.authStore.onChange(callback);
-}
 
 /**
  * Get the current PocketBase server URL
@@ -246,8 +204,3 @@ export function onAuthStateChange(
 export function getServerUrl(): string {
   return getPocketBaseUrl();
 }
-
-/**
- * Export PocketBase client for direct access
- */
-export default pb;

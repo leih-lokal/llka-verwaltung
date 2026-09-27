@@ -6,7 +6,6 @@
 
 import { useEffect } from 'react';
 import { toast } from 'sonner';
-import { Wifi, WifiOff } from 'lucide-react';
 import { useRealtimeConnection } from '@/hooks/use-realtime-connection';
 import { ConnectionState } from '@/types';
 
@@ -40,46 +39,5 @@ export function RealtimeStatus() {
   }, [state, error, reconnect]);
 
   // Don't render anything - we're using toast notifications
-  return null;
-}
-
-/**
- * Connection status badge that always shows in the UI
- * Use this if you want a visible indicator
- */
-export function RealtimeStatusBadge() {
-  const { state, reconnect } = useRealtimeConnection();
-
-  if (state === ConnectionState.Connected) {
-    return (
-      <div className="flex items-center gap-1.5 text-xs text-green-600" title="Echtzeit verbunden">
-        <Wifi className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Live</span>
-      </div>
-    );
-  }
-
-  if (state === ConnectionState.Disconnected || state === ConnectionState.Error) {
-    return (
-      <button
-        onClick={reconnect}
-        className="flex items-center gap-1.5 text-xs text-destructive hover:text-destructive/80 transition-colors"
-        title="Echtzeit getrennt - Klicken zum Neu verbinden"
-      >
-        <WifiOff className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Offline</span>
-      </button>
-    );
-  }
-
-  if (state === ConnectionState.Connecting) {
-    return (
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground" title="Verbinde...">
-        <div className="h-3.5 w-3.5 animate-spin border-2 border-current border-t-transparent rounded-full" />
-        <span className="hidden sm:inline">Verbinde...</span>
-      </div>
-    );
-  }
-
   return null;
 }

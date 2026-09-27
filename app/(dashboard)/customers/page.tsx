@@ -6,7 +6,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { PlusIcon, CalendarCheckIcon, PackageIcon, HistoryIcon, MailIcon } from 'lucide-react';
+import { PlusIcon, PackageIcon, HistoryIcon, MailIcon } from 'lucide-react';
 import { SearchBar } from '@/components/search/search-bar';
 import { FilterPopover } from '@/components/search/filter-popover';
 import { SortableHeader, ariaSort, type SortDirection } from '@/components/table/sortable-header';
@@ -294,7 +294,7 @@ export default function CustomersPage() {
   };
 
   // Handle customer save
-  const handleCustomerSave = (savedCustomer: Customer) => {
+  const handleCustomerSave = () => {
     // Refresh the list
     setCustomers([]);
     setCurrentPage(1);

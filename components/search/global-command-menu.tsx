@@ -386,7 +386,7 @@ export function GlobalCommandMenu() {
                       >
                         Kund:innen ({categoryCount.customers})
                       </div>
-                      {results.customers.map((customer, idx) => {
+                      {results.customers.map((customer) => {
                         const globalIndex = flatResults.findIndex(
                           (r) => r.type === 'customer' && r.id === customer.id
                         );

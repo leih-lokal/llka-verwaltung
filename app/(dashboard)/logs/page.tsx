@@ -5,7 +5,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { FileText, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { SearchBar } from "@/components/search/search-bar";
 import { FilterPopover } from "@/components/search/filter-popover";
 import {
@@ -14,7 +14,6 @@ import {
   type SortDirection,
 } from "@/components/table/sortable-header";
 import { ColumnSelector } from "@/components/table/column-selector";
-import { HelpButton } from "@/components/table/help-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { pb } from "@/lib/pocketbase/client";

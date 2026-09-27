@@ -14,7 +14,7 @@ import { type LabelType } from '@/app/(dashboard)/label-designer/page';
 import { DefaultLabel } from './labels/default-label';
 import { CompactLabel } from './labels/compact-label';
 import { CordLabel } from './labels/cord-label';
-import { toPng, toJpeg, toBlob } from 'html-to-image';
+import { toPng, toJpeg } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 import { toast } from 'sonner';
 
@@ -43,17 +43,11 @@ const labelTypeOptions: { value: LabelType; label: string; description: string }
 ];
 
 export function LabelPreview({ items, labelType, onLabelTypeChange }: LabelPreviewProps) {
-  const [isPrinting, setIsPrinting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const labelRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = () => {
-    setIsPrinting(true);
-    // Use setTimeout to allow state to update before printing
-    setTimeout(() => {
-      window.print();
-      setIsPrinting(false);
-    }, 100);
+    window.print();
   };
 
   const getLabelElements = () => {

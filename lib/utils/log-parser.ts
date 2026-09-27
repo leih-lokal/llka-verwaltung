@@ -124,17 +124,6 @@ function getStatusText(code: number): string {
 }
 
 /**
- * Get variant for status code badge
- */
-export function getStatusCodeVariant(code: number): 'default' | 'secondary' | 'destructive' | 'outline' {
-  if (code >= 200 && code < 300) return 'default';
-  if (code >= 300 && code < 400) return 'secondary';
-  if (code >= 400 && code < 500) return 'destructive';
-  if (code >= 500) return 'destructive';
-  return 'outline';
-}
-
-/**
  * Get color class for status code
  */
 export function getStatusCodeColor(code: number): string {

@@ -420,23 +420,3 @@ export const logsColumnConfig: EntityColumnConfig = {
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
-
-/**
- * Get column config for entity type
- */
-export function getColumnConfig(
-  entity: "customers" | "items" | "rentals" | "reservations" | "logs",
-): EntityColumnConfig {
-  switch (entity) {
-    case "customers":
-      return customersColumnConfig;
-    case "items":
-      return itemsColumnConfig;
-    case "rentals":
-      return rentalsColumnConfig;
-    case "reservations":
-      return reservationsColumnConfig;
-    case "logs":
-      return logsColumnConfig;
-  }
-}
