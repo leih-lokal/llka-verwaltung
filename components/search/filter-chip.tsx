@@ -24,7 +24,7 @@ const chipVariants = {
   date: 'secondary' as const,
   category: 'outline' as const,
   numeric: 'outline' as const,
-  boolean: 'outline' as const,
+  boolean: 'default' as const,
   text: 'secondary' as const,
   default: 'secondary' as const,
 };
