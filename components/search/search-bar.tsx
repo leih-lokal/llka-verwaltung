@@ -111,6 +111,8 @@ export function SearchBar({
             wasFocusedRef.current = false;
           }}
           placeholder={placeholder}
+          // A placeholder is no label: it disappears on input and isn't reliably announced
+          aria-label={placeholder.replace(/[.…]+$/, '')}
           disabled={disabled}
           className={`
             flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0
