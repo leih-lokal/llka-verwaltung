@@ -3,6 +3,7 @@ import {
   buildBookingGrid,
   generateMonthDates,
   getBookingSpan,
+  getClosedWeekdays,
   parseBookingDate,
 } from '../booking-grid';
 import { BookingStatus } from '@/types';
@@ -167,5 +168,36 @@ describe('buildBookingGrid', () => {
       'B:m-lane-2',
       'C:m-lane-1',
     ]);
+  });
+});
+
+describe('getClosedWeekdays', () => {
+  const sorted = (set: Set<number>) => [...set].sort();
+
+  it('returns the weekdays without opening hours', () => {
+    expect(
+      sorted(
+        getClosedWeekdays([
+          ['mon', '10:00', '12:00'],
+          ['sat', '10:00', '14:00'],
+        ])
+      )
+    ).toEqual([0, 2, 3, 4, 5]);
+  });
+
+  it('falls back to the default hours (closed Sun, Tue, Wed) when not a list', () => {
+    expect(sorted(getClosedWeekdays(null))).toEqual([0, 2, 3]);
+    expect(sorted(getClosedWeekdays(undefined))).toEqual([0, 2, 3]);
+    expect(sorted(getClosedWeekdays({ mon: true }))).toEqual([0, 2, 3]);
+  });
+
+  it('ignores malformed entries and unknown day keys', () => {
+    expect(sorted(getClosedWeekdays([['sun', '1', '2'], 'mon', ['xyz', '1', '2']]))).toEqual([
+      1, 2, 3, 4, 5, 6,
+    ]);
+  });
+
+  it('treats an empty list as closed every day', () => {
+    expect(getClosedWeekdays([]).size).toBe(7);
   });
 });

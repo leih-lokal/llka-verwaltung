@@ -3,10 +3,13 @@
  */
 
 import { parseISO, startOfDay } from 'date-fns';
-import type { BookingExpanded, Item } from '@/types';
+import { DEFAULT_SETTINGS, type BookingExpanded, type Item } from '@/types';
 import { occupiesItem, peakBookedCopies } from './booking-capacity';
 
 export const OVERFLOW_DAYS = 5;
+
+/** opening_hours day keys, indexed like Date.getDay() */
+const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
 export interface GridDate {
   date: Date;
@@ -116,6 +119,23 @@ export function generateMonthDates(
   }
 
   return dates;
+}
+
+/**
+ * Weekdays (0 = Sunday, like Date.getDay()) that have no opening hours.
+ * Uses the default opening hours when `openingHours` isn't a list (e.g.
+ * records created before the field existed).
+ */
+export function getClosedWeekdays(openingHours: unknown): Set<number> {
+  const hours = Array.isArray(openingHours)
+    ? openingHours
+    : DEFAULT_SETTINGS.opening_hours;
+  const openDays = new Set(
+    hours
+      .filter((entry): entry is unknown[] => Array.isArray(entry))
+      .map(([day]) => WEEKDAY_KEYS.indexOf(String(day)))
+  );
+  return new Set(WEEKDAY_KEYS.map((_, i) => i).filter((i) => !openDays.has(i)));
 }
 
 /**
