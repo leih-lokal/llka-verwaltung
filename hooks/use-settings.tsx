@@ -16,6 +16,7 @@ import {
 } from 'react';
 import { pb, collections } from '@/lib/pocketbase/client';
 import { Settings, DEFAULT_SETTINGS } from '@/types';
+import { settingsFromRecord } from '@/lib/utils/settings-record';
 import { toast } from 'sonner';
 
 interface SettingsContextType {
@@ -94,8 +95,8 @@ function updateFavicon(faviconUrl: string | null) {
     document.head.appendChild(link);
   }
 
-  // Set the favicon URL (use default if none provided)
-  link.href = faviconUrl || '/favicon.ico';
+  // Set the favicon URL (default: the bundled icon, under the basePath)
+  link.href = faviconUrl || `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/favicon.svg`;
 }
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
@@ -106,26 +107,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   // Merge raw settings with defaults. Memoized so consumers only re-render
   // when rawSettings actually changes, not on every provider render.
-  const settings = useMemo<Omit<Settings, 'id' | 'created' | 'updated'>>(() => ({
-    ...DEFAULT_SETTINGS,
-    ...(rawSettings
-      ? {
-          app_name: rawSettings.app_name,
-          tagline: rawSettings.tagline,
-          logo: rawSettings.logo,
-          favicon: rawSettings.favicon,
-          copyright_holder: rawSettings.copyright_holder,
-          show_powered_by: rawSettings.show_powered_by,
-          primary_color: rawSettings.primary_color,
-          id_format: rawSettings.id_format,
-          id_padding: rawSettings.id_padding,
-          reservations_enabled: rawSettings.reservations_enabled,
-          setup_complete: rawSettings.setup_complete,
-          opening_hours: rawSettings.opening_hours,
-          image_compression: rawSettings.image_compression ?? DEFAULT_SETTINGS.image_compression,
-        }
-      : {}),
-  }), [rawSettings]);
+  const settings = useMemo<Omit<Settings, 'id' | 'created' | 'updated'>>(
+    () => settingsFromRecord(rawSettings),
+    [rawSettings]
+  );
 
   // Load settings from PocketBase
   const loadSettings = useCallback(async () => {
@@ -290,22 +275,7 @@ export function usePublicSettings() {
         if (result.items.length > 0) {
           const record = result.items[0];
           setRawSettings(record);
-          setSettings({
-            ...DEFAULT_SETTINGS,
-            app_name: record.app_name,
-            tagline: record.tagline,
-            logo: record.logo,
-            favicon: record.favicon,
-            copyright_holder: record.copyright_holder,
-            show_powered_by: record.show_powered_by,
-            primary_color: record.primary_color,
-            id_format: record.id_format,
-            id_padding: record.id_padding,
-            reservations_enabled: record.reservations_enabled,
-            setup_complete: record.setup_complete,
-            opening_hours: record.opening_hours,
-            image_compression: record.image_compression ?? DEFAULT_SETTINGS.image_compression,
-          });
+          setSettings(settingsFromRecord(record));
         }
       } catch (error) {
         // Settings might not exist or be inaccessible, use defaults
