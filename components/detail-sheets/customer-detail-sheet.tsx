@@ -40,6 +40,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { collections } from '@/lib/pocketbase/client';
 import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate, formatPhoneNumber, formatPhoneNumberForTel, isValidPhoneNumber } from '@/lib/utils/formatting';
+import { fetchNextIid } from '@/lib/utils/next-iid';
 import { getRentalStatusLabel } from '@/lib/constants/statuses';
 import { generateCustomerPrintContent } from '@/components/print/customer-print-content';
 import type { Customer, CustomerFormData, Rental, RentalExpanded, Reservation, ReservationExpanded, HighlightColor } from '@/types';
@@ -49,7 +50,7 @@ import { useHelpCollapsed } from '@/hooks/use-help-collapsed';
 
 // Validation schema
 const customerSchema = z.object({
-  iid: z.number().int().min(1, 'ID muss mindestens 1 sein'),
+  iid: z.number({ error: 'ID ist erforderlich' }).int().min(1, 'ID muss mindestens 1 sein'),
   firstname: z.string().min(1, 'Vorname ist erforderlich'),
   lastname: z.string().min(1, 'Nachname ist erforderlich'),
   // Optional at the schema level so legacy customers without email/phone
@@ -75,6 +76,11 @@ const customerSchema = z.object({
 });
 
 type CustomerFormValues = z.infer<typeof customerSchema>;
+
+// Empty value for the iid number input (until the next free iid has loaded,
+// or when it couldn't be). form.reset({ iid: undefined }) does NOT clear an
+// uncontrolled number input; an empty string does.
+const EMPTY_IID = '' as unknown as number;
 
 interface CustomerDetailSheetProps {
   customer: Customer | null;
@@ -109,7 +115,7 @@ export function CustomerDetailSheet({
   const form = useForm<CustomerFormValues>({
     resolver: zodResolver(customerSchema),
     defaultValues: {
-      iid: 1,
+      iid: EMPTY_IID,
       firstname: '',
       lastname: '',
       email: '',
@@ -127,8 +133,11 @@ export function CustomerDetailSheet({
 
   const { formState: { isDirty } } = form;
 
-  // Load customer data when customer changes
+  // Load customer data when the sheet opens or the customer changes. Gated on
+  // (and re-run by) `open`: after creating a customer the parent passes null
+  // again, so without it clicking "Neu" a second time would keep the old form.
   useEffect(() => {
+    if (!open) return;
     if (customer && customer.id) {
       // Existing customer - load all data
       const formData = {
@@ -149,80 +158,46 @@ export function CustomerDetailSheet({
       };
       form.reset(formData);
       setIsEditMode(false);
-    } else if (customer && !customer.id) {
-      // Partial customer data (e.g., from reservation) - pre-fill what we have
-      const fetchNextIid = async () => {
-        try {
-          const result = await collections.customers().getList<Customer>(1, 1, {
-            sort: '-iid',
-          });
-          const nextIid = result.items.length > 0 ? result.items[0].iid + 1 : 1;
-
-          form.reset({
-            iid: nextIid,
-            firstname: customer.firstname || '',
-            lastname: customer.lastname || '',
-            email: customer.email || '',
-            phone: formatPhoneNumber(customer.phone || ''),
-            street: customer.street || '',
-            postal_code: customer.postal_code || '',
-            city: customer.city || '',
-            registered_on: dateToLocalString(new Date()),
-            renewed_on: '',
-            newsletter: false,
-            remark: '',
-            highlight_color: '',
-          });
-          setIsEditMode(true);
-        } catch (err) {
-          console.error('Error fetching next IID:', err);
-        }
-      };
-      fetchNextIid();
-    } else if (isNewCustomer) {
-      // Fetch next available IID for new customers
-      const fetchNextIid = async () => {
-        try {
-          const lastCustomer = await collections.customers().getFirstListItem<Customer>('', { sort: '-iid' });
-          const nextIid = (lastCustomer?.iid || 0) + 1;
-          form.reset({
-            iid: nextIid,
-            firstname: '',
-            lastname: '',
-            email: '',
-            phone: '',
-            street: '',
-            postal_code: '',
-            city: '',
-            registered_on: dateToLocalString(new Date()),
-            renewed_on: '',
-            newsletter: false,
-            remark: '',
-            highlight_color: '',
-          });
-        } catch (err) {
-          // If no customers exist yet, start with 1
-          form.reset({
-            iid: 1,
-            firstname: '',
-            lastname: '',
-            email: '',
-            phone: '',
-            street: '',
-            postal_code: '',
-            city: '',
-            registered_on: dateToLocalString(new Date()),
-            renewed_on: '',
-            newsletter: false,
-            remark: '',
-            highlight_color: '',
-          });
-        }
-      };
-      fetchNextIid();
-      setIsEditMode(true);
+      return;
     }
-  }, [customer, isNewCustomer, form]);
+
+    // New customer, possibly with partial data to pre-fill (e.g. from a
+    // reservation). Reset right away so no previous draft lingers; the iid
+    // stays empty until the next free one has loaded.
+    const newCustomerValues: CustomerFormValues = {
+      iid: EMPTY_IID,
+      firstname: customer?.firstname || '',
+      lastname: customer?.lastname || '',
+      email: customer?.email || '',
+      phone: formatPhoneNumber(customer?.phone || ''),
+      street: customer?.street || '',
+      postal_code: customer?.postal_code || '',
+      city: customer?.city || '',
+      registered_on: dateToLocalString(new Date()),
+      renewed_on: '',
+      newsletter: false,
+      remark: '',
+      highlight_color: '',
+    };
+    form.reset(newCustomerValues);
+    setIsEditMode(true);
+
+    let cancelled = false;
+    fetchNextIid(collections.customers())
+      .then((nextIid) => {
+        if (!cancelled) form.reset({ ...newCustomerValues, iid: nextIid });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        // Don't propose a fallback iid: on a network/auth error 1 (or any
+        // guess) is almost certainly taken.
+        console.error('Error fetching next IID:', err);
+        toast.error('Nächste freie ID konnte nicht geladen werden. Bitte ID manuell eintragen.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [customer, form, open]);
 
   // Load rental and reservation history
   useEffect(() => {
@@ -283,22 +258,9 @@ export function CustomerDetailSheet({
       if (isNewCustomer) {
         savedCustomer = await collections.customers().create<Customer>(formData);
         toast.success('Nutzer:in erfolgreich erstellt');
-        // Reset form to defaults before closing to prevent stale data on next open
-        form.reset({
-          iid: 1,
-          firstname: '',
-          lastname: '',
-          email: '',
-          phone: '',
-          street: '',
-          postal_code: '',
-          city: '',
-          registered_on: dateToLocalString(new Date()),
-          renewed_on: '',
-          newsletter: false,
-          remark: '',
-          highlight_color: '',
-        });
+        // No inline reset needed: reopening the sheet re-runs the load
+        // effect (gated on `open`), which resets the form and fetches a
+        // fresh iid.
         onSave?.(savedCustomer);
         onOpenChange(false);
       } else if (customer) {

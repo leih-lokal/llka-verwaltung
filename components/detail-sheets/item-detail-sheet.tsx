@@ -41,6 +41,7 @@ import { Badge } from '@/components/ui/badge';
 import { collections, pb } from '@/lib/pocketbase/client';
 import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate } from '@/lib/utils/formatting';
 import type { Item, ItemFormData, RentalExpanded, ItemCategory, ItemStatus, HighlightColor } from '@/types';
+import { fetchNextIid } from '@/lib/utils/next-iid';
 import { compressImage } from '@/lib/image/compress';
 import { useSettings } from '@/hooks/use-settings';
 
@@ -64,7 +65,7 @@ import { FormattedId } from '@/components/ui/formatted-id';
 
 // Validation schema (using German category names as they are stored in PocketBase)
 const itemSchema = z.object({
-  iid: z.number().int().min(1, 'ID muss mindestens 1 sein'),
+  iid: z.number({ error: 'ID ist erforderlich' }).int().min(1, 'ID muss mindestens 1 sein'),
   name: z.string().min(1, 'Name ist erforderlich'),
   brand: z.string().optional(),
   model: z.string().optional(),
@@ -132,7 +133,7 @@ export function ItemDetailSheet({
   const form = useForm<ItemFormValues>({
     resolver: zodResolver(itemSchema),
     defaultValues: {
-      iid: 1,
+      iid: EMPTY_NUMBER,
       name: '',
       brand: '',
       model: '',
@@ -188,62 +189,51 @@ export function ItemDetailSheet({
       setImagesToDelete([]);
       setIsEditMode(false);
     } else if (isNewItem) {
-      // Fetch next available IID for new items
-      const fetchNextIid = async () => {
-        try {
-          const lastItem = await collections.items().getFirstListItem<Item>('', { sort: '-iid' });
-          const nextIid = (lastItem?.iid || 0) + 1;
-          form.reset({
-            iid: nextIid,
-            name: '',
-            brand: '',
-            model: '',
-            description: '',
-            category: [],
-            deposit: 0,
-            synonyms: '',
-            packaging: '',
-            manual: '',
-            parts: EMPTY_NUMBER,
-            copies: 1,
-            status: 'instock',
-            highlight_color: '',
-            internal_note: '',
-            added_on: dateToLocalString(new Date()),
-            msrp: EMPTY_NUMBER,
-            is_protected: false,
-          });
-        } catch (err) {
-          // If no items exist yet, start with 1
-          form.reset({
-            iid: 1,
-            name: '',
-            brand: '',
-            model: '',
-            description: '',
-            category: [],
-            deposit: 0,
-            synonyms: '',
-            packaging: '',
-            manual: '',
-            parts: EMPTY_NUMBER,
-            copies: 1,
-            status: 'instock',
-            highlight_color: '',
-            internal_note: '',
-            added_on: dateToLocalString(new Date()),
-            msrp: EMPTY_NUMBER,
-            is_protected: false,
-          });
-        }
+      // Reset right away so no previous draft lingers; the iid stays empty
+      // until the next free one has loaded.
+      const newItemValues: ItemFormValues = {
+        iid: EMPTY_NUMBER as number,
+        name: '',
+        brand: '',
+        model: '',
+        description: '',
+        category: [],
+        deposit: 0,
+        synonyms: '',
+        packaging: '',
+        manual: '',
+        parts: EMPTY_NUMBER,
+        copies: 1,
+        status: 'instock',
+        highlight_color: '',
+        internal_note: '',
+        added_on: dateToLocalString(new Date()),
+        msrp: EMPTY_NUMBER,
+        is_protected: false,
       };
-      fetchNextIid();
+      form.reset(newItemValues);
       setExistingImages([]);
       setNewImages([]);
       setImagesToDelete([]);
       setIsEditMode(true);
+
+      let cancelled = false;
+      fetchNextIid(collections.items())
+        .then((nextIid) => {
+          if (!cancelled) form.reset({ ...newItemValues, iid: nextIid });
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          // Don't propose a fallback iid: on a network/auth error 1 (or any
+          // guess) is almost certainly taken.
+          console.error('Error fetching next IID:', err);
+          toast.error('Nächste freie ID konnte nicht geladen werden. Bitte ID manuell eintragen.');
+        });
+      return () => {
+        cancelled = true;
+      };
     }
-  }, [item, isNewItem, open]);
+  }, [item, isNewItem, open, form]);
 
   // Load rental history
   useEffect(() => {
