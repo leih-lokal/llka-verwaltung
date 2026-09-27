@@ -52,7 +52,9 @@ import { buildCustomerSearchFilter } from '@/lib/filters/filter-utils';
 import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate, formatPhoneNumber, formatPhoneNumberForTel } from '@/lib/utils/formatting';
 import { cn } from '@/lib/utils';
 import { useIdentity } from '@/hooks/use-identity';
-import type { Rental, RentalExpanded, Customer, Item } from '@/types';
+import { HighlightColor, RentalStatus, type Rental, type RentalExpanded, type Customer, type Item } from '@/types';
+import { getItemStatusLabel, getRentalStatusLabel } from '@/lib/constants/statuses';
+import { HIGHLIGHT_COLOR_LABELS } from '@/lib/constants/colors';
 import { getCopyCount, setCopyCount, removeCopyCount, type InstanceData } from '@/lib/utils/instance-data';
 import { getMultipleItemAvailability, type ItemAvailability } from '@/lib/utils/item-availability';
 import { getReturnedCopyCount } from '@/lib/utils/partial-returns';
@@ -120,6 +122,36 @@ function stringToDate(dateString: string | undefined): Date | undefined {
   } catch {
     return undefined;
   }
+}
+
+// What the highlight colours mean, per the form help texts in
+// lib/constants/documentation.ts. Only four customer colours have an agreed
+// meaning; the others are announced by name only.
+const CUSTOMER_HIGHLIGHT_MEANINGS: Partial<Record<HighlightColor, string>> = {
+  [HighlightColor.Red]: 'Aktiver Problemnutzer, keine Ausleihen möglich',
+  [HighlightColor.Yellow]: 'Fehlende Informationen wie Telefonnummer oder Ausweis',
+  [HighlightColor.Green]: 'Teil des Teams',
+  [HighlightColor.Blue]: 'Noch nicht zum Newsletter hinzugefügt',
+};
+
+const ITEM_HIGHLIGHT_MEANINGS: Record<HighlightColor, string> = {
+  [HighlightColor.Red]: 'Problematischer Artikel (häufig defekt, Verlustrisiko)',
+  [HighlightColor.Orange]: 'Auslaufender Artikel',
+  [HighlightColor.Yellow]: 'Artikel mit besonderen Hinweisen',
+  [HighlightColor.Green]: 'Besonders beliebter Artikel',
+  [HighlightColor.Blue]: 'Neuanschaffung, wertvoller Artikel',
+  [HighlightColor.Teal]: 'Team-Favorit',
+  [HighlightColor.Pink]: 'Saisonaler Artikel',
+  [HighlightColor.Purple]: 'Artikel für spezielle Veranstaltungen',
+};
+
+function describeHighlightColor(
+  color: HighlightColor,
+  meanings: Partial<Record<HighlightColor, string>>
+): string {
+  const label = HIGHLIGHT_COLOR_LABELS[color] ?? color;
+  const meaning = meanings[color];
+  return meaning ? `${label} - ${meaning}` : label;
 }
 
 interface RentalDetailSheetProps {
@@ -461,13 +493,7 @@ export function RentalDetailSheet({
 
       // Check for highlight color
       if (customer.highlight_color) {
-        const colorDescriptions: Record<string, string> = {
-          green: 'Grün - Positiv markiert',
-          blue: 'Blau - Information',
-          yellow: 'Gelb - Warnung',
-          red: 'Rot - Wichtig/Problem',
-        };
-        const description = colorDescriptions[customer.highlight_color] || customer.highlight_color;
+        const description = describeHighlightColor(customer.highlight_color, CUSTOMER_HIGHLIGHT_MEANINGS);
         toast.info(`Diese/r Nutzer:in wurde farblich markiert: ${description}`, {
           duration: Infinity,
         });
@@ -479,33 +505,17 @@ export function RentalDetailSheet({
 
   // Show notifications for selected item
   const showItemNotifications = (item: Item) => {
-    // Check item status
-    const statusMapping: Record<string, string> = {
-      instock: 'verfügbar',
-      outofstock: 'verliehen',
-      reserved: 'reserviert',
-      lost: 'verschollen',
-      repairing: 'in Reparatur',
-      forsale: 'zu verkaufen',
-    };
-
-    const status = statusMapping[item.status] || item.status;
-
-    if (['outofstock', 'reserved', 'lost', 'repairing', 'forsale'].includes(item.status)) {
-      toast.error(`${item.name} (#${String(item.iid).padStart(4, '0')}) ist nicht verfügbar, hat Status: ${status}`, {
+    // Check item status: warn about what handleSave won't accept
+    // (it takes instock and reserved items)
+    if (item.status !== 'instock' && item.status !== 'reserved') {
+      toast.error(`${item.name} (#${String(item.iid).padStart(4, '0')}) ist nicht verfügbar, hat Status: ${getItemStatusLabel(item.status)}`, {
         duration: 10000,
       });
     }
 
     // Check for highlight color
     if (item.highlight_color) {
-      const colorDescriptions: Record<string, string> = {
-        green: 'Grün - Positiv markiert',
-        blue: 'Blau - Information',
-        yellow: 'Gelb - Warnung',
-        red: 'Rot - Wichtig/Problem',
-      };
-      const description = colorDescriptions[item.highlight_color] || item.highlight_color;
+      const description = describeHighlightColor(item.highlight_color, ITEM_HIGHLIGHT_MEANINGS);
       toast.info(`${item.name} (#${String(item.iid).padStart(4, '0')}) wurde farblich markiert: ${description}`, {
         duration: Infinity,
       });
@@ -971,25 +981,19 @@ export function RentalDetailSheet({
     onOpenChange(false);
   };
 
-  const rentalStatus = rental
-    ? calculateRentalStatus(
-        rental.rented_on,
-        rental.returned_on,
-        rental.expected_on,
-        rental.extended_on
-      )
-    : null;
+  // Full rental object so partial returns count, as in the rentals list
+  const rentalStatus = currentRental ? calculateRentalStatus(currentRental) : null;
 
-  const getStatusBadge = (status: string) => {
-    const statusMap = {
-      active: { label: 'Aktiv', variant: 'default' as const },
-      returned: { label: 'Zurückgegeben', variant: 'secondary' as const },
-      overdue: { label: 'Überfällig', variant: 'destructive' as const },
-      due_today: { label: 'Heute fällig', variant: 'secondary' as const },
-      returned_today: { label: 'Heute zurückgegeben', variant: 'secondary' as const },
+  const getStatusBadge = (status: RentalStatus) => {
+    const variants: Record<RentalStatus, 'default' | 'secondary' | 'destructive'> = {
+      [RentalStatus.Active]: 'default',
+      [RentalStatus.Returned]: 'secondary',
+      [RentalStatus.PartiallyReturned]: 'default',
+      [RentalStatus.Overdue]: 'destructive',
+      [RentalStatus.DueToday]: 'secondary',
+      [RentalStatus.ReturnedToday]: 'secondary',
     };
-    const { label, variant } = statusMap[status as keyof typeof statusMap] || statusMap.active;
-    return <Badge variant={variant}>{label}</Badge>;
+    return <Badge variant={variants[status] ?? 'default'}>{getRentalStatusLabel(status)}</Badge>;
   };
 
   // Date quick-action helpers

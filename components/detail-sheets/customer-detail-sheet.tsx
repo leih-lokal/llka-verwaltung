@@ -1063,12 +1063,7 @@ export function CustomerDetailSheet({
                       </thead>
                       <tbody className="bg-background">
                         {(showAllRentals ? rentals : rentals.slice(0, 5)).map((rental) => {
-                          const status = calculateRentalStatus(
-                            rental.rented_on,
-                            rental.returned_on,
-                            rental.expected_on,
-                            rental.extended_on
-                          );
+                          const status = calculateRentalStatus(rental);
                           const items = rental.expand?.items || [];
                           const firstItem = items[0];
                           const additionalCount = items.length - 1;

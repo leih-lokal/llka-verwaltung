@@ -57,6 +57,7 @@ async function compressInBatches(files: File[], cfg: Parameters<typeof compressI
   return out;
 }
 import { CATEGORY_OPTIONS, GERMAN_CATEGORY_VALUES } from '@/lib/constants/categories';
+import { ITEM_STATUS_OPTIONS, getItemStatusLabel, getRentalStatusLabel } from '@/lib/constants/statuses';
 import { RentalDetailSheet } from './rental-detail-sheet';
 import { FormHelpPanel } from './form-help-panel';
 import { DOCUMENTATION } from '@/lib/constants/documentation';
@@ -442,18 +443,17 @@ export function ItemDetailSheet({
   };
 
   const getStatusBadge = (status: ItemStatus) => {
-    const statusMap = {
-      instock: { label: 'Auf Lager', variant: 'default' as const },
-      outofstock: { label: 'Ausgeliehen', variant: 'secondary' as const },
-      reserved: { label: 'Reserviert', variant: 'secondary' as const },
-      onbackorder: { label: 'Nachbestellt', variant: 'secondary' as const },
-      lost: { label: 'Verloren', variant: 'destructive' as const },
-      repairing: { label: 'Reparatur', variant: 'secondary' as const },
-      forsale: { label: 'Zu verkaufen', variant: 'secondary' as const },
-      deleted: { label: 'Gelöscht', variant: 'destructive' as const },
+    const variants = {
+      instock: 'default' as const,
+      outofstock: 'secondary' as const,
+      reserved: 'secondary' as const,
+      onbackorder: 'secondary' as const,
+      lost: 'destructive' as const,
+      repairing: 'secondary' as const,
+      forsale: 'secondary' as const,
+      deleted: 'destructive' as const,
     };
-    const { label, variant } = statusMap[status];
-    return <Badge variant={variant}>{label}</Badge>;
+    return <Badge variant={variants[status] ?? 'secondary'}>{getItemStatusLabel(status)}</Badge>;
   };
 
   return (
@@ -736,14 +736,9 @@ export function ItemDetailSheet({
                       {...form.register('status')}
                       className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     >
-                      <option value="instock">Auf Lager</option>
-                      <option value="outofstock">Ausgeliehen</option>
-                      <option value="reserved">Reserviert</option>
-                      <option value="onbackorder">Nachbestellt</option>
-                      <option value="lost">Verloren</option>
-                      <option value="repairing">Reparatur</option>
-                      <option value="forsale">Zu verkaufen</option>
-                      <option value="deleted">Gelöscht</option>
+                      {ITEM_STATUS_OPTIONS.map(({ value, label }) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -1131,12 +1126,7 @@ export function ItemDetailSheet({
                       </thead>
                       <tbody className="bg-background">
                         {rentals.map((rental) => {
-                          const status = calculateRentalStatus(
-                            rental.rented_on,
-                            rental.returned_on,
-                            rental.expected_on,
-                            rental.extended_on
-                          );
+                          const status = calculateRentalStatus(rental);
                           return (
                             <tr key={rental.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                               <td className="px-4 py-3 font-medium">
@@ -1151,7 +1141,7 @@ export function ItemDetailSheet({
                               </td>
                               <td className="px-4 py-3">
                                 <Badge variant={status === 'overdue' ? 'destructive' : 'secondary'}>
-                                  {status}
+                                  {getRentalStatusLabel(status)}
                                 </Badge>
                               </td>
                             </tr>
@@ -1333,12 +1323,7 @@ export function ItemDetailSheet({
                       </thead>
                       <tbody className="divide-y">
                         {rentals.slice(0, 5).map((rental) => {
-                          const status = calculateRentalStatus(
-                            rental.rented_on,
-                            rental.returned_on,
-                            rental.expected_on,
-                            rental.extended_on
-                          );
+                          const status = calculateRentalStatus(rental);
                           return (
                             <tr key={rental.id} className="hover:bg-muted/30">
                               <td className="px-4 py-3 text-sm">
@@ -1359,11 +1344,7 @@ export function ItemDetailSheet({
                                       : 'default'
                                   }
                                 >
-                                  {status === 'active' && 'Aktiv'}
-                                  {status === 'returned' && 'Zurückgegeben'}
-                                  {status === 'overdue' && 'Überfällig'}
-                                  {status === 'due_today' && 'Heute fällig'}
-                                  {status === 'returned_today' && 'Heute zurück'}
+                                  {getRentalStatusLabel(status)}
                                 </Badge>
                               </td>
                             </tr>
