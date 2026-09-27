@@ -251,6 +251,11 @@ export function ReservationDetailSheet({
 
   // Load reservation data when reservation changes
   useEffect(() => {
+    // Set when another reservation is opened (or the sheet closes) before the
+    // customer lookup below resolves. Applying that late response would load
+    // the previous reservation's customer (and, via auto-fill, its
+    // name/phone/email) and form data into this one.
+    let cancelled = false;
     const loadReservationData = async () => {
       if (reservation && open) {
         // Fetch customer by iid if it exists
@@ -259,8 +264,10 @@ export function ReservationDetailSheet({
             const customer = await collections
               .customers()
               .getFirstListItem<Customer>(`iid=${reservation.customer_iid}`);
+            if (cancelled) return;
             setSelectedCustomer(customer);
           } catch (err) {
+            if (cancelled) return;
             console.error("Error loading customer:", err);
             setSelectedCustomer(null);
           }
@@ -308,6 +315,9 @@ export function ReservationDetailSheet({
     };
 
     loadReservationData();
+    return () => {
+      cancelled = true;
+    };
   }, [reservation, isNewReservation, form, open]);
 
   const handleSave = async (data: ReservationFormValues) => {
