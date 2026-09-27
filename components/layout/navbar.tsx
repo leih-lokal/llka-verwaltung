@@ -96,26 +96,29 @@ function MenuTile({ icon, label, description, shortcut, onClick, href }: MenuTil
 
   if (href) {
     return (
-      <Link
-        href={href}
-        className="group flex flex-col p-3 rounded-lg border bg-card hover:bg-accent transition-colors cursor-pointer h-full"
-        role="menuitem"
-        aria-label={`${label}: ${description}`}
-      >
-        {content}
-      </Link>
+      <li>
+        <Link
+          href={href}
+          className="group flex flex-col p-3 rounded-lg border bg-card hover:bg-accent transition-colors cursor-pointer h-full"
+          aria-label={`${label}: ${description}`}
+        >
+          {content}
+        </Link>
+      </li>
     );
   }
 
   return (
-    <button
-      onClick={onClick}
-      className="group flex flex-col p-3 rounded-lg border bg-card hover:bg-accent transition-colors cursor-pointer text-left h-full w-full"
-      role="menuitem"
-      aria-label={`${label}: ${description}`}
-    >
-      {content}
-    </button>
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        className="group flex flex-col p-3 rounded-lg border bg-card hover:bg-accent transition-colors cursor-pointer text-left h-full w-full"
+        aria-label={`${label}: ${description}`}
+      >
+        {content}
+      </button>
+    </li>
   );
 }
 
@@ -246,7 +249,6 @@ export function Navbar() {
               align="end"
               sideOffset={8}
               className="w-[calc(100vw-2rem)] max-w-[520px] p-0"
-              role="menu"
               aria-label="Navigations-Menü"
             >
               <div className="p-4 space-y-4">
@@ -255,7 +257,7 @@ export function Navbar() {
                   <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 px-1">
                     Mehr Aktionen
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <ul role="list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     <MenuTile
                       icon={<Search className="h-4 w-4" />}
                       label="Suchen"
@@ -277,7 +279,7 @@ export function Navbar() {
                       shortcut={{ keys: ['O', 'O'] }}
                       onClick={() => setSequentialModeOpen(true)}
                     />
-                  </div>
+                  </ul>
                 </section>
 
                 {/* Tools Category */}
@@ -285,7 +287,7 @@ export function Navbar() {
                   <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 px-1">
                     Werkzeuge
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <ul role="list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     <MenuTile
                       icon={<AlertCircle className="h-4 w-4" />}
                       label="Überfällige Ausleihen"
@@ -314,7 +316,7 @@ export function Navbar() {
                       shortcut={{ keys: ['G', 'P'] }}
                       href="/label-designer"
                     />
-                  </div>
+                  </ul>
                 </section>
 
                 {/* System Category */}
@@ -322,7 +324,7 @@ export function Navbar() {
                   <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 px-1">
                     System
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <ul role="list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     <MenuTile
                       icon={<FileText className="h-4 w-4" />}
                       label="Logs"
@@ -343,7 +345,7 @@ export function Navbar() {
                       description="Trenne LLKA-V2 vom Server."
                       onClick={logout}
                     />
-                  </div>
+                  </ul>
                 </section>
 
                 {/* Footer with settings link + build metadata */}
