@@ -898,6 +898,15 @@ export function RentalDetailSheet({
       // Merge into the stored rental, re-fetched right before merging: the
       // `rental` prop predates any partial return made since the sheet opened.
       const latest = await collections.rentals().getOne<Rental>(rental.id);
+      if (latest.returned_on) {
+        // Returned in full meanwhile (e.g. by another operator): a partial
+        // return on top would add deposit back twice and overwrite who took it
+        toast.error('Dieser Leihvorgang wurde inzwischen vollständig zurückgegeben');
+        setShowPartialReturnDialog(false);
+        onSave?.(latest);
+        onOpenChange(false);
+        return;
+      }
       const {
         returned_items: mergedReturnedItems,
         deposit_back: mergedDepositBack,
