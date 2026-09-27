@@ -3,7 +3,7 @@
  * Fetches aggregated statistics from PocketBase with localStorage caching
  */
 
-import { pb } from '@/lib/pocketbase/client';
+import { pb, getServerUrl } from '@/lib/pocketbase/client';
 
 interface MonthlyStats {
   [month: string]: number;
@@ -25,6 +25,14 @@ const CACHE_KEY = 'dashboard_stats_cache';
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour in milliseconds
 
 /**
+ * Cache key per PocketBase server, so switching servers doesn't show the
+ * other instance's stats until the cache expires
+ */
+function getCacheKey(): string {
+  return `${CACHE_KEY}:${getServerUrl()}`;
+}
+
+/**
  * Gets the latest value from a monthly stats object
  */
 function getLatestValue(monthlyStats: MonthlyStats): number {
@@ -39,8 +47,12 @@ function getLatestValue(monthlyStats: MonthlyStats): number {
  * Fetches stats from cache if valid, otherwise from API
  */
 export async function fetchStats(): Promise<StatsResponse> {
+  // Resolve the key up front: the response must be cached under the server
+  // it came from, even if the URL changes while the request is in flight
+  const cacheKey = getCacheKey();
+
   // Check cache first
-  const cached = getCachedStats();
+  const cached = getCachedStats(cacheKey);
   if (cached) {
     return cached;
   }
@@ -51,7 +63,7 @@ export async function fetchStats(): Promise<StatsResponse> {
   });
 
   // Cache the response
-  setCachedStats(data);
+  setCachedStats(cacheKey, data);
 
   return data;
 }
@@ -59,11 +71,11 @@ export async function fetchStats(): Promise<StatsResponse> {
 /**
  * Gets cached stats if still valid
  */
-function getCachedStats(): StatsResponse | null {
+function getCachedStats(cacheKey: string): StatsResponse | null {
   if (typeof window === 'undefined') return null;
 
   try {
-    const cached = localStorage.getItem(CACHE_KEY);
+    const cached = localStorage.getItem(cacheKey);
     if (!cached) return null;
 
     const { data, timestamp }: CachedStats = JSON.parse(cached);
@@ -75,11 +87,11 @@ function getCachedStats(): StatsResponse | null {
     }
 
     // Cache expired, remove it
-    localStorage.removeItem(CACHE_KEY);
+    localStorage.removeItem(cacheKey);
     return null;
   } catch (error) {
     console.error('Error reading stats cache:', error);
-    localStorage.removeItem(CACHE_KEY);
+    localStorage.removeItem(cacheKey);
     return null;
   }
 }
@@ -87,7 +99,7 @@ function getCachedStats(): StatsResponse | null {
 /**
  * Saves stats to localStorage cache
  */
-function setCachedStats(data: StatsResponse): void {
+function setCachedStats(cacheKey: string, data: StatsResponse): void {
   if (typeof window === 'undefined') return;
 
   try {
@@ -95,7 +107,7 @@ function setCachedStats(data: StatsResponse): void {
       data,
       timestamp: Date.now(),
     };
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cached));
+    localStorage.setItem(cacheKey, JSON.stringify(cached));
   } catch (error) {
     console.error('Error caching stats:', error);
   }
@@ -113,5 +125,5 @@ export function getTotalItemsFromStats(stats: StatsResponse): number {
  */
 export function clearStatsCache(): void {
   if (typeof window === 'undefined') return;
-  localStorage.removeItem(CACHE_KEY);
+  localStorage.removeItem(getCacheKey());
 }
