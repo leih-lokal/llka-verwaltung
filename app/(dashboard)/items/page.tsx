@@ -6,12 +6,14 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { PlusIcon, ImageIcon, CoinsIcon, WrenchIcon, CopyIcon, HistoryIcon, HeartIcon } from 'lucide-react';
+import { PlusIcon, ImageIcon, CoinsIcon, WrenchIcon, CopyIcon, HistoryIcon } from 'lucide-react';
 import { SearchBar } from '@/components/search/search-bar';
 import { FilterPopover } from '@/components/search/filter-popover';
-import { SortableHeader, type SortDirection } from '@/components/table/sortable-header';
+import { SortableHeader, ariaSort, type SortDirection } from '@/components/table/sortable-header';
 import { ColumnSelector } from '@/components/table/column-selector';
 import { EmptyState } from '@/components/table/empty-state';
+import { HighlightMarker } from '@/components/table/highlight-marker';
+import { RowOpenButton } from '@/components/table/row-open-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
@@ -23,12 +25,20 @@ import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
 import { itemsFilterConfig } from '@/lib/filters/filter-configs';
 import { buildRecordInListFilter } from '@/lib/filters/filter-utils';
 import { itemsColumnConfig } from '@/lib/tables/column-configs';
-import type { Item, ItemWithStats } from '@/types';
+import { HighlightColor, type Item, type ItemWithStats } from '@/types';
 import { getItemStatusLabel, ITEM_STATUS_COLORS } from '@/lib/constants/statuses';
 import { getCategoryLabel } from '@/lib/constants/categories';
 import { enrichItemsWithStats } from '@/lib/utils/item-stats';
 import { cn } from '@/lib/utils';
 import { FormattedId } from '@/components/ui/formatted-id';
+
+/** Columns that can carry the row's open button, by preference */
+const OPEN_BUTTON_COLUMNS = ['iid', 'name'];
+
+/** Meaning of the highlight colours in the item list (see documentation) */
+const HIGHLIGHT_MEANINGS: Partial<Record<HighlightColor, string>> = {
+  [HighlightColor.Red]: 'problematischer Gegenstand',
+};
 
 export default function ItemsPage() {
   const searchParams = useSearchParams();
@@ -299,7 +309,7 @@ export default function ItemsPage() {
     switch (columnId) {
       case 'iid':
         return (
-          <th key="iid" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="iid" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('iid'))}>
             <SortableHeader
               label="ID"
               sortDirection={getSortDirection('iid')}
@@ -316,7 +326,7 @@ export default function ItemsPage() {
         );
       case 'name':
         return (
-          <th key="name" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="name" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('name'))}>
             <SortableHeader
               label="Name"
               sortDirection={getSortDirection('name')}
@@ -327,7 +337,7 @@ export default function ItemsPage() {
         );
       case 'brand':
         return (
-          <th key="brand" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="brand" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('brand'))}>
             <SortableHeader
               label="Marke"
               sortDirection={getSortDirection('brand')}
@@ -338,7 +348,7 @@ export default function ItemsPage() {
         );
       case 'model':
         return (
-          <th key="model" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="model" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('model'))}>
             <SortableHeader
               label="Modell"
               sortDirection={getSortDirection('model')}
@@ -349,7 +359,7 @@ export default function ItemsPage() {
         );
       case 'category':
         return (
-          <th key="category" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="category" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('category'))}>
             <SortableHeader
               label="Kategorie"
               sortDirection={getSortDirection('category')}
@@ -360,7 +370,7 @@ export default function ItemsPage() {
         );
       case 'status':
         return (
-          <th key="status" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="status" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('status'))}>
             <SortableHeader
               label="Status"
               sortDirection={getSortDirection('status')}
@@ -371,7 +381,7 @@ export default function ItemsPage() {
         );
       case 'deposit':
         return (
-          <th key="deposit" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="deposit" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('deposit'))}>
             <button
               onClick={() => handleSort('deposit')}
               disabled={isLoading}
@@ -384,7 +394,7 @@ export default function ItemsPage() {
         );
       case 'msrp':
         return (
-          <th key="msrp" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="msrp" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('msrp'))}>
             <SortableHeader
               label="UVP"
               sortDirection={getSortDirection('msrp')}
@@ -395,7 +405,7 @@ export default function ItemsPage() {
         );
       case 'description':
         return (
-          <th key="description" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="description" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('description'))}>
             <SortableHeader
               label="Beschreibung"
               sortDirection={getSortDirection('description')}
@@ -406,7 +416,7 @@ export default function ItemsPage() {
         );
       case 'packaging':
         return (
-          <th key="packaging" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="packaging" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('packaging'))}>
             <SortableHeader
               label="Verpackung"
               sortDirection={getSortDirection('packaging')}
@@ -417,7 +427,7 @@ export default function ItemsPage() {
         );
       case 'manual':
         return (
-          <th key="manual" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="manual" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('manual'))}>
             <SortableHeader
               label="Anleitung"
               sortDirection={getSortDirection('manual')}
@@ -428,7 +438,7 @@ export default function ItemsPage() {
         );
       case 'parts':
         return (
-          <th key="parts" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="parts" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('parts'))}>
             <button
               onClick={() => handleSort('parts')}
               disabled={isLoading}
@@ -441,7 +451,7 @@ export default function ItemsPage() {
         );
       case 'copies':
         return (
-          <th key="copies" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="copies" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('copies'))}>
             <button
               onClick={() => handleSort('copies')}
               disabled={isLoading}
@@ -460,7 +470,7 @@ export default function ItemsPage() {
         );
       case 'internal_note':
         return (
-          <th key="internal_note" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="internal_note" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('internal_note'))}>
             <SortableHeader
               label="Interne Notiz"
               sortDirection={getSortDirection('internal_note')}
@@ -471,7 +481,7 @@ export default function ItemsPage() {
         );
       case 'added_on':
         return (
-          <th key="added_on" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="added_on" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('added_on'))}>
             <SortableHeader
               label="Hinzugefügt"
               sortDirection={getSortDirection('added_on')}
@@ -485,15 +495,32 @@ export default function ItemsPage() {
     }
   };
 
+  // The row's open button goes into the first of these columns that is shown
+  const openColumnId = OPEN_BUTTON_COLUMNS.find((id) =>
+    columnVisibility.visibleColumns.includes(id)
+  );
+
   // Render table body cell for a given column and item
   const renderBodyCell = (columnId: string, item: ItemWithStats) => {
     const dividerClass = columnVisibility.verticalDividers ? 'border-l first:border-l-0 border-border/30' : '';
+    // Keyboard/screen-reader access to the row's click action
+    const openable = (content: React.ReactNode) =>
+      columnId === openColumnId ? (
+        <RowOpenButton
+          label={`Gegenstand ${String(item.iid).padStart(4, '0')} ${item.name} öffnen`}
+          onOpen={() => handleRowClick(item)}
+        >
+          {content}
+        </RowOpenButton>
+      ) : (
+        content
+      );
 
     switch (columnId) {
       case 'iid':
         return (
           <td key="iid" className={cn("px-4 py-3", dividerClass)}>
-            <FormattedId id={item.iid} size="lg" />
+            {openable(<FormattedId id={item.iid} size="lg" />)}
           </td>
         );
       case 'images':
@@ -542,23 +569,8 @@ export default function ItemsPage() {
         return (
           <td key="name" className={cn("px-4 py-3 font-medium", dividerClass)}>
             <div className="flex items-center gap-2">
-              {item.highlight_color && (
-                item.highlight_color === 'green' ? (
-                  <HeartIcon className="size-4 fill-green-500 text-green-500" />
-                ) : (
-                  <div className={`size-3 rounded-full ${
-                    item.highlight_color === 'red' ? 'bg-red-500' :
-                    item.highlight_color === 'yellow' ? 'bg-yellow-500' :
-                    item.highlight_color === 'blue' ? 'bg-blue-500' :
-                    item.highlight_color === 'purple' ? 'bg-purple-500' :
-                    item.highlight_color === 'orange' ? 'bg-orange-500' :
-                    item.highlight_color === 'pink' ? 'bg-pink-500' :
-                    item.highlight_color === 'teal' ? 'bg-teal-500' :
-                    'bg-blue-500'
-                  }`} />
-                )
-              )}
-              <span>{item.name}</span>
+              <HighlightMarker color={item.highlight_color} meanings={HIGHLIGHT_MEANINGS} />
+              {openable(<span>{item.name}</span>)}
             </div>
           </td>
         );
@@ -707,8 +719,9 @@ export default function ItemsPage() {
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="h-8 w-8 animate-spin border-4 border-primary border-t-transparent" />
+          <div role="status" className="flex items-center justify-center py-8">
+            <div aria-hidden="true" className="h-8 w-8 animate-spin border-4 border-primary border-t-transparent" />
+            <span className="sr-only">Lädt…</span>
           </div>
         ) : error ? (
           <div className="text-center py-8">
@@ -745,15 +758,17 @@ export default function ItemsPage() {
             {/* Infinite scroll trigger */}
             <div ref={observerTarget} className="h-4" />
 
-            {/* Loading more indicator */}
-            {isLoadingMore && (
-              <div className="flex items-center justify-center py-4">
-                <div className="h-6 w-6 animate-spin border-4 border-primary border-t-transparent" />
-                <span className="ml-2 text-sm text-muted-foreground">
-                  Lädt mehr...
-                </span>
-              </div>
-            )}
+            {/* Loading more indicator (polite live region, kept mounted) */}
+            <div role="status">
+              {isLoadingMore && (
+                <div className="flex items-center justify-center py-4">
+                  <div aria-hidden="true" className="h-6 w-6 animate-spin border-4 border-primary border-t-transparent" />
+                  <span className="ml-2 text-sm text-muted-foreground">
+                    Lädt mehr...
+                  </span>
+                </div>
+              )}
+            </div>
 
             {/* End of results */}
             {!hasMore && items.length > 0 && (

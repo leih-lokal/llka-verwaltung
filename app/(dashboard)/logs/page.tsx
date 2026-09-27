@@ -10,6 +10,7 @@ import { SearchBar } from "@/components/search/search-bar";
 import { FilterPopover } from "@/components/search/filter-popover";
 import {
   SortableHeader,
+  ariaSort,
   type SortDirection,
 } from "@/components/table/sortable-header";
 import { ColumnSelector } from "@/components/table/column-selector";
@@ -463,8 +464,9 @@ export default function LogsPage() {
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="h-8 w-8 animate-spin border-4 border-primary border-t-transparent" />
+          <div role="status" className="flex items-center justify-center py-8">
+            <div aria-hidden="true" className="h-8 w-8 animate-spin border-4 border-primary border-t-transparent" />
+            <span className="sr-only">Lädt…</span>
           </div>
         ) : error ? (
           <div className="text-center py-8">
@@ -487,7 +489,11 @@ export default function LogsPage() {
               <thead>
                 <tr className="border-b-2 border-primary">
                   {visibleColumns.map((columnId) => (
-                    <th key={columnId} className="px-4 py-3 text-left">
+                    <th
+                      key={columnId}
+                      className="px-4 py-3 text-left"
+                      aria-sort={ariaSort(getSortDirection(columnId))}
+                    >
                       {renderHeaderCell(columnId)}
                     </th>
                   ))}
@@ -509,13 +515,15 @@ export default function LogsPage() {
               </tbody>
             </table>
 
-            {/* Loading More Indicator */}
-            {isLoadingMore && (
-              <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                <span>Weitere Logs werden geladen...</span>
-              </div>
-            )}
+            {/* Loading More Indicator (polite live region, kept mounted) */}
+            <div role="status">
+              {isLoadingMore && (
+                <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground">
+                  <div aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  <span>Weitere Logs werden geladen...</span>
+                </div>
+              )}
+            </div>
 
             {/* Infinite Scroll Trigger */}
             <div ref={observerTarget} className="h-4" />
