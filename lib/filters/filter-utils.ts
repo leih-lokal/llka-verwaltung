@@ -370,6 +370,16 @@ export function buildBookingSiblingFilter(
 }
 
 /**
+ * Filter for one record under a list's current search and filters. Realtime
+ * handlers use it to check whether a created or updated record belongs in
+ * the list, instead of inserting or keeping records the list excludes.
+ */
+export function buildRecordInListFilter(id: string, listFilter: string): string {
+  const idFilter = pb.filter('id = {:id}', { id });
+  return listFilter ? `${idFilter} && (${listFilter})` : idFilter;
+}
+
+/**
  * Format filter label for display
  */
 export function formatFilterLabel(filter: ActiveFilter): string {

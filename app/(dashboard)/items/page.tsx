@@ -21,6 +21,7 @@ import { useFilters } from '@/hooks/use-filters';
 import { useColumnVisibility } from '@/hooks/use-column-visibility';
 import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
 import { itemsFilterConfig } from '@/lib/filters/filter-configs';
+import { buildRecordInListFilter } from '@/lib/filters/filter-utils';
 import { itemsColumnConfig } from '@/lib/tables/column-configs';
 import type { Item, ItemWithStats } from '@/types';
 import { getItemStatusLabel, ITEM_STATUS_COLORS } from '@/lib/constants/statuses';
@@ -44,6 +45,8 @@ export default function ItemsPage() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   const observerTarget = useRef<HTMLDivElement>(null);
+  // Bumped by every list request so responses of superseded ones are dropped
+  const requestIdRef = useRef(0);
   const perPage = 50;
 
   // Filter management
@@ -72,27 +75,52 @@ export default function ItemsPage() {
     config: itemsColumnConfig,
   });
 
+  // Whether an item matches the current search and filters (by default
+  // "not deleted", so items soft-deleted elsewhere drop out of the list)
+  const isListed = async (id: string) => {
+    const result = await collections.items().getList<Item>(1, 1, {
+      filter: buildRecordInListFilter(id, filters.buildFilter(debouncedSearch)),
+      fields: 'id',
+      skipTotal: true,
+    });
+    return result.items.length > 0;
+  };
+
   // Real-time subscription for live updates
   useRealtimeSubscription<Item>('item', {
     onCreated: async (item) => {
-      // Enrich the new item with stats
-      const enriched = await enrichItemsWithStats([item]);
-      setItems((prev) => {
-        // Check if item already exists (avoid duplicates)
-        if (prev.some((i) => i.id === item.id)) {
-          return prev;
-        }
-        // Add to beginning of list
-        return [enriched[0], ...prev];
-      });
+      try {
+        if (!(await isListed(item.id))) return;
+        // Enrich the new item with stats
+        const enriched = await enrichItemsWithStats([item]);
+        setItems((prev) => {
+          // Check if item already exists (avoid duplicates)
+          if (prev.some((i) => i.id === item.id)) {
+            return prev;
+          }
+          // Add to beginning of list
+          return [enriched[0], ...prev];
+        });
+      } catch (err) {
+        console.error('Error handling created item:', err);
+      }
     },
     onUpdated: async (item) => {
-      // Enrich the updated item with stats
-      const enriched = await enrichItemsWithStats([item]);
-      // Update item in list
-      setItems((prev) =>
-        prev.map((i) => (i.id === item.id ? enriched[0] : i))
-      );
+      try {
+        // Drop it if it no longer matches the filters
+        if (!(await isListed(item.id))) {
+          setItems((prev) => prev.filter((i) => i.id !== item.id));
+          return;
+        }
+        // Enrich the updated item with stats
+        const enriched = await enrichItemsWithStats([item]);
+        // Update item in list
+        setItems((prev) =>
+          prev.map((i) => (i.id === item.id ? enriched[0] : i))
+        );
+      } catch (err) {
+        console.error('Error handling updated item:', err);
+      }
     },
     onDeleted: (item) => {
       // Remove from list
@@ -134,6 +162,11 @@ export default function ItemsPage() {
   }, [searchQuery]);
 
   const fetchItems = useCallback(async (page: number) => {
+    // A request started after this one (new filter, sort or page) wins, even
+    // if this response arrives later
+    const requestId = ++requestIdRef.current;
+    const isStale = () => requestId !== requestIdRef.current;
+
     try {
       const isInitialLoad = page === 1;
       if (isInitialLoad) {
@@ -154,9 +187,11 @@ export default function ItemsPage() {
           skipTotal: true,
         }
       );
+      if (isStale()) return;
 
       // Enrich items with rental statistics
       const enrichedItems = await enrichItemsWithStats(result.items);
+      if (isStale()) return;
 
       if (isInitialLoad) {
         setItems(enrichedItems);
@@ -168,13 +203,16 @@ export default function ItemsPage() {
       setCurrentPage(page + 1);
       setError(null);
     } catch (err) {
+      if (isStale()) return;
       console.error('Error fetching items:', err);
       setError(
         err instanceof Error ? err.message : 'Fehler beim Laden der Gegenstände'
       );
     } finally {
-      setIsLoading(false);
-      setIsLoadingMore(false);
+      if (!isStale()) {
+        setIsLoading(false);
+        setIsLoadingMore(false);
+      }
     }
   }, [debouncedSearch, filters.buildFilter, sortField, perPage]);
 

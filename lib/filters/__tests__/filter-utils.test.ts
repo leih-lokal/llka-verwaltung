@@ -3,6 +3,7 @@ import {
   buildBookingSiblingFilter,
   buildCustomerSearchFilter,
   buildPocketBaseFilter,
+  buildRecordInListFilter,
   getDatePresetRange,
   type ActiveFilter,
 } from '../filter-utils';
@@ -263,6 +264,18 @@ describe('buildPocketBaseFilter date presets', () => {
     expect(buildPocketBaseFilter([{ ...today, exclude: true }])).toBe(
       "(expected_on < '2026-04-16 00:00:00' || expected_on > '2026-04-16 23:59:59')"
     );
+  });
+});
+
+describe('buildRecordInListFilter', () => {
+  it('scopes the list filter to one record', () => {
+    expect(buildRecordInListFilter('abc123', "status != 'deleted' || iid = 5")).toBe(
+      "id = 'abc123' && (status != 'deleted' || iid = 5)"
+    );
+  });
+
+  it('matches just the record without a list filter', () => {
+    expect(buildRecordInListFilter('abc123', '')).toBe("id = 'abc123'");
   });
 });
 

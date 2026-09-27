@@ -33,6 +33,7 @@ import { useFilters } from "@/hooks/use-filters";
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
 import { useRealtimeSubscription } from "@/hooks/use-realtime-subscription";
 import { reservationsFilterConfig } from "@/lib/filters/filter-configs";
+import { buildRecordInListFilter } from "@/lib/filters/filter-utils";
 import { reservationsColumnConfig } from "@/lib/tables/column-configs";
 import type {
   Reservation,
@@ -71,6 +72,8 @@ export default function ReservationsPage() {
     useState<string | undefined>(undefined);
 
   const observerTarget = useRef<HTMLDivElement>(null);
+  // Bumped by every list request so responses of superseded ones are dropped
+  const requestIdRef = useRef(0);
   const perPage = 50;
 
   // Filter management
@@ -121,14 +124,25 @@ export default function ReservationsPage() {
     config: reservationsColumnConfig,
   });
 
+  // Fetch a reservation (expanded) only if it matches the current search and
+  // filters; null otherwise
+  const fetchIfListed = async (id: string) => {
+    const result = await collections
+      .reservations()
+      .getList<ReservationExpanded>(1, 1, {
+        filter: buildRecordInListFilter(id, filters.buildFilter(debouncedSearch)),
+        expand: "items",
+        skipTotal: true,
+      });
+    return result.items[0] ?? null;
+  };
+
   // Real-time subscription for live updates
   useRealtimeSubscription<Reservation>("reservation", {
     onCreated: async (reservation) => {
-      // Fetch the reservation with expanded data
       try {
-        const expandedReservation = await collections
-          .reservations()
-          .getOne<ReservationExpanded>(reservation.id, { expand: "items" });
+        const expandedReservation = await fetchIfListed(reservation.id);
+        if (!expandedReservation) return;
         setReservations((prev) => {
           // Check if reservation already exists (avoid duplicates)
           if (prev.some((r) => r.id === reservation.id)) {
@@ -142,13 +156,13 @@ export default function ReservationsPage() {
       }
     },
     onUpdated: async (reservation) => {
-      // Fetch the reservation with expanded data
       try {
-        const expandedReservation = await collections
-          .reservations()
-          .getOne<ReservationExpanded>(reservation.id, { expand: "items" });
+        const expandedReservation = await fetchIfListed(reservation.id);
+        // Drop it if it no longer matches the filters
         setReservations((prev) =>
-          prev.map((r) => (r.id === reservation.id ? expandedReservation : r)),
+          expandedReservation
+            ? prev.map((r) => (r.id === reservation.id ? expandedReservation : r))
+            : prev.filter((r) => r.id !== reservation.id),
         );
       } catch (err) {
         console.error("Error fetching expanded reservation:", err);
@@ -169,15 +183,13 @@ export default function ReservationsPage() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Reset pagination when search, filters, or sort change
-  useEffect(() => {
-    setReservations([]);
-    setCurrentPage(1);
-    setHasMore(true);
-  }, [debouncedSearch, filters.activeFilters, sortField]);
-
   const fetchReservations = useCallback(
     async (page: number) => {
+      // A request started after this one (new filter, sort or page) wins,
+      // even if this response arrives later
+      const requestId = ++requestIdRef.current;
+      const isStale = () => requestId !== requestIdRef.current;
+
       try {
         const isInitialLoad = page === 1;
         if (isInitialLoad) {
@@ -197,6 +209,7 @@ export default function ReservationsPage() {
             filter,
             skipTotal: true,
           });
+        if (isStale()) return;
 
         if (isInitialLoad) {
           setReservations(result.items);
@@ -208,6 +221,7 @@ export default function ReservationsPage() {
         setCurrentPage(page + 1);
         setError(null);
       } catch (err) {
+        if (isStale()) return;
         console.error("Error fetching reservations:", err);
         setError(
           err instanceof Error
@@ -215,18 +229,27 @@ export default function ReservationsPage() {
             : "Fehler beim Laden der Reservierungen",
         );
       } finally {
-        setIsLoading(false);
-        setIsLoadingMore(false);
+        if (!isStale()) {
+          setIsLoading(false);
+          setIsLoadingMore(false);
+        }
       }
     },
     [debouncedSearch, filters.buildFilter, sortField, perPage],
   );
 
-  // Initial load and reload on search change
+  // See rentals/page.tsx for the rationale behind this pattern: one effect
+  // keyed on the real inputs + a fetchRef so the observer below doesn't
+  // tear down and rebuild on every filter-string mutation.
+  const fetchRef = useRef(fetchReservations);
+  fetchRef.current = fetchReservations;
+
   useEffect(() => {
+    setReservations([]);
     setCurrentPage(1);
-    fetchReservations(1);
-  }, [debouncedSearch, fetchReservations]);
+    setHasMore(true);
+    fetchRef.current(1);
+  }, [debouncedSearch, filters.activeFilters, sortField]);
 
   // Intersection Observer for infinite scroll
   useEffect(() => {
@@ -238,7 +261,7 @@ export default function ReservationsPage() {
           !isLoading &&
           !isLoadingMore
         ) {
-          fetchReservations(currentPage);
+          fetchRef.current(currentPage);
         }
       },
       { threshold: 0.1 },
@@ -249,7 +272,7 @@ export default function ReservationsPage() {
     }
 
     return () => observer.disconnect();
-  }, [fetchReservations, currentPage, hasMore, isLoading, isLoadingMore]);
+  }, [currentPage, hasMore, isLoading, isLoadingMore]);
 
   // Handle column sort
   const handleSort = (columnId: string) => {

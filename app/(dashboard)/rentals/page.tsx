@@ -20,6 +20,7 @@ import { useFilters } from '@/hooks/use-filters';
 import { useColumnVisibility } from '@/hooks/use-column-visibility';
 import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
 import { rentalsFilterConfig } from '@/lib/filters/filter-configs';
+import { buildRecordInListFilter } from '@/lib/filters/filter-utils';
 import { rentalsColumnConfig } from '@/lib/tables/column-configs';
 import type { Rental, RentalExpanded } from '@/types';
 import { formatDate, calculateRentalStatus } from '@/lib/utils/formatting';
@@ -47,6 +48,8 @@ export default function RentalsPage() {
   const [sourceReservationId, setSourceReservationId] = useState<string | undefined>(undefined);
 
   const observerTarget = useRef<HTMLDivElement>(null);
+  // Bumped by every list request so responses of superseded ones are dropped
+  const requestIdRef = useRef(0);
   const perPage = 50;
 
   // Filter management
@@ -65,15 +68,23 @@ export default function RentalsPage() {
     config: rentalsColumnConfig,
   });
 
+  // Fetch a rental (expanded) only if it matches the current search and
+  // filters; null otherwise
+  const fetchIfListed = async (id: string) => {
+    const result = await collections.rentals().getList<RentalExpanded>(1, 1, {
+      filter: buildRecordInListFilter(id, filters.buildFilter(debouncedSearch)),
+      expand: 'customer,items',
+      skipTotal: true,
+    });
+    return result.items[0] ?? null;
+  };
+
   // Real-time subscription for live updates
   useRealtimeSubscription<Rental>('rental', {
     onCreated: async (rental) => {
-      // Fetch the rental with expanded data
       try {
-        const expandedRental = await collections.rentals().getOne<RentalExpanded>(
-          rental.id,
-          { expand: 'customer,items' }
-        );
+        const expandedRental = await fetchIfListed(rental.id);
+        if (!expandedRental) return;
         setRentals((prev) => {
           // Check if rental already exists (avoid duplicates)
           if (prev.some((r) => r.id === rental.id)) {
@@ -87,14 +98,13 @@ export default function RentalsPage() {
       }
     },
     onUpdated: async (rental) => {
-      // Fetch the rental with expanded data
       try {
-        const expandedRental = await collections.rentals().getOne<RentalExpanded>(
-          rental.id,
-          { expand: 'customer,items' }
-        );
+        const expandedRental = await fetchIfListed(rental.id);
+        // Drop it if it no longer matches the filters
         setRentals((prev) =>
-          prev.map((r) => (r.id === rental.id ? expandedRental : r))
+          expandedRental
+            ? prev.map((r) => (r.id === rental.id ? expandedRental : r))
+            : prev.filter((r) => r.id !== rental.id)
         );
       } catch (err) {
         console.error('Error fetching expanded rental:', err);
@@ -179,6 +189,11 @@ export default function RentalsPage() {
   }, [searchQuery]);
 
   const fetchRentals = useCallback(async (page: number) => {
+    // A request started after this one (new filter, sort or page) wins, even
+    // if this response arrives later
+    const requestId = ++requestIdRef.current;
+    const isStale = () => requestId !== requestIdRef.current;
+
     try {
       const isInitialLoad = page === 1;
       if (isInitialLoad) {
@@ -200,6 +215,7 @@ export default function RentalsPage() {
           skipTotal: true,
         }
       );
+      if (isStale()) return;
 
       if (isInitialLoad) {
         setRentals(result.items);
@@ -211,13 +227,16 @@ export default function RentalsPage() {
       setCurrentPage(page + 1);
       setError(null);
     } catch (err) {
+      if (isStale()) return;
       console.error('Error fetching rentals:', err);
       setError(
         err instanceof Error ? err.message : 'Fehler beim Laden der Leihvorgänge'
       );
     } finally {
-      setIsLoading(false);
-      setIsLoadingMore(false);
+      if (!isStale()) {
+        setIsLoading(false);
+        setIsLoadingMore(false);
+      }
     }
   }, [debouncedSearch, filters.buildFilter, sortField, perPage]);
 

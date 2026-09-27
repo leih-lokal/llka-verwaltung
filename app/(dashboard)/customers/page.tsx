@@ -19,6 +19,7 @@ import { useFilters } from '@/hooks/use-filters';
 import { useColumnVisibility } from '@/hooks/use-column-visibility';
 import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
 import { customersFilterConfig } from '@/lib/filters/filter-configs';
+import { buildRecordInListFilter } from '@/lib/filters/filter-utils';
 import { customersColumnConfig } from '@/lib/tables/column-configs';
 import { enrichCustomersWithStats } from '@/lib/utils/customer-stats';
 import type { Customer, CustomerWithStats } from '@/types';
@@ -40,6 +41,8 @@ export default function CustomersPage() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   const observerTarget = useRef<HTMLDivElement>(null);
+  // Bumped by every list request so responses of superseded ones are dropped
+  const requestIdRef = useRef(0);
   const perPage = 50;
 
   // Filter management
@@ -58,29 +61,53 @@ export default function CustomersPage() {
     config: customersColumnConfig,
   });
 
+  // Whether a customer matches the current search and filters
+  const isListed = async (id: string) => {
+    const result = await collections.customers().getList<Customer>(1, 1, {
+      filter: buildRecordInListFilter(id, filters.buildFilter(debouncedSearch)),
+      fields: 'id',
+      skipTotal: true,
+    });
+    return result.items.length > 0;
+  };
+
   // Real-time subscription for live updates
   useRealtimeSubscription<Customer>('customer', {
     onCreated: async (customer) => {
-      // Enrich with stats and add to list
-      const enriched = await enrichCustomersWithStats([customer]);
-      if (enriched.length > 0) {
-        setCustomers((prev) => {
-          // Check if customer already exists (avoid duplicates)
-          if (prev.some((c) => c.id === customer.id)) {
-            return prev;
-          }
-          // Add to beginning of list
-          return [enriched[0], ...prev];
-        });
+      try {
+        if (!(await isListed(customer.id))) return;
+        // Enrich with stats and add to list
+        const enriched = await enrichCustomersWithStats([customer]);
+        if (enriched.length > 0) {
+          setCustomers((prev) => {
+            // Check if customer already exists (avoid duplicates)
+            if (prev.some((c) => c.id === customer.id)) {
+              return prev;
+            }
+            // Add to beginning of list
+            return [enriched[0], ...prev];
+          });
+        }
+      } catch (err) {
+        console.error('Error handling created customer:', err);
       }
     },
     onUpdated: async (customer) => {
-      // Enrich with stats and update in list
-      const enriched = await enrichCustomersWithStats([customer]);
-      if (enriched.length > 0) {
-        setCustomers((prev) =>
-          prev.map((c) => (c.id === customer.id ? enriched[0] : c))
-        );
+      try {
+        // Drop it if it no longer matches the filters
+        if (!(await isListed(customer.id))) {
+          setCustomers((prev) => prev.filter((c) => c.id !== customer.id));
+          return;
+        }
+        // Enrich with stats and update in list
+        const enriched = await enrichCustomersWithStats([customer]);
+        if (enriched.length > 0) {
+          setCustomers((prev) =>
+            prev.map((c) => (c.id === customer.id ? enriched[0] : c))
+          );
+        }
+      } catch (err) {
+        console.error('Error handling updated customer:', err);
       }
     },
     onDeleted: (customer) => {
@@ -123,6 +150,11 @@ export default function CustomersPage() {
   }, [searchQuery]);
 
   const fetchCustomers = useCallback(async (page: number) => {
+    // A request started after this one (new filter, sort or page) wins, even
+    // if this response arrives later
+    const requestId = ++requestIdRef.current;
+    const isStale = () => requestId !== requestIdRef.current;
+
     try {
       const isInitialLoad = page === 1;
       if (isInitialLoad) {
@@ -143,10 +175,12 @@ export default function CustomersPage() {
           skipTotal: true, // Performance optimization
         }
       );
+      if (isStale()) return;
 
       // Enrich customers with stats
       setIsLoadingStats(true);
       const enrichedCustomers = await enrichCustomersWithStats(result.items);
+      if (isStale()) return;
       setIsLoadingStats(false);
 
       if (isInitialLoad) {
@@ -159,14 +193,17 @@ export default function CustomersPage() {
       setCurrentPage(page + 1);
       setError(null);
     } catch (err) {
+      if (isStale()) return;
       console.error('Error fetching customers:', err);
       setError(
         err instanceof Error ? err.message : 'Fehler beim Laden der Kund:innen'
       );
     } finally {
-      setIsLoading(false);
-      setIsLoadingMore(false);
-      setIsLoadingStats(false);
+      if (!isStale()) {
+        setIsLoading(false);
+        setIsLoadingMore(false);
+        setIsLoadingStats(false);
+      }
     }
   }, [debouncedSearch, filters.buildFilter, sortField, perPage]);
 
