@@ -9,6 +9,7 @@
 import { CircleCheckBig, PackageCheck, TriangleAlert } from 'lucide-react';
 import { BookingStatus } from '@/types';
 import { BOOKING_STATUS_LABELS } from '@/lib/constants/statuses';
+import { formatDate } from '@/lib/utils/formatting';
 import type { BookingSlot } from '@/lib/utils/booking-grid';
 
 /** Soft pastel palette — bg, text, border */
@@ -90,6 +91,19 @@ export function BookingBlock({
   const accentColor = isActive ? ACTIVE_ACCENT : isReturned ? RETURNED_ACCENT : undefined;
   const conflictLabel = slot.conflict ? 'Überbucht' : null;
 
+  // Screen readers get what sighted users read from the column and rows
+  const itemName = slot.booking.expand?.item?.name;
+  const ariaLabel = [
+    `Buchung: ${slot.booking.customer_name}`,
+    itemName,
+    `${formatDate(slot.startDate)} bis ${formatDate(slot.endDate)}`,
+    statusLabel,
+    copyCount > 1 ? `${copyCount} Exemplare` : null,
+    conflictLabel,
+  ]
+    .filter(Boolean)
+    .join(', ');
+
   return (
     <button
       data-booking-block
@@ -108,7 +122,7 @@ export function BookingBlock({
         outlineOffset: slot.conflict ? -2 : undefined,
       }}
       title={`${slot.booking.customer_name} — ${statusLabel}${copyCount > 1 ? ` (${copyCount}×)` : ''}${conflictLabel ? ` — ${conflictLabel}` : ''}`}
-      aria-label={`Buchung: ${slot.booking.customer_name}, ${statusLabel}${copyCount > 1 ? `, ${copyCount} Exemplare` : ''}${conflictLabel ? `, ${conflictLabel}` : ''}`}
+      aria-label={ariaLabel}
     >
       {slot.conflict && (
         <TriangleAlert
