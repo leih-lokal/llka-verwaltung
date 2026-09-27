@@ -13,7 +13,7 @@ import {
   ArrowRight,
   ArrowsUpFromLine,
 } from "lucide-react";
-import { collections } from "@/lib/pocketbase/client";
+import { collections, pb } from "@/lib/pocketbase/client";
 import { useRealtimeSubscription } from "@/hooks/use-realtime-subscription";
 import { formatDateTime } from "@/lib/utils/formatting";
 import type { Reservation, ReservationExpanded } from "@/types";
@@ -117,7 +117,10 @@ export function TodaysReservationsSection({
         .reservations()
         .getFullList<ReservationExpanded>({
           expand: "items",
-          filter: `done = false && pickup >= "${startOfToday.toISOString()}" && pickup <= "${endOfToday.toISOString()}"`,
+          filter: pb.filter("done = false && pickup >= {:start} && pickup <= {:end}", {
+            start: startOfToday,
+            end: endOfToday,
+          }),
           sort: "customer_name",
         });
 

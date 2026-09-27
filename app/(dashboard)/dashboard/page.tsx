@@ -30,7 +30,7 @@ import { DashboardViewMenu } from '@/components/dashboard/dashboard-view-menu';
 import { CollapsibleSection } from '@/components/dashboard/collapsible-section';
 import { generateReservationPrintContent } from '@/components/print/reservation-print-content';
 import type { ReservationExpanded } from '@/types';
-import { collections } from '@/lib/pocketbase/client';
+import { collections, pb } from '@/lib/pocketbase/client';
 import { startOfDay, endOfDay } from 'date-fns';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -83,7 +83,10 @@ export default function DashboardPage() {
         .reservations()
         .getFullList<ReservationExpanded>({
           expand: 'items',
-          filter: `done = false && pickup >= "${startOfToday.toISOString()}" && pickup <= "${endOfToday.toISOString()}"`,
+          filter: pb.filter('done = false && pickup >= {:start} && pickup <= {:end}', {
+            start: startOfToday,
+            end: endOfToday,
+          }),
           sort: 'pickup',
         });
 

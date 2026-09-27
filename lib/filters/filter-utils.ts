@@ -2,6 +2,7 @@
  * Filter utility functions
  */
 
+import { addDays } from 'date-fns';
 import { dateToLocalString } from '@/lib/utils/formatting';
 import { pb } from '@/lib/pocketbase/client';
 
@@ -54,7 +55,7 @@ export function buildPocketBaseFilter(
           // Handle computed rental status specially
           if (filter.field === '__rental_status__') {
             const today = dateToLocalString(new Date());
-            const tomorrow = dateToLocalString(new Date(Date.now() + 24 * 60 * 60 * 1000));
+            const tomorrow = dateToLocalString(addDays(new Date(), 1));
 
             switch (filter.value) {
               case 'active':
@@ -134,7 +135,7 @@ export function buildPocketBaseFilter(
         // Handle computed rental status specially
         if (filter.field === '__rental_status__') {
           const today = dateToLocalString(new Date());
-          const tomorrow = dateToLocalString(new Date(Date.now() + 24 * 60 * 60 * 1000));
+          const tomorrow = dateToLocalString(addDays(new Date(), 1));
 
           // Exclude by inverting the logic
           switch (filter.value) {

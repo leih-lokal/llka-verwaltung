@@ -6,6 +6,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { addDays } from 'date-fns';
 import { Package, CheckCircle, Users, Calendar } from 'lucide-react';
 import { collections } from '@/lib/pocketbase/client';
 import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
@@ -40,7 +41,7 @@ export function TodayActivitySection() {
       // `created` is a UTC datetime — compare against the UTC range of the local day.
       const localMidnight = new Date();
       localMidnight.setHours(0, 0, 0, 0);
-      const tomorrowMidnight = new Date(localMidnight.getTime() + 24 * 60 * 60 * 1000);
+      const tomorrowMidnight = addDays(localMidnight, 1); // not +24h: DST days are 23h/25h
       const todayStr = dateToLocalString(localMidnight);
       const tomorrowStr = dateToLocalString(tomorrowMidnight);
       const createdStart = localMidnight.toISOString().replace('T', ' ').substring(0, 19);

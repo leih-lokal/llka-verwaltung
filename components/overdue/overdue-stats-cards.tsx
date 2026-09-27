@@ -11,6 +11,7 @@ import type { RentalExpanded, Rental } from '@/types';
 import { useEffect, useState } from 'react';
 import { collections } from '@/lib/pocketbase/client';
 import { differenceInDays, parseISO, subDays } from 'date-fns';
+import { dateToLocalString } from '@/lib/utils/formatting';
 
 interface OverdueStatsCardsProps {
   categorizedRentals: {
@@ -38,7 +39,8 @@ export function OverdueStatsCards({ categorizedRentals }: OverdueStatsCardsProps
   async function calculateOnTimeRate() {
     try {
       // Get rentals returned in last 30 days
-      const thirtyDaysAgo = subDays(new Date(), 30).toISOString();
+      // returned_on is date-only; compare as a local date string ("YYYY-MM-DD")
+      const thirtyDaysAgo = dateToLocalString(subDays(new Date(), 30));
       const rentals = await collections.rentals().getFullList<Rental>({
         filter: `returned_on >= "${thirtyDaysAgo}"`,
         fields: 'returned_on,expected_on',
