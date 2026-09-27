@@ -31,7 +31,7 @@ export function CategoryPerformance({ analytics }: CategoryPerformanceProps) {
   // Prepare data for bar chart (rentals by category)
   const rentalData = Object.entries(analytics.category_rentals)
     .map(([category, count]) => ({
-      category: getCategoryLabel(category as any),
+      category: getCategoryLabel(category),
       rentals: count,
       items: analytics.category_items[category] || 0,
     }))
@@ -40,7 +40,7 @@ export function CategoryPerformance({ analytics }: CategoryPerformanceProps) {
   // Prepare data for pie chart (inventory distribution vs rental share)
   const pieData = Object.entries(analytics.category_items)
     .map(([category, count]) => ({
-      name: getCategoryLabel(category as any),
+      name: getCategoryLabel(category),
       value: count,
       rentals: analytics.category_rentals[category] || 0,
     }))

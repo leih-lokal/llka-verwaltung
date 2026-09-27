@@ -74,10 +74,7 @@ export function extractStatusCode(
   // Check data object first
   if (data && typeof data === 'object') {
     // Try common field names
-    const statusFromData =
-      (data as any).status ||
-      (data as any).statusCode ||
-      (data as any).code;
+    const statusFromData = data.status || data.statusCode || data.code;
 
     if (typeof statusFromData === 'number') {
       return {

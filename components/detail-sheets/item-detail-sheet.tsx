@@ -655,7 +655,7 @@ export function ItemDetailSheet({
                       className="mt-2 grid grid-cols-2 gap-2"
                     >
                       {CATEGORY_OPTIONS.map(({ value, label }) => {
-                        const isChecked = form.watch('category').includes(value as any);
+                        const isChecked = form.watch('category').includes(value);
                         return (
                           <label
                             key={value}
@@ -667,7 +667,7 @@ export function ItemDetailSheet({
                               onChange={(e) => {
                                 const currentCategories = form.getValues('category');
                                 if (e.target.checked) {
-                                  form.setValue('category', [...currentCategories, value as any], { shouldDirty: true });
+                                  form.setValue('category', [...currentCategories, value], { shouldDirty: true });
                                 } else {
                                   form.setValue('category', currentCategories.filter(c => c !== value), { shouldDirty: true });
                                 }

@@ -763,9 +763,9 @@ export function RentalDetailSheet({
         }
         // Response body with message (for 400 errors)
         else if ('response' in err && err.response && typeof err.response === 'object') {
-          const response = err.response as any;
+          const response = err.response as { data?: { message?: unknown } };
           if (response.data && response.data.message) {
-            errorMessage = response.data.message;
+            errorMessage = String(response.data.message);
           }
         }
       }
