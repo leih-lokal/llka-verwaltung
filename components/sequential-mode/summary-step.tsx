@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useSequentialMode } from '@/hooks/use-sequential-mode';
 import { formatCurrency } from '@/lib/utils/formatting';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,11 @@ import { CheckCircle2 } from 'lucide-react';
 export function SummaryStep() {
   const { selectedCustomer, selectedItems, expectedDate, totalDeposit, setOpen, reset } =
     useSequentialMode();
+
+  const handleDismiss = useCallback(() => {
+    reset();
+    setOpen(false);
+  }, [reset, setOpen]);
 
   // Handle Enter key to dismiss
   useEffect(() => {
@@ -26,12 +31,7 @@ export function SummaryStep() {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
-  const handleDismiss = () => {
-    reset();
-    setOpen(false);
-  };
+  }, [handleDismiss]);
 
   const formatDateDisplay = (date: Date): string => {
     return date.toLocaleDateString('de-DE', {

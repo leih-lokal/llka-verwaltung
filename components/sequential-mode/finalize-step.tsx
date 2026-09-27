@@ -6,6 +6,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { addDays, isSameDay } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -55,6 +56,12 @@ export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
       setTimeout(() => employeeInputRef.current?.focus(), 100);
     }
   }, [currentIdentity, employee]);
+
+  // Quick picks are highlighted by calendar day: the default and the
+  // picked dates carry a time of day, so comparing timestamps fails
+  const [today] = useState(() => new Date());
+  const isWeeksFromNow = (weeks: number) =>
+    isSameDay(expectedDate, addDays(today, weeks * 7));
 
   // Quick date setters
   const setWeeksFromNow = (weeks: number) => {
@@ -175,11 +182,7 @@ export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
                 type="button"
                 onClick={() => setWeeksFromNow(1)}
                 size="lg"
-                variant={
-                  Math.abs(expectedDate.getTime() - new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).getTime()) < 1000
-                    ? 'default'
-                    : 'outline'
-                }
+                variant={isWeeksFromNow(1) ? 'default' : 'outline'}
                 className="h-20 text-xl font-semibold"
               >
                 +1 Woche
@@ -188,11 +191,7 @@ export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
                 type="button"
                 onClick={() => setWeeksFromNow(2)}
                 size="lg"
-                variant={
-                  Math.abs(expectedDate.getTime() - new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).getTime()) < 1000
-                    ? 'default'
-                    : 'outline'
-                }
+                variant={isWeeksFromNow(2) ? 'default' : 'outline'}
                 className="h-20 text-xl font-semibold"
               >
                 +2 Wochen
@@ -201,11 +200,7 @@ export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
                 type="button"
                 onClick={() => setWeeksFromNow(3)}
                 size="lg"
-                variant={
-                  Math.abs(expectedDate.getTime() - new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).getTime()) < 1000
-                    ? 'default'
-                    : 'outline'
-                }
+                variant={isWeeksFromNow(3) ? 'default' : 'outline'}
                 className="h-20 text-xl font-semibold"
               >
                 +3 Wochen
