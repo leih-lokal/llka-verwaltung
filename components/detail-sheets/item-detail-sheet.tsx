@@ -60,6 +60,7 @@ import { CATEGORY_OPTIONS, GERMAN_CATEGORY_VALUES } from '@/lib/constants/catego
 import { ITEM_STATUS_OPTIONS, getItemStatusLabel, getRentalStatusLabel } from '@/lib/constants/statuses';
 import { RentalDetailSheet } from './rental-detail-sheet';
 import { FormHelpPanel } from './form-help-panel';
+import { HighlightColorPicker } from './highlight-color-picker';
 import { DOCUMENTATION } from '@/lib/constants/documentation';
 import { useHelpCollapsed } from '@/hooks/use-help-collapsed';
 import { FormattedId } from '@/components/ui/formatted-id';
@@ -998,102 +999,15 @@ export function ItemDetailSheet({
                 </div>
 
                 <div className="col-span-2">
-                  <Label className="mb-2 block">Markierungsfarbe</Label>
+                  <Label id="item-highlight-color-label" className="mb-2 block">Markierungsfarbe</Label>
                   {isEditMode ? (
-                    <div className="flex gap-2 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => form.setValue('highlight_color', '')}
-                        className={`w-10 h-10 rounded-md border-2 transition-all bg-muted hover:bg-muted/80 flex items-center justify-center ${
-                          !form.watch('highlight_color')
-                            ? 'border-primary ring-2 ring-primary/20 scale-105'
-                            : 'border-border hover:border-primary/50'
-                        }`}
-                        title="Keine Markierung"
-                      >
-                        <span className="text-xs text-muted-foreground font-medium">—</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => form.setValue('highlight_color', 'red')}
-                        className={`w-10 h-10 rounded-md border-2 transition-all bg-red-100 dark:bg-red-950/30 ${
-                          form.watch('highlight_color') === 'red'
-                            ? 'border-red-500 ring-2 ring-red-500/20 scale-105'
-                            : 'border-red-300 dark:border-red-800 hover:border-red-500'
-                        }`}
-                        title="Rot"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => form.setValue('highlight_color', 'orange')}
-                        className={`w-10 h-10 rounded-md border-2 transition-all bg-orange-100 dark:bg-orange-950/30 ${
-                          form.watch('highlight_color') === 'orange'
-                            ? 'border-orange-500 ring-2 ring-orange-500/20 scale-105'
-                            : 'border-orange-300 dark:border-orange-800 hover:border-orange-500'
-                        }`}
-                        title="Orange"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => form.setValue('highlight_color', 'yellow')}
-                        className={`w-10 h-10 rounded-md border-2 transition-all bg-yellow-100 dark:bg-yellow-950/30 ${
-                          form.watch('highlight_color') === 'yellow'
-                            ? 'border-yellow-500 ring-2 ring-yellow-500/20 scale-105'
-                            : 'border-yellow-300 dark:border-yellow-800 hover:border-yellow-500'
-                        }`}
-                        title="Gelb"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => form.setValue('highlight_color', 'green')}
-                        className={`w-10 h-10 rounded-md border-2 transition-all bg-green-100 dark:bg-green-950/30 ${
-                          form.watch('highlight_color') === 'green'
-                            ? 'border-green-500 ring-2 ring-green-500/20 scale-105'
-                            : 'border-green-300 dark:border-green-800 hover:border-green-500'
-                        }`}
-                        title="Grün"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => form.setValue('highlight_color', 'teal')}
-                        className={`w-10 h-10 rounded-md border-2 transition-all bg-teal-100 dark:bg-teal-950/30 ${
-                          form.watch('highlight_color') === 'teal'
-                            ? 'border-teal-500 ring-2 ring-teal-500/20 scale-105'
-                            : 'border-teal-300 dark:border-teal-800 hover:border-teal-500'
-                        }`}
-                        title="Türkis"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => form.setValue('highlight_color', 'blue')}
-                        className={`w-10 h-10 rounded-md border-2 transition-all bg-blue-100 dark:bg-blue-950/30 ${
-                          form.watch('highlight_color') === 'blue'
-                            ? 'border-blue-500 ring-2 ring-blue-500/20 scale-105'
-                            : 'border-blue-300 dark:border-blue-800 hover:border-blue-500'
-                        }`}
-                        title="Blau"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => form.setValue('highlight_color', 'purple')}
-                        className={`w-10 h-10 rounded-md border-2 transition-all bg-purple-100 dark:bg-purple-950/30 ${
-                          form.watch('highlight_color') === 'purple'
-                            ? 'border-purple-500 ring-2 ring-purple-500/20 scale-105'
-                            : 'border-purple-300 dark:border-purple-800 hover:border-purple-500'
-                        }`}
-                        title="Lila"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => form.setValue('highlight_color', 'pink')}
-                        className={`w-10 h-10 rounded-md border-2 transition-all bg-pink-100 dark:bg-pink-950/30 ${
-                          form.watch('highlight_color') === 'pink'
-                            ? 'border-pink-500 ring-2 ring-pink-500/20 scale-105'
-                            : 'border-pink-300 dark:border-pink-800 hover:border-pink-500'
-                        }`}
-                        title="Rosa"
-                      />
-                    </div>
+                    <HighlightColorPicker
+                      value={form.watch('highlight_color')}
+                      onChange={(color) => form.setValue('highlight_color', color, { shouldDirty: true })}
+                      labelledBy="item-highlight-color-label"
+                      swatchClassName="w-10 h-10"
+                      className="flex-wrap"
+                    />
                   ) : (
                     <div className="mt-1">
                       {getHighlightColorBadge(item?.highlight_color) || <span className="text-sm">—</span>}
