@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState, useSyncExternalStore } from 'react';
+import { useMemo, useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/use-auth';
@@ -42,7 +42,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const logoUrl = getFileUrl(settings.logo);
+  // Memoised: while a login attempt runs, the client points at the typed
+  // (not yet accepted) server, and the logo must not be loaded from there
+  const logoUrl = useMemo(() => getFileUrl(settings.logo), [getFileUrl, settings.logo]);
 
   // Redirect if already authenticated
   if (isAuthenticated) {
