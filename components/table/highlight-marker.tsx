@@ -5,25 +5,14 @@
  */
 
 import { HeartIcon } from 'lucide-react';
-import { HIGHLIGHT_COLOR_LABELS } from '@/lib/constants/colors';
+import { HIGHLIGHT_COLOR_LABELS, getHighlightColorClasses } from '@/lib/constants/colors';
 import { cn } from '@/lib/utils';
 import { HighlightColor } from '@/types';
-
-const DOT_CLASSES: Record<HighlightColor, string> = {
-  [HighlightColor.Red]: 'bg-red-500',
-  [HighlightColor.Yellow]: 'bg-yellow-500',
-  [HighlightColor.Blue]: 'bg-blue-500',
-  [HighlightColor.Purple]: 'bg-purple-500',
-  [HighlightColor.Orange]: 'bg-orange-500',
-  [HighlightColor.Pink]: 'bg-pink-500',
-  [HighlightColor.Teal]: 'bg-teal-500',
-  [HighlightColor.Green]: 'bg-green-500',
-};
 
 export interface HighlightMarkerProps {
   color?: HighlightColor | '';
 
-  /** What a colour means in this list, e.g. red → "gesperrt, keine Ausleihen möglich" */
+  /** What a colour means in this list (CUSTOMER_/ITEM_HIGHLIGHT_MEANINGS) */
   meanings?: Partial<Record<HighlightColor, string>>;
 }
 
@@ -40,7 +29,7 @@ export function HighlightMarker({ color, meanings }: HighlightMarkerProps) {
       ) : (
         <span
           aria-hidden="true"
-          className={cn('size-3 rounded-full shrink-0', DOT_CLASSES[color] ?? 'bg-blue-500')}
+          className={cn('size-3 rounded-full shrink-0', getHighlightColorClasses(color)?.solid ?? 'bg-blue-500')}
         />
       )}
       <span className="sr-only">{label}</span>

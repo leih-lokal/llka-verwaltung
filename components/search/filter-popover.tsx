@@ -21,6 +21,7 @@ import type { ActiveFilter, DatePreset } from '@/lib/filters/filter-utils';
 import { DATE_PRESET_LABELS } from '@/lib/filters/filter-utils';
 import { Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getHighlightColorClasses } from '@/lib/constants/colors';
 
 export interface FilterPopoverProps {
   /** The trigger element (usually a button) */
@@ -401,16 +402,6 @@ export function FilterPopover({
               <TabsContent value="category" className="space-y-3 max-h-64 overflow-y-auto">
                 {categoryFilters.map((config) => {
                   const isColorFilter = config.id === 'highlight_color';
-                  const colorMap: Record<string, string> = {
-                    red: 'bg-red-500',
-                    orange: 'bg-orange-500',
-                    yellow: 'bg-yellow-500',
-                    green: 'bg-green-500',
-                    teal: 'bg-teal-500',
-                    blue: 'bg-blue-500',
-                    purple: 'bg-purple-500',
-                    pink: 'bg-pink-500',
-                  };
 
                   return (
                     <div key={config.id} className="space-y-2">
@@ -434,8 +425,8 @@ export function FilterPopover({
                                   state === 'excluded' && "line-through text-muted-foreground"
                                 )}
                               >
-                                {isColorFilter && colorMap[option.value] && (
-                                  <span className={cn("size-3 rounded-full shrink-0", colorMap[option.value])} />
+                                {isColorFilter && getHighlightColorClasses(option.value) && (
+                                  <span className={cn("size-3 rounded-full shrink-0", getHighlightColorClasses(option.value)?.solid)} />
                                 )}
                                 <span>
                                   {option.label}

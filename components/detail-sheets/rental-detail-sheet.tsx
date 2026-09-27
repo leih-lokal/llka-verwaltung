@@ -52,9 +52,13 @@ import { buildCustomerSearchFilter } from '@/lib/filters/filter-utils';
 import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate, formatPhoneNumber, formatPhoneNumberForTel, toBusinessDay } from '@/lib/utils/formatting';
 import { cn } from '@/lib/utils';
 import { useIdentity } from '@/hooks/use-identity';
-import { HighlightColor, RentalStatus, type Rental, type RentalExpanded, type Customer, type Item } from '@/types';
+import { RentalStatus, type Rental, type RentalExpanded, type Customer, type Item } from '@/types';
 import { getItemStatusLabel, getRentalStatusLabel } from '@/lib/constants/statuses';
-import { HIGHLIGHT_COLOR_LABELS } from '@/lib/constants/colors';
+import {
+  CUSTOMER_HIGHLIGHT_MEANINGS,
+  ITEM_HIGHLIGHT_MEANINGS,
+  describeHighlightColor,
+} from '@/lib/constants/colors';
 import { getCopyCount, setCopyCount, removeCopyCount, type InstanceData } from '@/lib/utils/instance-data';
 import { getMultipleItemAvailability, type ItemAvailability } from '@/lib/utils/item-availability';
 import { getReturnedCopyCount } from '@/lib/utils/partial-returns';
@@ -122,36 +126,6 @@ function stringToDate(dateString: string | undefined): Date | undefined {
   } catch {
     return undefined;
   }
-}
-
-// What the highlight colours mean, per the form help texts in
-// lib/constants/documentation.ts. Only four customer colours have an agreed
-// meaning; the others are announced by name only.
-const CUSTOMER_HIGHLIGHT_MEANINGS: Partial<Record<HighlightColor, string>> = {
-  [HighlightColor.Red]: 'Aktiver Problemnutzer, keine Ausleihen möglich',
-  [HighlightColor.Yellow]: 'Fehlende Informationen wie Telefonnummer oder Ausweis',
-  [HighlightColor.Green]: 'Teil des Teams',
-  [HighlightColor.Blue]: 'Noch nicht zum Newsletter hinzugefügt',
-};
-
-const ITEM_HIGHLIGHT_MEANINGS: Record<HighlightColor, string> = {
-  [HighlightColor.Red]: 'Problematischer Artikel (häufig defekt, Verlustrisiko)',
-  [HighlightColor.Orange]: 'Auslaufender Artikel',
-  [HighlightColor.Yellow]: 'Artikel mit besonderen Hinweisen',
-  [HighlightColor.Green]: 'Besonders beliebter Artikel',
-  [HighlightColor.Blue]: 'Neuanschaffung, wertvoller Artikel',
-  [HighlightColor.Teal]: 'Team-Favorit',
-  [HighlightColor.Pink]: 'Saisonaler Artikel',
-  [HighlightColor.Purple]: 'Artikel für spezielle Veranstaltungen',
-};
-
-function describeHighlightColor(
-  color: HighlightColor,
-  meanings: Partial<Record<HighlightColor, string>>
-): string {
-  const label = HIGHLIGHT_COLOR_LABELS[color] ?? color;
-  const meaning = meanings[color];
-  return meaning ? `${label} - ${meaning}` : label;
 }
 
 interface RentalDetailSheetProps {

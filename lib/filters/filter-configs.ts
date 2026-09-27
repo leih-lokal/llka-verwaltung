@@ -2,7 +2,8 @@
  * Filter configurations for each entity type
  */
 
-import { RentalStatus } from '@/types';
+import { HighlightColor, RentalStatus } from '@/types';
+import { getHighlightColorFilterOptions } from '@/lib/constants/colors';
 import {
   ITEM_STATUS_LABELS,
   RENTAL_STATUS_LABELS,
@@ -94,16 +95,9 @@ export const customersFilterConfig: EntityFilterConfig = {
       label: 'Markierung',
       type: 'category',
       field: 'highlight_color',
-      options: [
-        { value: 'red', label: 'Rot' },
-        { value: 'orange', label: 'Orange' },
-        { value: 'yellow', label: 'Gelb' },
-        { value: 'green', label: 'Grün (Team-Mitglied)' },
-        { value: 'teal', label: 'Türkis' },
-        { value: 'blue', label: 'Blau' },
-        { value: 'purple', label: 'Lila' },
-        { value: 'pink', label: 'Rosa' },
-      ],
+      options: getHighlightColorFilterOptions({
+        [HighlightColor.Green]: 'Grün (Team-Mitglied)',
+      }),
     },
   ],
 };
@@ -143,16 +137,7 @@ export const itemsFilterConfig: EntityFilterConfig = {
       label: 'Markierung',
       type: 'category',
       field: 'highlight_color',
-      options: [
-        { value: 'red', label: 'Rot' },
-        { value: 'orange', label: 'Orange' },
-        { value: 'yellow', label: 'Gelb' },
-        { value: 'green', label: 'Grün (Team-Mitglied)' },
-        { value: 'teal', label: 'Türkis' },
-        { value: 'blue', label: 'Blau' },
-        { value: 'purple', label: 'Lila' },
-        { value: 'pink', label: 'Rosa' },
-      ],
+      options: getHighlightColorFilterOptions(),
     },
   ],
 

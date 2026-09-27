@@ -43,7 +43,8 @@ import { formatDate, calculateRentalStatus, dateToLocalString, formatPhoneNumber
 import { fetchNextIid } from '@/lib/utils/next-iid';
 import { getRentalStatusLabel } from '@/lib/constants/statuses';
 import { generateCustomerPrintContent } from '@/components/print/customer-print-content';
-import type { Customer, RentalExpanded, ReservationExpanded, HighlightColor } from '@/types';
+import { HighlightColor, type Customer, type RentalExpanded, type ReservationExpanded } from '@/types';
+import { HIGHLIGHT_COLOR_CLASSES, getHighlightColorClasses } from '@/lib/constants/colors';
 import { FormHelpPanel } from './form-help-panel';
 import { HighlightColorPicker } from './highlight-color-picker';
 import { DOCUMENTATION } from '@/lib/constants/documentation';
@@ -345,18 +346,8 @@ export function CustomerDetailSheet({
 
   const getHighlightColorBadge = (color?: HighlightColor) => {
     if (!color) return null;
-    const colorMap = {
-      red: 'bg-red-500',
-      orange: 'bg-orange-500',
-      yellow: 'bg-yellow-500',
-      green: 'bg-green-500',
-      teal: 'bg-teal-500',
-      blue: 'bg-blue-500',
-      purple: 'bg-purple-500',
-      pink: 'bg-pink-500',
-    };
     return (
-      <span className={`inline-block w-4 h-4 rounded ${colorMap[color]}`} />
+      <span className={`inline-block w-4 h-4 rounded ${getHighlightColorClasses(color)?.solid ?? ''}`} />
     );
   };
 
@@ -468,14 +459,7 @@ export function CustomerDetailSheet({
             <div className="px-6 mb-6">
               {customer?.highlight_color && (
                 <div className={`rounded-lg p-4 mb-3 border-l-4 ${
-                  customer.highlight_color === 'red' ? 'bg-red-50 dark:bg-red-950/20 border-red-500' :
-                  customer.highlight_color === 'yellow' ? 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-500' :
-                  customer.highlight_color === 'blue' ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-500' :
-                  customer.highlight_color === 'green' ? 'bg-green-50 dark:bg-green-950/20 border-green-500' :
-                  customer.highlight_color === 'purple' ? 'bg-purple-50 dark:bg-purple-950/20 border-purple-500' :
-                  customer.highlight_color === 'orange' ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-500' :
-                  customer.highlight_color === 'pink' ? 'bg-pink-50 dark:bg-pink-950/20 border-pink-500' :
-                  'bg-teal-50 dark:bg-teal-950/20 border-teal-500'
+                  getHighlightColorClasses(customer.highlight_color)?.callout ?? ''
                 }`}>
                   <div className="flex items-center gap-2">
                     {getHighlightColorBadge(customer.highlight_color)}
@@ -485,15 +469,9 @@ export function CustomerDetailSheet({
               )}
               {customer?.remark && (
                 <div className={`rounded-lg p-4 border-l-4 ${
-                  customer.highlight_color === 'red' ? 'bg-red-50 dark:bg-red-950/20 border-red-500' :
-                  customer.highlight_color === 'yellow' ? 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-500' :
-                  customer.highlight_color === 'blue' ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-500' :
-                  customer.highlight_color === 'green' ? 'bg-green-50 dark:bg-green-950/20 border-green-500' :
-                  customer.highlight_color === 'purple' ? 'bg-purple-50 dark:bg-purple-950/20 border-purple-500' :
-                  customer.highlight_color === 'orange' ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-500' :
-                  customer.highlight_color === 'pink' ? 'bg-pink-50 dark:bg-pink-950/20 border-pink-500' :
-                  customer.highlight_color === 'teal' ? 'bg-teal-50 dark:bg-teal-950/20 border-teal-500' :
-                  'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-500'
+                  // Remark without a colour: yellow
+                  (getHighlightColorClasses(customer.highlight_color) ??
+                    HIGHLIGHT_COLOR_CLASSES[HighlightColor.Yellow]).callout
                 }`}>
                   <div className="text-base font-semibold mb-1">Wichtige Notiz:</div>
                   <p className="text-base whitespace-pre-wrap">{customer.remark}</p>

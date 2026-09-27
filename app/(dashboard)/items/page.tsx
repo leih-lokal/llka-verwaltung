@@ -25,7 +25,8 @@ import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
 import { itemsFilterConfig } from '@/lib/filters/filter-configs';
 import { buildRecordInListFilter } from '@/lib/filters/filter-utils';
 import { itemsColumnConfig } from '@/lib/tables/column-configs';
-import { HighlightColor, type Item, type ItemWithStats } from '@/types';
+import type { Item, ItemWithStats } from '@/types';
+import { ITEM_HIGHLIGHT_MEANINGS } from '@/lib/constants/colors';
 import { getItemStatusLabel, ITEM_STATUS_COLORS } from '@/lib/constants/statuses';
 import { getCategoryLabel } from '@/lib/constants/categories';
 import { enrichItemsWithStats } from '@/lib/utils/item-stats';
@@ -34,11 +35,6 @@ import { FormattedId } from '@/components/ui/formatted-id';
 
 /** Columns that can carry the row's open button, by preference */
 const OPEN_BUTTON_COLUMNS = ['iid', 'name'];
-
-/** Meaning of the highlight colours in the item list (see documentation) */
-const HIGHLIGHT_MEANINGS: Partial<Record<HighlightColor, string>> = {
-  [HighlightColor.Red]: 'problematischer Gegenstand',
-};
 
 export default function ItemsPage() {
   const searchParams = useSearchParams();
@@ -576,7 +572,7 @@ export default function ItemsPage() {
         return (
           <td key="name" className={cn("px-4 py-3 font-medium", dividerClass)}>
             <div className="flex items-center gap-2">
-              <HighlightMarker color={item.highlight_color} meanings={HIGHLIGHT_MEANINGS} />
+              <HighlightMarker color={item.highlight_color} meanings={ITEM_HIGHLIGHT_MEANINGS} />
               {openable(<span>{item.name}</span>)}
             </div>
           </td>

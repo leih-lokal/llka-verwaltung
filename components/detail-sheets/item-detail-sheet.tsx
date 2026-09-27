@@ -61,6 +61,7 @@ import { ITEM_STATUS_OPTIONS, getItemStatusLabel, getRentalStatusLabel } from '@
 import { RentalDetailSheet } from './rental-detail-sheet';
 import { FormHelpPanel } from './form-help-panel';
 import { HighlightColorPicker } from './highlight-color-picker';
+import { getHighlightColorClasses } from '@/lib/constants/colors';
 import { DOCUMENTATION } from '@/lib/constants/documentation';
 import { useHelpCollapsed } from '@/hooks/use-help-collapsed';
 import { FormattedId } from '@/components/ui/formatted-id';
@@ -464,18 +465,8 @@ export function ItemDetailSheet({
 
   const getHighlightColorBadge = (color?: HighlightColor | '') => {
     if (!color) return null;
-    const colorMap = {
-      red: 'bg-red-500',
-      orange: 'bg-orange-500',
-      yellow: 'bg-yellow-500',
-      green: 'bg-green-500',
-      teal: 'bg-teal-500',
-      blue: 'bg-blue-500',
-      purple: 'bg-purple-500',
-      pink: 'bg-pink-500',
-    };
     return (
-      <span className={`inline-block w-4 h-4 rounded ${colorMap[color]}`} />
+      <span className={`inline-block w-4 h-4 rounded ${getHighlightColorClasses(color)?.solid ?? ''}`} />
     );
   };
 

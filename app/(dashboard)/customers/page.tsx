@@ -24,17 +24,12 @@ import { customersFilterConfig } from '@/lib/filters/filter-configs';
 import { buildRecordInListFilter } from '@/lib/filters/filter-utils';
 import { customersColumnConfig } from '@/lib/tables/column-configs';
 import { enrichCustomersWithStats } from '@/lib/utils/customer-stats';
-import { HighlightColor, type Customer, type CustomerWithStats } from '@/types';
+import type { Customer, CustomerWithStats } from '@/types';
+import { CUSTOMER_HIGHLIGHT_MEANINGS, getHighlightColorClasses } from '@/lib/constants/colors';
 import { cn } from '@/lib/utils';
 
 /** Columns that can carry the row's open button, by preference */
 const OPEN_BUTTON_COLUMNS = ['iid', 'name'];
-
-/** Meanings of the highlight colours in the customer list (see documentation) */
-const HIGHLIGHT_MEANINGS: Partial<Record<HighlightColor, string>> = {
-  [HighlightColor.Red]: 'gesperrt, keine Ausleihen möglich',
-  [HighlightColor.Green]: 'Teil des Teams',
-};
 
 export default function CustomersPage() {
   const searchParams = useSearchParams();
@@ -477,7 +472,7 @@ export default function CustomersPage() {
         return (
           <td key="name" className={cn("px-4 py-3", dividerClass)}>
             <div className="flex items-center gap-2">
-              <HighlightMarker color={customer.highlight_color} meanings={HIGHLIGHT_MEANINGS} />
+              <HighlightMarker color={customer.highlight_color} meanings={CUSTOMER_HIGHLIGHT_MEANINGS} />
               {openable(<span>{customer.firstname} {customer.lastname}</span>)}
             </div>
           </td>
@@ -634,14 +629,7 @@ export default function CustomersPage() {
                       className={`hover:bg-muted/50 transition-colors cursor-pointer ${
                         customer.highlight_color && customer.highlight_color !== 'green'
                           ? `border-b-4 ${
-                              customer.highlight_color === 'red' ? 'border-b-red-500' :
-                              customer.highlight_color === 'yellow' ? 'border-b-yellow-500' :
-                              customer.highlight_color === 'blue' ? 'border-b-blue-500' :
-                              customer.highlight_color === 'purple' ? 'border-b-purple-500' :
-                              customer.highlight_color === 'orange' ? 'border-b-orange-500' :
-                              customer.highlight_color === 'pink' ? 'border-b-pink-500' :
-                              customer.highlight_color === 'teal' ? 'border-b-teal-500' :
-                              'border-b-blue-500'
+                              getHighlightColorClasses(customer.highlight_color)?.rowBorder ?? 'border-b-blue-500'
                             }`
                           : 'border-b'
                       }`}
