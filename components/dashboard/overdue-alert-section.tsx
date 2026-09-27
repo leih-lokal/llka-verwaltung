@@ -4,94 +4,17 @@
  */
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, ExternalLink } from 'lucide-react';
-import { collections } from '@/lib/pocketbase/client';
-import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
-import type { Rental, RentalExpanded } from '@/types';
+import { useUnreturnedRentals } from '@/hooks/use-unreturned-rentals';
 import { calculateOverdueBreakdown } from '@/lib/utils/dashboard-metrics';
-import { OVERDUE_LEVEL_DAYS, type OverdueCounts } from '@/lib/utils/overdue';
-import { toast } from 'sonner';
+import { OVERDUE_LEVEL_DAYS } from '@/lib/utils/overdue';
 import Link from 'next/link';
 
 export function OverdueAlertSection() {
-  const [rentals, setRentals] = useState<RentalExpanded[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [breakdown, setBreakdown] = useState<OverdueCounts>({
-    overdue: 0,
-    critical: 0,
-    severely_critical: 0,
-    total: 0,
-  });
-
-  useEffect(() => {
-    loadRentals();
-  }, []);
-
-  // Real-time subscription for live updates
-  useRealtimeSubscription<Rental>('rental', {
-    onCreated: async (rental) => {
-      // Only fetch if not returned
-      if (!rental.returned_on) {
-        try {
-          const expandedRental = await collections
-            .rentals()
-            .getOne<RentalExpanded>(rental.id, { expand: 'customer,items' });
-          setRentals((prev) => {
-            if (prev.some((r) => r.id === rental.id)) return prev;
-            return [...prev, expandedRental];
-          });
-        } catch (err) {
-          console.error('Error fetching expanded rental:', err);
-        }
-      }
-    },
-    onUpdated: async (rental) => {
-      if (!rental.returned_on) {
-        try {
-          const expandedRental = await collections
-            .rentals()
-            .getOne<RentalExpanded>(rental.id, { expand: 'customer,items' });
-          setRentals((prev) =>
-            prev.map((r) => (r.id === rental.id ? expandedRental : r))
-          );
-        } catch (err) {
-          console.error('Error fetching expanded rental:', err);
-        }
-      } else {
-        // Remove from list if returned
-        setRentals((prev) => prev.filter((r) => r.id !== rental.id));
-      }
-    },
-    onDeleted: (rental) => {
-      setRentals((prev) => prev.filter((r) => r.id !== rental.id));
-    },
-  });
-
-  // Recalculate breakdown whenever rentals change
-  useEffect(() => {
-    setBreakdown(calculateOverdueBreakdown(rentals));
-  }, [rentals]);
-
-  async function loadRentals() {
-    try {
-      setLoading(true);
-
-      // Get all active rentals (not returned)
-      const result = await collections.rentals().getFullList<RentalExpanded>({
-        expand: 'customer,items',
-        filter: 'returned_on = ""',
-      });
-
-      setRentals(result);
-    } catch (error) {
-      console.error('Failed to load rentals:', error);
-      toast.error('Fehler beim Laden der Ausleihen');
-    } finally {
-      setLoading(false);
-    }
-  }
+  const { rentals, loading } = useUnreturnedRentals();
+  const breakdown = useMemo(() => calculateOverdueBreakdown(rentals), [rentals]);
 
   if (loading) {
     return <p className="text-sm text-muted-foreground">Lädt...</p>;
