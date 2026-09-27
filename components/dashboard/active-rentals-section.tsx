@@ -83,7 +83,7 @@ export function ActiveRentalsSection({ onRentalReturned }: ActiveRentalsSectionP
                 </Badge>
               )}
               {variant === 'duetoday' && (
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-yellow-600 text-yellow-600">
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-yellow-600 text-yellow-800">
                   Heute fällig
                 </Badge>
               )}
@@ -93,8 +93,12 @@ export function ActiveRentalsSection({ onRentalReturned }: ActiveRentalsSectionP
             </p>
           </div>
           <Button size="sm" variant="ghost" asChild className="shrink-0 h-8 w-8 p-0">
-            <Link href={`/rentals?view=${rental.id}`}>
-              <ExternalLink className="h-3 w-3" />
+            <Link
+              href={`/rentals?view=${rental.id}`}
+              aria-label={`Ausleihe öffnen: ${customerName}, ${itemsText}`}
+              title="Ausleihe öffnen"
+            >
+              <ExternalLink className="h-3 w-3" aria-hidden="true" />
             </Link>
           </Button>
         </div>
@@ -141,8 +145,8 @@ export function ActiveRentalsSection({ onRentalReturned }: ActiveRentalsSectionP
       {dueTodayRentals.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <Clock className="h-4 w-4 text-yellow-600" />
-            <h3 className="text-sm font-semibold text-yellow-600">
+            <Clock className="h-4 w-4 text-yellow-800" />
+            <h3 className="text-sm font-semibold text-yellow-800">
               Heute fällig ({dueTodayRentals.length})
             </h3>
           </div>

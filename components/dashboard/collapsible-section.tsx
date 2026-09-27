@@ -4,6 +4,7 @@
  */
 'use client';
 
+import { useId } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronUp } from 'lucide-react';
@@ -31,6 +32,11 @@ export function CollapsibleSection({
   onToggleCollapse,
   className,
 }: CollapsibleSectionProps) {
+  const contentId = useId();
+  const toggleAction = isCollapsed ? 'ausklappen' : 'einklappen';
+  const toggleLabel =
+    typeof title === 'string' ? `${title} ${toggleAction}` : isCollapsed ? 'Ausklappen' : 'Einklappen';
+
   return (
     <Card className={className}>
       <CardHeader>
@@ -47,6 +53,9 @@ export function CollapsibleSection({
               onClick={onToggleCollapse}
               className="h-8 w-8 p-0"
               title={isCollapsed ? 'Ausklappen' : 'Einklappen'}
+              aria-label={toggleLabel}
+              aria-expanded={!isCollapsed}
+              aria-controls={contentId}
             >
               {isCollapsed ? (
                 <ChevronDown className="h-4 w-4" />
@@ -57,7 +66,11 @@ export function CollapsibleSection({
           </div>
         </div>
       </CardHeader>
+      {/* inert keeps collapsed content out of the tab order and the
+          accessibility tree while max-h-0 still animates the collapse */}
       <div
+        id={contentId}
+        inert={isCollapsed}
         className={cn(
           'transition-all duration-200 ease-in-out overflow-hidden',
           isCollapsed ? 'max-h-0' : 'max-h-[5000px]'
