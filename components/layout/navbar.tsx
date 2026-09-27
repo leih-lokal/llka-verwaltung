@@ -48,6 +48,7 @@ interface MenuTileProps {
   label: string;
   description: string;
   shortcut?: { keys: string[] };
+  /** Action of a button tile, or run when a link tile is clicked */
   onClick?: () => void;
   href?: string;
 }
@@ -91,6 +92,7 @@ function MenuTile({ icon, label, description, shortcut, onClick, href }: MenuTil
       <li>
         <Link
           href={href}
+          onClick={onClick}
           className="group flex flex-col p-3 rounded-lg border bg-card hover:bg-accent transition-colors cursor-pointer h-full"
           aria-label={`${label}: ${description}`}
         >
@@ -178,6 +180,11 @@ export function Navbar() {
   const { settings, getFileUrl } = useSettings();
   const logoUrl = getFileUrl(settings.logo);
 
+  // The overflow menu stays open after a client-side navigation (focus
+  // stays on the clicked link), so its links close it
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const closeMenu = () => setIsMenuOpen(false);
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 h-16 border-b-2 border-primary bg-background">
       <div className="flex h-full items-center px-4">
@@ -224,7 +231,7 @@ export function Navbar() {
 
         {/* Overflow Menu */}
         <div className="flex ml-2 items-center">
-          <Popover>
+          <Popover open={isMenuOpen} onOpenChange={setIsMenuOpen}>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="icon" aria-label="Mehr Optionen">
                 <Menu className="h-5 w-5" />
@@ -279,6 +286,7 @@ export function Navbar() {
                       description="Sieh dir schnell alle überfälligen Ausleihen an."
                       shortcut={{ keys: ['G', 'O'] }}
                       href="/overdue"
+                      onClick={closeMenu}
                     />
                     <MenuTile
                       icon={<BarChart3 className="h-4 w-4" />}
@@ -286,6 +294,7 @@ export function Navbar() {
                       description="Sieh dir an, welche Gegenstände beliebt sind, und welche nicht genutzt werden."
                       shortcut={{ keys: ['G', 'I'] }}
                       href="/items/analytics"
+                      onClick={closeMenu}
                     />
                     <MenuTile
                       icon={<ClipboardCheck className="h-4 w-4" />}
@@ -293,6 +302,7 @@ export function Navbar() {
                       description="Prüfe die Leihumschläge gegen die Informationen in der Datenbank."
                       shortcut={{ keys: ['G', 'S'] }}
                       href="/system-check"
+                      onClick={closeMenu}
                     />
                     <MenuTile
                       icon={<Tag className="h-4 w-4" />}
@@ -300,6 +310,7 @@ export function Navbar() {
                       description="Erstelle und drucke Etiketten für Gegenstände."
                       shortcut={{ keys: ['G', 'P'] }}
                       href="/label-designer"
+                      onClick={closeMenu}
                     />
                   </ul>
                 </section>
@@ -316,6 +327,7 @@ export function Navbar() {
                       description="Sieh dir alle Kommunikation mit dem Server an."
                       shortcut={{ keys: ['G', 'L'] }}
                       href="/logs"
+                      onClick={closeMenu}
                     />
                     <MenuTile
                       icon={<Keyboard className="h-4 w-4" />}
@@ -343,6 +355,7 @@ export function Navbar() {
                   </span>
                   <Link
                     href="/settings"
+                    onClick={closeMenu}
                     className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
                   >
                     <Settings className="h-3 w-3" />
