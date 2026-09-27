@@ -16,6 +16,7 @@ import { BookingDetailPopover } from '@/components/bookings/booking-detail-popov
 import { RentalDetailSheet } from '@/components/detail-sheets/rental-detail-sheet';
 import { CreateBookingDialog } from '@/components/bookings/create-booking-dialog';
 import { collections } from '@/lib/pocketbase/client';
+import { createBookings, BookingConflictError } from '@/lib/api/bookings';
 import { buildRentalTemplate } from '@/lib/utils/rental-template';
 import { BookingStatus } from '@/types';
 import type { Booking, BookingExpanded, RentalExpanded, Customer } from '@/types';
@@ -121,12 +122,9 @@ export default function BookingsPage() {
           status: BookingStatus.Reserved,
         };
 
-        // Create one booking per selected copy column
-        await Promise.all(
-          Array.from({ length: count }, () =>
-            collections.bookings().create(bookingData)
-          )
-        );
+        // One booking per copy; refused if the copies aren't free
+        const item = grid.items.find((i) => i.id === itemId);
+        await createBookings(bookingData, count, item?.copies);
 
         toast.success(
           count > 1
@@ -135,7 +133,9 @@ export default function BookingsPage() {
         );
         grid.refetch();
       } catch (err) {
-        console.error('Error creating booking:', err);
+        if (!(err instanceof BookingConflictError)) {
+          console.error('Error creating booking:', err);
+        }
         const message =
           (err instanceof Error ? err.message : null) ||
           'Fehler beim Erstellen der Buchung';

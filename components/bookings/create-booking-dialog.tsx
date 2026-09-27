@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/command';
 import { collections } from '@/lib/pocketbase/client';
 import { buildCustomerSearchFilter } from '@/lib/filters/filter-utils';
+import { createBookings, BookingConflictError } from '@/lib/api/bookings';
 import { BookingStatus } from '@/types';
 import type { Item, Customer } from '@/types';
 
@@ -205,17 +206,15 @@ export function CreateBookingDialog({
 
       const count = selectedItem && selectedItem.copies > 1 ? quantity : 1;
 
-      await Promise.all(
-        Array.from({ length: count }, () =>
-          collections.bookings().create(bookingData)
-        )
-      );
+      await createBookings(bookingData, count, selectedItem?.copies);
 
       toast.success(count > 1 ? `${count} Buchungen erstellt` : 'Buchung erstellt');
       onCreated();
       onOpenChange(false);
     } catch (err) {
-      console.error('Error creating booking:', err);
+      if (!(err instanceof BookingConflictError)) {
+        console.error('Error creating booking:', err);
+      }
       const message =
         (err instanceof Error ? err.message : null) ||
         'Fehler beim Erstellen der Buchung';
