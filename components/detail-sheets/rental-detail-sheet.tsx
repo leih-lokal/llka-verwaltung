@@ -55,7 +55,8 @@ import { useIdentity } from '@/hooks/use-identity';
 import type { Rental, RentalExpanded, Customer, Item } from '@/types';
 import { getCopyCount, setCopyCount, removeCopyCount, type InstanceData } from '@/lib/utils/instance-data';
 import { getMultipleItemAvailability, type ItemAvailability } from '@/lib/utils/item-availability';
-import { getReturnedCopyCount, mergeReturnedItems } from '@/lib/utils/partial-returns';
+import { getReturnedCopyCount } from '@/lib/utils/partial-returns';
+import { buildPartialReturnUpdate } from '@/lib/utils/partial-return-update';
 import { generateRentalPrintContent } from '@/components/print/rental-print-content';
 import { FormHelpPanel } from './form-help-panel';
 import { DOCUMENTATION } from '@/lib/constants/documentation';
@@ -153,6 +154,14 @@ export function RentalDetailSheet({
   const [showPartialReturnDialog, setShowPartialReturnDialog] = useState(false);
   const [itemsToReturn, setItemsToReturn] = useState<Record<string, number>>({});
   const [partialReturnDeposit, setPartialReturnDeposit] = useState(0);
+  // Stored rental after a partial return in this session. The parent doesn't
+  // re-fetch the `rental` prop while the sheet stays open, so its
+  // returned_items / deposit_back go stale after the first partial return.
+  const [latestRental, setLatestRental] = useState<Rental | null>(null);
+  const currentRental: RentalExpanded | null =
+    rental && latestRental?.id === rental.id
+      ? { ...rental, ...latestRental, expand: rental.expand }
+      : rental;
 
   // Track if preloaded items have been applied to prevent re-applying on every render
   const preloadedItemsAppliedRef = useRef(false);
@@ -207,6 +216,7 @@ export function RentalDetailSheet({
   // Load rental data when rental changes
   useEffect(() => {
     if (rental && open) {
+      setLatestRental(null);
 
       // Set customer if expanded. Otherwise (e.g. a template converted from
       // a reservation without customer) clear it, so the previously opened
@@ -816,7 +826,8 @@ export function RentalDetailSheet({
     }
 
     // If there are partial returns, mark all remaining items as returned
-    if (rental.returned_items && Object.keys(rental.returned_items).length > 0) {
+    const returnedItems = currentRental?.returned_items;
+    if (returnedItems && Object.keys(returnedItems).length > 0) {
       try {
         setIsLoading(true);
 
@@ -864,24 +875,20 @@ export function RentalDetailSheet({
     try {
       setIsLoading(true);
 
-      // Merge new returns with existing returns
-      const mergedReturnedItems = mergeReturnedItems(
-        rental.returned_items,
-        itemsToReturn
-      );
-
-      // Check if this partial return completes the rental
-      const isNowFullyReturned = rental.items.every((itemId) => {
-        const requested = getCopyCount(rental.requested_copies, itemId);
-        const returned = mergedReturnedItems[itemId] || 0;
-        return requested === returned;
-      });
+      // Merge into the stored rental, re-fetched right before merging: the
+      // `rental` prop predates any partial return made since the sheet opened.
+      const latest = await collections.rentals().getOne<Rental>(rental.id);
+      const {
+        returned_items: mergedReturnedItems,
+        deposit_back: mergedDepositBack,
+        isFullyReturned: isNowFullyReturned,
+      } = buildPartialReturnUpdate(latest, itemsToReturn, partialReturnDeposit);
 
       // Prepare update data
       const updateData: Partial<Rental> = {
         returned_items: mergedReturnedItems,
-        deposit_back: rental.deposit_back + partialReturnDeposit,
-        employee_back: currentIdentity || rental.employee_back,
+        deposit_back: mergedDepositBack,
+        employee_back: currentIdentity || latest.employee_back,
       };
 
       // If fully returned now, set returned_on
@@ -907,6 +914,16 @@ export function RentalDetailSheet({
 
       // Refresh
       onSave?.(updatedRental);
+      if (isNowFullyReturned) {
+        // Rental is closed now, like after "Alles zurückgeben"
+        onOpenChange(false);
+      } else {
+        // The sheet stays open: show the stored state from here on, so the
+        // next partial return (and a later save) builds on it
+        setLatestRental(updatedRental);
+        form.resetField('deposit_back', { defaultValue: updatedRental.deposit_back ?? 0 });
+        form.resetField('employee_back', { defaultValue: updatedRental.employee_back || '' });
+      }
     } catch (err) {
       console.error('Error processing partial return:', err);
       toast.error('Fehler bei der Teilrückgabe');
@@ -1230,7 +1247,7 @@ export function RentalDetailSheet({
                     <div className="space-y-2">
                       {selectedItems.map((item) => {
                         const copyCount = getCopyCount(instanceData, item.id);
-                        const returnedCount = !isNewRental ? getReturnedCopyCount(rental?.returned_items, item.id) : 0;
+                        const returnedCount = !isNewRental ? getReturnedCopyCount(currentRental?.returned_items, item.id) : 0;
                         const remainingCount = copyCount - returnedCount;
                         const hasReturns = returnedCount > 0;
                         const isFullyReturned = returnedCount > 0 && returnedCount === copyCount;
@@ -1354,7 +1371,7 @@ export function RentalDetailSheet({
                               const remainingDeposit = !isNewRental
                                 ? selectedItems.reduce((sum, i) => {
                                     const copies = getCopyCount(instanceData, i.id);
-                                    const returned = getReturnedCopyCount(rental?.returned_items, i.id);
+                                    const returned = getReturnedCopyCount(currentRental?.returned_items, i.id);
                                     const stillOut = copies - returned;
                                     return sum + ((i.deposit || 0) * stillOut);
                                   }, 0)
@@ -1884,7 +1901,7 @@ export function RentalDetailSheet({
             {/* Item selection list */}
             {selectedItems.map((item) => {
               const requestedCopies = getCopyCount(instanceData, item.id);
-              const alreadyReturned = getReturnedCopyCount(rental?.returned_items, item.id);
+              const alreadyReturned = getReturnedCopyCount(currentRental?.returned_items, item.id);
               const remainingCopies = requestedCopies - alreadyReturned;
               const selectedCount = itemsToReturn[item.id] || 0;
               const depositPerCopy = item.deposit || 0;
