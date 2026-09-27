@@ -98,6 +98,9 @@ export function CustomerDetailSheet({
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  // Whether confirming "Verwerfen" also closes the sheet (the dialog was
+  // opened by closing the sheet rather than by "Abbrechen")
+  const [closeOnDiscard, setCloseOnDiscard] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { isCollapsed: isHelpCollapsed, toggle: toggleHelp } = useHelpCollapsed();
   const [rentals, setRentals] = useState<RentalExpanded[]>([]);
@@ -282,6 +285,7 @@ export function CustomerDetailSheet({
 
   const handleCancel = () => {
     if (isDirty) {
+      setCloseOnDiscard(false);
       setShowCancelDialog(true);
     } else {
       if (isNewCustomer) {
@@ -299,6 +303,7 @@ export function CustomerDetailSheet({
     } else {
       form.reset();
       setIsEditMode(false);
+      if (closeOnDiscard) onOpenChange(false);
     }
   };
 
@@ -370,6 +375,7 @@ export function CustomerDetailSheet({
     <>
       <Sheet open={open} onOpenChange={(open) => {
         if (!open && isDirty) {
+          setCloseOnDiscard(true);
           setShowCancelDialog(true);
         } else {
           onOpenChange(open);
