@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useId } from 'react';
 import { Input } from '@/components/ui/input';
 import { User, Loader2 } from 'lucide-react';
 import { collections, pb } from '@/lib/pocketbase/client';
@@ -22,6 +22,8 @@ export function CustomerStep() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const selectedRef = useRef<HTMLDivElement>(null);
+  const listboxId = useId();
+  const optionId = (index: number) => `${listboxId}-option-${index}`;
 
   // Auto-focus input on mount
   useEffect(() => {
@@ -111,6 +113,10 @@ export function CustomerStep() {
     return '';
   };
 
+  // The input stays focused while arrow keys move through the results, so it
+  // is a combobox pointing at the highlighted option
+  const showResults = !isSearching && results.length > 0;
+
   return (
     <div className="flex flex-col h-full">
       {/* Search Input */}
@@ -118,6 +124,12 @@ export function CustomerStep() {
         <Input
           ref={inputRef}
           type="text"
+          role="combobox"
+          aria-label="Nutzer:in suchen"
+          aria-autocomplete="list"
+          aria-expanded={showResults}
+          aria-controls={showResults ? listboxId : undefined}
+          aria-activedescendant={showResults ? optionId(selectedIndex) : undefined}
           placeholder="Name oder Nummer eingeben..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -147,11 +159,14 @@ export function CustomerStep() {
           </div>
         )}
 
-        {!isSearching && results.length > 0 && (
-          <div className="space-y-2">
+        {showResults && (
+          <div id={listboxId} role="listbox" aria-label="Nutzer:innen" className="space-y-2">
             {results.map((customer, index) => (
               <div
                 key={customer.id}
+                id={optionId(index)}
+                role="option"
+                aria-selected={selectedIndex === index}
                 ref={selectedIndex === index ? selectedRef : null}
                 onClick={() => handleSelectCustomer(customer)}
                 className={cn(

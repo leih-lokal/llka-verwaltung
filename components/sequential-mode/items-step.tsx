@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useId } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Package, Loader2, X, Plus, Minus, ChevronRight } from 'lucide-react';
@@ -30,6 +30,8 @@ export function ItemsStep() {
   const [availability, setAvailability] = useState<Map<string, ItemAvailability>>(new Map());
   const inputRef = useRef<HTMLInputElement>(null);
   const selectedRef = useRef<HTMLDivElement>(null);
+  const listboxId = useId();
+  const optionId = (index: number) => `${listboxId}-option-${index}`;
 
   // Auto-focus input on mount
   useEffect(() => {
@@ -161,6 +163,10 @@ export function ItemsStep() {
     inputRef.current?.focus();
   };
 
+  // The input stays focused while arrow keys move through the results, so it
+  // is a combobox pointing at the highlighted option
+  const showResults = !isSearching && results.length > 0;
+
   return (
     <div className="flex gap-6 h-full">
       {/* Left side: Search */}
@@ -169,6 +175,12 @@ export function ItemsStep() {
           <Input
             ref={inputRef}
             type="text"
+            role="combobox"
+            aria-label="Artikel suchen"
+            aria-autocomplete="list"
+            aria-expanded={showResults}
+            aria-controls={showResults ? listboxId : undefined}
+            aria-activedescendant={showResults ? optionId(selectedIndex) : undefined}
             placeholder="Artikel-Name oder Nummer..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -200,14 +212,17 @@ export function ItemsStep() {
             </div>
           )}
 
-          {!isSearching && results.length > 0 && (
-            <div className="space-y-2">
+          {showResults && (
+            <div id={listboxId} role="listbox" aria-label="Artikel" className="space-y-2">
               {results.map((item, index) => {
                 const hasMultipleCopies = item.copies > 1;
 
                 return (
                   <div
                     key={item.id}
+                    id={optionId(index)}
+                    role="option"
+                    aria-selected={selectedIndex === index}
                     ref={selectedIndex === index ? selectedRef : null}
                     onClick={() => handleAddItem(item)}
                     className={cn(
@@ -315,8 +330,9 @@ export function ItemsStep() {
                       size="sm"
                       onClick={() => removeItem(item.id)}
                       className="h-6 w-6 p-0 shrink-0"
+                      aria-label={`${item.name} entfernen`}
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-4 w-4" aria-hidden="true" />
                     </Button>
                   </div>
 
@@ -330,8 +346,9 @@ export function ItemsStep() {
                           onClick={() => updateItemQuantity(item.id, Math.max(1, quantity - 1))}
                           disabled={quantity <= 1}
                           className="h-6 w-6 p-0"
+                          aria-label={`Anzahl ${item.name} verringern`}
                         >
-                          <Minus className="h-3 w-3" />
+                          <Minus className="h-3 w-3" aria-hidden="true" />
                         </Button>
                         <span className="font-mono font-semibold text-sm w-6 text-center">
                           {quantity}
@@ -344,8 +361,9 @@ export function ItemsStep() {
                           }
                           disabled={quantity >= maxQuantity}
                           className="h-6 w-6 p-0"
+                          aria-label={`Anzahl ${item.name} erhöhen`}
                         >
-                          <Plus className="h-3 w-3" />
+                          <Plus className="h-3 w-3" aria-hidden="true" />
                         </Button>
                       </div>
                       <div className="text-sm font-medium">
