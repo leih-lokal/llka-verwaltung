@@ -12,6 +12,7 @@ import {
   useCallback,
   useMemo,
   useRef,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
@@ -22,7 +23,12 @@ import {
   getShortcutsForKey,
 } from '@/lib/keyboard-shortcuts/shortcut-registry';
 import { KeyboardShortcutToast } from '@/components/keyboard-shortcuts/keyboard-shortcut-toast';
-import { isInputFocused } from '@/lib/keyboard-shortcuts/input-detection';
+import { shouldIgnoreShortcutKey } from '@/lib/keyboard-shortcuts/input-detection';
+import {
+  areSingleKeyShortcutsEnabled,
+  setSingleKeyShortcutsEnabled,
+  subscribeSingleKeyShortcuts,
+} from '@/lib/keyboard-shortcuts/preferences';
 
 type SequenceState =
   | { status: 'idle' }
@@ -90,8 +96,9 @@ export function KeyboardShortcutsProvider({ children }: { children: ReactNode })
   // Keyboard event handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if input is focused
-      if (isInputFocused()) {
+      // Ignore when turned off, while typing, inside dialogs/sheets and in
+      // widgets with their own key handling (type-ahead, grid navigation)
+      if (!areSingleKeyShortcutsEnabled() || shouldIgnoreShortcutKey(e)) {
         return;
       }
 
@@ -263,4 +270,17 @@ export function useKeyboardShortcuts() {
     );
   }
   return context;
+}
+
+/**
+ * Single-key shortcut preference (WCAG 2.1.4), as [enabled, setEnabled].
+ * Server snapshot is "enabled" so hydration matches the default.
+ */
+export function useSingleKeyShortcutsEnabled(): [boolean, (enabled: boolean) => void] {
+  const enabled = useSyncExternalStore(
+    subscribeSingleKeyShortcuts,
+    areSingleKeyShortcutsEnabled,
+    () => true
+  );
+  return [enabled, setSingleKeyShortcutsEnabled];
 }

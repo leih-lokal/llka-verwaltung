@@ -15,8 +15,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { SHORTCUT_REGISTRY } from '@/lib/keyboard-shortcuts/shortcut-registry';
-import { isInputFocused } from '@/lib/keyboard-shortcuts/input-detection';
+import { shouldIgnoreShortcutKey } from '@/lib/keyboard-shortcuts/input-detection';
+import { areSingleKeyShortcutsEnabled } from '@/lib/keyboard-shortcuts/preferences';
+import { useSingleKeyShortcutsEnabled } from '@/hooks/use-keyboard-shortcuts';
 
 // Context for keyboard shortcuts reference
 interface KeyboardShortcutsReferenceContextValue {
@@ -61,6 +65,8 @@ export function KeyboardShortcutsReference({
   open,
   onOpenChange,
 }: ShortcutReferenceProps) {
+  const [singleKeyEnabled, setSingleKeyEnabled] = useSingleKeyShortcutsEnabled();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
@@ -73,6 +79,27 @@ export function KeyboardShortcutsReference({
             Alle verfügbaren Shortcuts für schnellere Navigation und Verwaltung
           </DialogDescription>
         </DialogHeader>
+
+        {/* WCAG 2.1.4: single-key shortcuts must be switchable off */}
+        <div className="flex items-start justify-between gap-4 border px-3 py-2">
+          <div className="space-y-1">
+            <Label htmlFor="single-key-shortcuts">Tastaturkürzel aktiv</Label>
+            <p
+              id="single-key-shortcuts-description"
+              className="text-xs text-muted-foreground"
+            >
+              Alle Kürzel bestehen aus einzelnen Tasten ohne Strg/Alt/⌘ und
+              können versehentlich auslösen, z.&nbsp;B. bei Spracheingabe.
+              Diese Übersicht bleibt über das Menü erreichbar.
+            </p>
+          </div>
+          <Switch
+            id="single-key-shortcuts"
+            checked={singleKeyEnabled}
+            onCheckedChange={setSingleKeyEnabled}
+            aria-describedby="single-key-shortcuts-description"
+          />
+        </div>
 
         <div className="space-y-6 mt-4">
           {/* N - Create shortcuts */}
@@ -115,15 +142,17 @@ export function KeyboardShortcutsReference({
         </div>
 
         {/* Footer note */}
-        <div className="mt-6 pt-4 border-t text-xs text-muted-foreground">
-          <p>
-            <strong>Tipp:</strong> Drücke{' '}
-            <kbd className="px-1.5 py-0.5 bg-muted border border-border rounded font-mono">
-              /
-            </kbd>{' '}
-            um diese Ansicht jederzeit zu öffnen
-          </p>
-        </div>
+        {singleKeyEnabled && (
+          <div className="mt-6 pt-4 border-t text-xs text-muted-foreground">
+            <p>
+              <strong>Tipp:</strong> Drücke{' '}
+              <kbd className="px-1.5 py-0.5 bg-muted border border-border rounded font-mono">
+                /
+              </kbd>{' '}
+              um diese Ansicht jederzeit zu öffnen
+            </p>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -220,8 +249,12 @@ export function useKeyboardShortcutsReference() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Open with / key (but not when typing in inputs)
-      if (e.key === '/' && !isInputFocused()) {
+      // Open with / key (unless turned off, typing, or inside a dialog/widget)
+      if (
+        e.key === '/' &&
+        areSingleKeyShortcutsEnabled() &&
+        !shouldIgnoreShortcutKey(e)
+      ) {
         e.preventDefault();
         setOpen(true);
       }
