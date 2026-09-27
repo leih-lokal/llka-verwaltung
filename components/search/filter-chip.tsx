@@ -13,7 +13,7 @@ export interface FilterChipProps {
   label: string;
 
   /** Filter type for styling */
-  type?: 'status' | 'date' | 'category' | 'numeric' | 'text' | 'default';
+  type?: 'status' | 'date' | 'category' | 'numeric' | 'boolean' | 'text' | 'default';
 
   /** Callback when filter is removed */
   onRemove: () => void;
@@ -24,6 +24,7 @@ const chipVariants = {
   date: 'secondary' as const,
   category: 'outline' as const,
   numeric: 'outline' as const,
+  boolean: 'outline' as const,
   text: 'secondary' as const,
   default: 'secondary' as const,
 };

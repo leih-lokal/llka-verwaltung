@@ -29,6 +29,14 @@ export interface EntityFilterConfig {
   /** Search fields for text search */
   searchFields: string[];
 
+  /**
+   * Fields and relation paths that hold several values: multi-select fields
+   * and paths through multi-relations (e.g. `items.name`). PocketBase applies
+   * plain operators on them to ALL values, so search and filters use the
+   * any-of forms (`?=`, `?~`) there.
+   */
+  multiValueFields?: string[];
+
   /** Available status filters */
   statusFilters?: FilterConfig[];
 
@@ -105,6 +113,8 @@ export const customersFilterConfig: EntityFilterConfig = {
 
 export const itemsFilterConfig: EntityFilterConfig = {
   searchFields: ['name', 'brand', 'iid', 'synonyms'],
+
+  multiValueFields: ['category'],
 
   statusFilters: [
     {
@@ -184,16 +194,23 @@ export const itemsFilterConfig: EntityFilterConfig = {
 export const rentalsFilterConfig: EntityFilterConfig = {
   searchFields: ['customer.firstname', 'customer.lastname', 'customer.iid', 'items.iid', 'items.name'],
 
+  multiValueFields: ['items.iid', 'items.name'],
+
   statusFilters: [
     {
       id: 'status',
       label: 'Status',
       type: 'status',
-      field: '__computed_status__', // This is computed client-side
-      options: Object.entries(RENTAL_STATUS_LABELS).map(([value, label]) => ({
-        value,
-        label,
-      })),
+      field: '__computed_status__', // Translated to date conditions in buildPocketBaseFilter
+      // "Teilweise zurück" depends on returned_items (a JSON object) compared
+      // with requested_copies per item, which has no reliable PocketBase filter
+      // equivalent, so it isn't offered as a filter.
+      options: Object.entries(RENTAL_STATUS_LABELS)
+        .filter(([value]) => value !== RentalStatus.PartiallyReturned)
+        .map(([value, label]) => ({
+          value,
+          label,
+        })),
     },
   ],
 
@@ -258,11 +275,13 @@ export const rentalsFilterConfig: EntityFilterConfig = {
 export const reservationsFilterConfig: EntityFilterConfig = {
   searchFields: ['customer_name', 'customer_iid', 'otp', 'items.iid', 'items.name'],
 
+  multiValueFields: ['items.iid', 'items.name'],
+
   statusFilters: [
     {
       id: 'done',
       label: 'Status',
-      type: 'status',
+      type: 'boolean',
       field: 'done',
       options: [
         { value: 'false', label: 'Offen' },
