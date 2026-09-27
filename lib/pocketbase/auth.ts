@@ -112,51 +112,43 @@ export async function refreshAuth(): Promise<boolean> {
   }
 }
 
+// Refresh every 10 minutes (PocketBase tokens last 2 weeks by default)
+const AUTO_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+
+/** Active setupAutoRefresh() callers sharing the one interval below. */
+let autoRefreshUsers = 0;
+let autoRefreshIntervalId: ReturnType<typeof setInterval> | null = null;
+
 /**
  * Setup auto-refresh for auth token
- * Refreshes 5 minutes before expiration
+ *
+ * useAuth() runs in many components at once, and each used to start its
+ * own interval (and refresh request). They now share a single ref-counted
+ * interval; the returned cleanup releases this caller's reference and the
+ * last one stops it. Validity is checked on each tick (through the pb
+ * Proxy), so it follows logins/logouts and client re-creation after a
+ * server URL change without subscribing to a particular authStore.
  */
 export function setupAutoRefresh(): () => void {
-  let intervalId: NodeJS.Timeout | null = null;
+  autoRefreshUsers += 1;
 
-  const startAutoRefresh = () => {
-    // Clear existing interval
-    if (intervalId) {
-      clearInterval(intervalId);
-    }
-
-    // Refresh every 10 minutes (PocketBase tokens last 2 weeks by default)
-    intervalId = setInterval(
-      async () => {
-        if (pb.authStore.isValid) {
-          await refreshAuth();
-        }
-      },
-      10 * 60 * 1000
-    ); // 10 minutes
-  };
-
-  // Start immediately if authenticated
-  if (pb.authStore.isValid) {
-    startAutoRefresh();
+  if (autoRefreshIntervalId === null) {
+    autoRefreshIntervalId = setInterval(() => {
+      if (pb.authStore.isValid) {
+        void refreshAuth();
+      }
+    }, AUTO_REFRESH_INTERVAL_MS);
   }
 
-  // Listen for auth changes
-  const unsubscribe = pb.authStore.onChange(() => {
-    if (pb.authStore.isValid) {
-      startAutoRefresh();
-    } else if (intervalId) {
-      clearInterval(intervalId);
-      intervalId = null;
-    }
-  });
-
-  // Return cleanup function
+  let released = false;
   return () => {
-    if (intervalId) {
-      clearInterval(intervalId);
+    if (released) return;
+    released = true;
+    autoRefreshUsers -= 1;
+    if (autoRefreshUsers === 0 && autoRefreshIntervalId !== null) {
+      clearInterval(autoRefreshIntervalId);
+      autoRefreshIntervalId = null;
     }
-    unsubscribe();
   };
 }
 

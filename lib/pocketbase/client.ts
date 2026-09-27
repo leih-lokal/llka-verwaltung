@@ -2,7 +2,7 @@
  * PocketBase client singleton
  */
 
-import PocketBase from 'pocketbase';
+import PocketBase, { type SendOptions } from 'pocketbase';
 import type {
   Booking,
   Customer,
@@ -102,6 +102,46 @@ function getPocketBaseUrl(): string {
 }
 
 /**
+ * Record auth endpoints (auth-with-password, auth-refresh, request-otp,
+ * confirm-password-reset, impersonate, …). A 401 from these is about the
+ * credentials being submitted (or, for auth-refresh, handled by
+ * refreshAuth()), not a reason to drop the stored session here.
+ */
+const AUTH_ENDPOINT_PATTERN =
+  /\/api\/collections\/[^/?#]+\/(?:auth-|request-|confirm-|impersonate\/)/;
+
+/** The Authorization header a request was sent with, if any. */
+function getSentAuthorization(headers: SendOptions['headers']): string | null {
+  if (!headers) return null;
+  if (typeof Headers !== 'undefined' && headers instanceof Headers) {
+    return headers.get('Authorization');
+  }
+  for (const [name, value] of Object.entries(headers)) {
+    if (name.toLowerCase() === 'authorization' && typeof value === 'string') {
+      return value;
+    }
+  }
+  return null;
+}
+
+/**
+ * True if a 401 means the stored session is dead: the request carried the
+ * token that is still in the store (not an older one replaced by a login
+ * while the request was in flight) and wasn't an auth endpoint.
+ */
+export function isRevokedSessionResponse(
+  client: PocketBase,
+  response: Response,
+  options?: SendOptions
+): boolean {
+  if (response.status !== 401) return false;
+  const token = client.authStore.token;
+  if (!token) return false;
+  if (AUTH_ENDPOINT_PATTERN.test(response.url)) return false;
+  return getSentAuthorization(options?.headers) === token;
+}
+
+/**
  * Create PocketBase client instance
  */
 function createPocketBaseClient(): TypedPocketBase {
@@ -110,6 +150,17 @@ function createPocketBaseClient(): TypedPocketBase {
 
   // Enable auto cancellation for duplicate requests
   client.autoCancellation(false);
+
+  // A revoked or deleted superuser used to go unnoticed until the next
+  // 10-minute auth refresh. Clear the store on the first 401 instead;
+  // authStore.onChange (useAuth) then routes to /login. The SDK still
+  // throws the error to the caller as before.
+  client.afterSend = (response: Response, data: unknown, options?: SendOptions) => {
+    if (isRevokedSessionResponse(client, response, options)) {
+      client.authStore.clear();
+    }
+    return data;
+  };
 
   return client;
 }
