@@ -108,6 +108,9 @@ export function ItemDetailSheet({
   const { settings } = useSettings();
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  // Synchronous double-submit guard for handleSave (Enter in a field submits
+  // the form even while the save button is disabled).
+  const isSavingRef = useRef(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   // Whether confirming "Verwerfen" also closes the sheet (the dialog was
   // opened by closing the sheet rather than by "Abbrechen")
@@ -292,6 +295,8 @@ export function ItemDetailSheet({
   };
 
   const handleSave = async (data: ItemFormValues) => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
     setIsLoading(true);
     try {
       // Build FormData for file upload support
@@ -372,6 +377,7 @@ export function ItemDetailSheet({
       console.error('Error saving item:', err);
       toast.error('Fehler beim Speichern des Artikels');
     } finally {
+      isSavingRef.current = false;
       setIsLoading(false);
     }
   };

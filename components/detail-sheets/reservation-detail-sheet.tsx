@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -113,6 +113,9 @@ export function ReservationDetailSheet({
   onConvertToRental,
 }: ReservationDetailSheetProps) {
   const [isLoading, setIsLoading] = useState(false);
+  // Synchronous double-submit guard for handleSave (Enter in a field submits
+  // the form even while the save button is disabled).
+  const isSavingRef = useRef(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCustomerSheet, setShowCustomerSheet] = useState(false);
@@ -321,6 +324,8 @@ export function ReservationDetailSheet({
   }, [reservation, isNewReservation, form, open]);
 
   const handleSave = async (data: ReservationFormValues) => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
     setIsLoading(true);
     try {
       // Validate that no selected items are protected
@@ -389,6 +394,7 @@ export function ReservationDetailSheet({
       console.error("Error saving reservation:", err);
       toast.error("Fehler beim Speichern der Reservierung");
     } finally {
+      isSavingRef.current = false;
       setIsLoading(false);
     }
   };

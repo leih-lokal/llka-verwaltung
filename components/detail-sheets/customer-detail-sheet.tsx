@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -97,6 +97,9 @@ export function CustomerDetailSheet({
 }: CustomerDetailSheetProps) {
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  // Synchronous double-submit guard for handleSave (Enter in a field submits
+  // the form even while the save button is disabled).
+  const isSavingRef = useRef(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   // Whether confirming "Verwerfen" also closes the sheet (the dialog was
   // opened by closing the sheet rather than by "Abbrechen")
@@ -237,6 +240,8 @@ export function CustomerDetailSheet({
   };
 
   const handleSave = async (data: CustomerFormValues) => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
     setIsLoading(true);
     try {
       // Cleared optional fields are sent as '' rather than undefined: PATCH
@@ -279,6 +284,7 @@ export function CustomerDetailSheet({
       console.error('Error saving customer:', err);
       toast.error('Fehler beim Speichern des Nutzers');
     } finally {
+      isSavingRef.current = false;
       setIsLoading(false);
     }
   };
