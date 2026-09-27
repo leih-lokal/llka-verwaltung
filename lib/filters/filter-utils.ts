@@ -5,6 +5,7 @@
 import { addDays } from 'date-fns';
 import { dateToLocalString } from '@/lib/utils/formatting';
 import { pb } from '@/lib/pocketbase/client';
+import type { Booking } from '@/types';
 
 export interface ActiveFilter {
   id: string;
@@ -177,11 +178,12 @@ export function buildPocketBaseFilter(
       case 'date':
         if (Array.isArray(filter.value)) {
           const [start, end] = filter.value;
+          // Parenthesised: parts are joined with && which binds tighter than ||
           filterParts.push(
-            pb.filter(`${filter.field} < {:start} || ${filter.field} > {:end}`, {
+            `(${pb.filter(`${filter.field} < {:start} || ${filter.field} > {:end}`, {
               start: `${start} 00:00:00`,
               end: `${end} 23:59:59`,
-            })
+            })})`
           );
         }
         break;
@@ -190,7 +192,7 @@ export function buildPocketBaseFilter(
         if (Array.isArray(filter.value)) {
           const [min, max] = filter.value;
           filterParts.push(
-            pb.filter(`${filter.field} < {:min} || ${filter.field} > {:max}`, { min, max })
+            `(${pb.filter(`${filter.field} < {:min} || ${filter.field} > {:max}`, { min, max })})`
           );
         } else if (filter.operator) {
           const invertedOp = filter.operator === '=' ? '!=' :
@@ -211,6 +213,58 @@ export function buildPocketBaseFilter(
   });
 
   return filterParts.join(' && ');
+}
+
+/**
+ * Build the filter for the customer search boxes (rental/reservation sheets,
+ * booking dialogs, sequential mode):
+ * - digits only → exact iid match
+ * - "First Last" → firstname/lastname in both orders
+ * - otherwise (and additionally for full names) → firstname or lastname contains the term
+ *
+ * Each value gets its own single-key pb.filter() call: with several keys in one
+ * call, a value like "{:last}" is substituted by the next key and escapes its quotes.
+ */
+export function buildCustomerSearchFilter(term: string): string {
+  if (/^\d+$/.test(term)) {
+    return pb.filter('iid = {:iid}', { iid: parseInt(term, 10) });
+  }
+
+  const contains = (field: string, value: string) =>
+    pb.filter(`${field} ~ {:v}`, { v: value });
+
+  const trimmed = term.trim();
+  const filters: string[] = [];
+
+  if (trimmed.includes(' ')) {
+    const parts = trimmed.split(/\s+/);
+    const firstName = parts[0];
+    const lastName = parts.slice(1).join(' ');
+    filters.push(`(${contains('firstname', firstName)} && ${contains('lastname', lastName)})`);
+    // Also try reversed (lastname firstname)
+    filters.push(`(${contains('firstname', lastName)} && ${contains('lastname', firstName)})`);
+  }
+
+  filters.push(contains('firstname', trimmed));
+  filters.push(contains('lastname', trimmed));
+
+  return filters.join(' || ');
+}
+
+/**
+ * Filter for all booking records of one logical booking (same item + customer
+ * name + dates). Its result drives a bulk delete, so every value is
+ * parameterised separately and a crafted customer_name can't widen the match.
+ */
+export function buildBookingSiblingFilter(
+  booking: Pick<Booking, 'item' | 'customer_name' | 'start_date' | 'end_date'>
+): string {
+  return [
+    pb.filter('item = {:v}', { v: booking.item }),
+    pb.filter('customer_name = {:v}', { v: booking.customer_name }),
+    pb.filter('start_date = {:v}', { v: booking.start_date }),
+    pb.filter('end_date = {:v}', { v: booking.end_date }),
+  ].join(' && ');
 }
 
 /**

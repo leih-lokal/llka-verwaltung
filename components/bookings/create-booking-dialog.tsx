@@ -37,6 +37,7 @@ import {
   CommandSeparator,
 } from '@/components/ui/command';
 import { collections } from '@/lib/pocketbase/client';
+import { buildCustomerSearchFilter } from '@/lib/filters/filter-utils';
 import { BookingStatus } from '@/types';
 import type { Item, Customer } from '@/types';
 
@@ -120,30 +121,8 @@ export function CreateBookingDialog({
     const searchCustomers = async () => {
       setIsSearching(true);
       try {
-        const filters = [];
-        let sortBy = 'lastname,firstname';
-
-        if (/^\d+$/.test(search)) {
-          filters.push(`iid=${parseInt(search, 10)}`);
-          sortBy = 'iid';
-        } else {
-          const trimmed = search.trim();
-          if (trimmed.includes(' ')) {
-            const parts = trimmed.split(/\s+/);
-            const firstName = parts[0];
-            const lastName = parts.slice(1).join(' ');
-            filters.push(
-              `(firstname~'${firstName}' && lastname~'${lastName}')`
-            );
-            filters.push(
-              `(firstname~'${lastName}' && lastname~'${firstName}')`
-            );
-          }
-          filters.push(`firstname~'${trimmed}'`);
-          filters.push(`lastname~'${trimmed}'`);
-        }
-
-        const filter = filters.join(' || ');
+        const filter = buildCustomerSearchFilter(search);
+        const sortBy = /^\d+$/.test(search) ? 'iid' : 'lastname,firstname';
         const result = await collections
           .customers()
           .getList<Customer>(1, 20, { filter, sort: sortBy });

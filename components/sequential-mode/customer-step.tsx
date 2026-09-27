@@ -8,7 +8,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { User, Loader2 } from 'lucide-react';
-import { collections } from '@/lib/pocketbase/client';
+import { collections, pb } from '@/lib/pocketbase/client';
+import { buildCustomerSearchFilter } from '@/lib/filters/filter-utils';
 import type { Customer } from '@/types';
 import { cn } from '@/lib/utils';
 import { useSequentialMode } from '@/hooks/use-sequential-mode';
@@ -38,18 +39,16 @@ export function CustomerStep() {
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const filters = [];
         const isNumeric = /^\d+$/.test(searchQuery);
 
+        // Shared iid / name search, plus a fuzzy email match
+        const filters = [buildCustomerSearchFilter(searchQuery)];
         if (isNumeric) {
-          // Prioritize exact IID match
-          filters.push(`iid=${parseInt(searchQuery, 10)}`);
+          // The shared helper only matches the iid for digits; keep the name/email match too
+          filters.push(pb.filter('firstname ~ {:q} || lastname ~ {:q} || email ~ {:q}', { q: searchQuery }));
+        } else {
+          filters.push(pb.filter('email ~ {:q}', { q: searchQuery.trim() }));
         }
-
-        // Fuzzy search on name and email
-        filters.push(`firstname~'${searchQuery}'`);
-        filters.push(`lastname~'${searchQuery}'`);
-        filters.push(`email~'${searchQuery}'`);
 
         const filter = filters.join(' || ');
 

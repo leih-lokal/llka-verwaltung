@@ -56,6 +56,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { collections, pb } from "@/lib/pocketbase/client";
+import { buildCustomerSearchFilter } from "@/lib/filters/filter-utils";
 import { formatDate, formatCurrency, formatPhoneNumber, isValidPhoneNumber } from "@/lib/utils/formatting";
 import { cn } from "@/lib/utils";
 import type { Reservation, ReservationExpanded, Customer, Item } from "@/types";
@@ -175,38 +176,10 @@ export function ReservationDetailSheet({
     const searchCustomers = async () => {
       setIsSearchingCustomers(true);
       try {
-        const filters = [];
-        let sortBy = "lastname,firstname";
-
-        // If search is numeric, search by iid
-        if (/^\d+$/.test(customerSearch)) {
-          filters.push(`iid=${parseInt(customerSearch, 10)}`);
-          sortBy = "iid"; // Sort by iid when searching numerically
-        } else {
-          // Check if search contains a space (possible full name search)
-          const trimmedSearch = customerSearch.trim();
-          if (trimmedSearch.includes(" ")) {
-            // Split into parts for full name search
-            const parts = trimmedSearch.split(/\s+/);
-            const firstName = parts[0];
-            const lastName = parts.slice(1).join(" ");
-
-            // Search for firstname AND lastname match
-            filters.push(
-              `(firstname~'${firstName}' && lastname~'${lastName}')`,
-            );
-            // Also try reversed (lastname firstname)
-            filters.push(
-              `(firstname~'${lastName}' && lastname~'${firstName}')`,
-            );
-          }
-
-          // Always search individual fields
-          filters.push(`firstname~'${trimmedSearch}'`);
-          filters.push(`lastname~'${trimmedSearch}'`);
-        }
-
-        const filter = filters.join(" || ");
+        // iid match for numeric input, otherwise (full) name match
+        const filter = buildCustomerSearchFilter(customerSearch);
+        // Sort by iid when searching numerically
+        const sortBy = /^\d+$/.test(customerSearch) ? "iid" : "lastname,firstname";
 
         const result = await collections.customers().getList<Customer>(1, 20, {
           filter,

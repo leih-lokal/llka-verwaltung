@@ -38,6 +38,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { collections } from '@/lib/pocketbase/client';
+import { buildBookingSiblingFilter } from '@/lib/filters/filter-utils';
 import { formatPhoneNumber, isValidPhoneNumber } from '@/lib/utils/formatting';
 import { BookingStatus } from '@/types';
 import type { Booking, BookingExpanded } from '@/types';
@@ -155,7 +156,7 @@ export function BookingDetailSheet({
     try {
       // Find all sibling records (same item + customer + dates = one logical group)
       const siblings = await collections.bookings().getFullList<Booking>({
-        filter: `item='${booking.item}' && customer_name='${booking.customer_name}' && start_date='${booking.start_date}' && end_date='${booking.end_date}'`,
+        filter: buildBookingSiblingFilter(booking),
       });
       await Promise.all(
         siblings.map((s) => collections.bookings().delete(s.id))
