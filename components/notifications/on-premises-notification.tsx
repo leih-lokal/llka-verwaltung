@@ -15,19 +15,14 @@ import type { Reservation, ReservationExpanded } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
-interface NotificationData extends ReservationExpanded {
-  /** Timestamp when notification was shown */
-  shownAt: number;
-}
-
 export function OnPremisesNotification() {
   const router = useRouter();
-  const [notifications, setNotifications] = useState<NotificationData[]>([]);
+  const [notifications, setNotifications] = useState<ReservationExpanded[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Initialize audio element
+  // Initialize audio element (public/ files live under the basePath)
   useEffect(() => {
-    audioRef.current = new Audio('/alert_simple.mp3');
+    audioRef.current = new Audio(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/alert_simple.mp3`);
     // Preload the audio
     audioRef.current.load();
   }, []);
@@ -51,12 +46,12 @@ export function OnPremisesNotification() {
         { expand: 'items' }
       );
 
-      const notificationData: NotificationData = {
-        ...expandedReservation,
-        shownAt: Date.now(),
-      };
-
-      setNotifications((prev) => [notificationData, ...prev]);
+      // Replace an earlier notification for the same reservation (updates
+      // re-notify) instead of stacking a duplicate with the same key
+      setNotifications((prev) => [
+        expandedReservation,
+        ...prev.filter((n) => n.id !== expandedReservation.id),
+      ]);
       playSound();
 
       // Auto-dismiss after 30 seconds
@@ -101,7 +96,8 @@ export function OnPremisesNotification() {
       {notifications.map((notification) => (
         <div
           key={notification.id}
-          className="pointer-events-auto bg-linear-to-tl from-red-700 to-red-500 text-white rounded-lg shadow-2xl border-2 border-white animate-in slide-in-from-right-5 duration-300"
+          role="alert"
+          className="pointer-events-auto bg-linear-to-tl from-red-800 to-red-700 text-white rounded-lg shadow-2xl border-2 border-white animate-in slide-in-from-right-5 duration-300"
         >
           <div className="p-5">
             {/* Header */}
@@ -120,8 +116,9 @@ export function OnPremisesNotification() {
                 size="sm"
                 className="h-8 w-8 p-0 text-white hover:bg-white/20 -mt-1 -mr-1"
                 onClick={() => dismissNotification(notification.id)}
+                aria-label="Benachrichtigung schließen"
               >
-                <X className="h-5 w-5" />
+                <X className="h-5 w-5" aria-hidden="true" />
               </Button>
             </div>
 
@@ -144,7 +141,7 @@ export function OnPremisesNotification() {
                 <div className="flex-1">
                   <p className="font-semibold">{notification.customer_name}</p>
                   {notification.customer_phone && (
-                    <p className="text-sm text-white/80">{notification.customer_phone}</p>
+                    <p className="text-sm text-white/90">{notification.customer_phone}</p>
                   )}
                 </div>
                 {notification.is_new_customer && (
@@ -188,14 +185,14 @@ export function OnPremisesNotification() {
             {/* Comments */}
             {notification.comments && (
               <div className="mt-3 bg-white/10 rounded-lg p-3">
-                <p className="text-sm italic text-white/90">"{notification.comments}"</p>
+                <p className="text-sm italic text-white/90">„{notification.comments}“</p>
               </div>
             )}
 
             {/* Action */}
             <div className="mt-4">
               <Button
-                className="w-full bg-white text-orange-600 hover:bg-white/90 font-semibold"
+                className="w-full bg-white text-red-700 hover:bg-white/90 font-semibold"
                 onClick={() => router.push(`/reservations?view=${notification.id}`)}
               >
                 Details anzeigen
