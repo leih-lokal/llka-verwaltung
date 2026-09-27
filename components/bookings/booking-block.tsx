@@ -6,7 +6,7 @@
 
 'use client';
 
-import { CircleCheckBig, PackageCheck } from 'lucide-react';
+import { CircleCheckBig, PackageCheck, TriangleAlert } from 'lucide-react';
 import { BookingStatus } from '@/types';
 import { BOOKING_STATUS_LABELS } from '@/lib/constants/statuses';
 import type { BookingSlot } from '@/lib/utils/booking-grid';
@@ -43,6 +43,9 @@ const OVERDUE_COLORS = {
 
 /** Active bookings: green left accent color */
 const ACTIVE_ACCENT = 'hsl(142 60% 40%)';
+
+/** Over-capacity bookings: red outline + warning icon on top of their colors */
+const CONFLICT_COLOR = 'hsl(0 75% 45%)';
 
 /** Returned bookings: muted grey treatment */
 const RETURNED_COLORS = {
@@ -85,6 +88,7 @@ export function BookingBlock({
 
   const accentStatus = isActive || isReturned;
   const accentColor = isActive ? ACTIVE_ACCENT : isReturned ? RETURNED_ACCENT : undefined;
+  const conflictLabel = slot.conflict ? 'Überbucht' : null;
 
   return (
     <button
@@ -100,10 +104,19 @@ export function BookingBlock({
         borderLeftWidth: accentStatus ? 3 : undefined,
         borderLeftColor: accentColor,
         opacity: isReturned ? 0.8 : undefined,
+        outline: slot.conflict ? `2px dashed ${CONFLICT_COLOR}` : undefined,
+        outlineOffset: slot.conflict ? -2 : undefined,
       }}
-      title={`${slot.booking.customer_name} — ${statusLabel}${copyCount > 1 ? ` (${copyCount}×)` : ''}`}
-      aria-label={`Buchung: ${slot.booking.customer_name}, ${statusLabel}${copyCount > 1 ? `, ${copyCount} Exemplare` : ''}`}
+      title={`${slot.booking.customer_name} — ${statusLabel}${copyCount > 1 ? ` (${copyCount}×)` : ''}${conflictLabel ? ` — ${conflictLabel}` : ''}`}
+      aria-label={`Buchung: ${slot.booking.customer_name}, ${statusLabel}${copyCount > 1 ? `, ${copyCount} Exemplare` : ''}${conflictLabel ? `, ${conflictLabel}` : ''}`}
     >
+      {slot.conflict && (
+        <TriangleAlert
+          aria-hidden="true"
+          className="absolute top-0.5 right-0.5 h-3.5 w-3.5"
+          style={{ color: CONFLICT_COLOR }}
+        />
+      )}
       <div className="text-[10px] opacity-75 truncate leading-tight">
         {slot.booking.expand?.customer
           ? `#${slot.booking.expand.customer.iid}`

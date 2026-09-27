@@ -290,11 +290,14 @@ export function BookingGrid({
         {/* Column headers — multi-copy items get a spanning header + separate plus header */}
         {itemGroups.map((group) => {
           if (!group.isMultiCopy) {
+            // Spans the extra columns a double booking spills into
             return (
               <div
                 key={group.item.id}
                 className="sticky top-0 z-20 bg-background border-b p-2 text-center text-xs font-semibold truncate flex items-center justify-center gap-1.5"
-                style={{ gridColumn: gridColIndex(group.startIndex) }}
+                style={{
+                  gridColumn: `${gridColIndex(group.startIndex)} / ${gridColIndex(group.endIndex) + 1}`,
+                }}
                 title={group.item.name}
               >
                 <FormattedId id={group.item.iid} size="sm" />
