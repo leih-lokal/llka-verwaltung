@@ -120,7 +120,7 @@ function NewImagePreview({ file }: { file: File }) {
   return (
     <img
       ref={showFile}
-      alt="New upload"
+      alt="Neues Bild"
       className="w-full h-full object-cover"
     />
   );
@@ -319,6 +319,17 @@ export function ItemDetailSheet({
   const handleRemoveExistingImage = (imageName: string) => {
     setImagesToDelete((prev) => [...prev, imageName]);
     setExistingImages((prev) => prev.filter((img) => img !== imageName));
+  };
+
+  // Id of a field's validation message, and the aria props linking the
+  // field to it while it is shown
+  const errorId = (field: keyof ItemFormValues) => `item-${field}-error`;
+  const errorProps = (field: keyof ItemFormValues) => {
+    const invalid = !!form.formState.errors[field];
+    return {
+      'aria-invalid': invalid || undefined,
+      'aria-describedby': invalid ? errorId(field) : undefined,
+    };
   };
 
   const handleSave = async (data: ItemFormValues) => {
@@ -586,10 +597,11 @@ export function ItemDetailSheet({
                       id="iid"
                       type="number"
                       {...form.register('iid', { valueAsNumber: true })}
+                      {...errorProps('iid')}
                       className="mt-1"
                     />
                     {form.formState.errors.iid && (
-                      <p className="text-sm text-destructive mt-1">
+                      <p id={errorId('iid')} className="text-sm text-destructive mt-1">
                         {form.formState.errors.iid.message}
                       </p>
                     )}
@@ -601,10 +613,11 @@ export function ItemDetailSheet({
                     <Input
                       id="name"
                       {...form.register('name')}
+                      {...errorProps('name')}
                       className="mt-1"
                     />
                     {form.formState.errors.name && (
-                      <p className="text-sm text-destructive mt-1">
+                      <p id={errorId('name')} className="text-sm text-destructive mt-1">
                         {form.formState.errors.name.message}
                       </p>
                     )}
@@ -643,8 +656,13 @@ export function ItemDetailSheet({
                   </div>
 
                   <div>
-                    <Label>Kategorien *</Label>
-                    <div className="mt-2 grid grid-cols-2 gap-2">
+                    <Label id="item-category-label">Kategorien *</Label>
+                    <div
+                      role="group"
+                      aria-labelledby="item-category-label"
+                      aria-describedby={form.formState.errors.category ? errorId('category') : undefined}
+                      className="mt-2 grid grid-cols-2 gap-2"
+                    >
                       {CATEGORY_OPTIONS.map(({ value, label }) => {
                         const isChecked = form.watch('category').includes(value as any);
                         return (
@@ -671,7 +689,7 @@ export function ItemDetailSheet({
                       })}
                     </div>
                     {form.formState.errors.category && (
-                      <p className="text-sm text-destructive mt-1">
+                      <p id={errorId('category')} className="text-sm text-destructive mt-1">
                         {form.formState.errors.category.message}
                       </p>
                     )}
@@ -685,10 +703,11 @@ export function ItemDetailSheet({
                         type="number"
                         step="0.01"
                         {...form.register('deposit', { valueAsNumber: true })}
+                        {...errorProps('deposit')}
                         className="mt-1"
                       />
                       {form.formState.errors.deposit && (
-                        <p className="text-sm text-destructive mt-1">
+                        <p id={errorId('deposit')} className="text-sm text-destructive mt-1">
                           {form.formState.errors.deposit.message}
                         </p>
                       )}
@@ -707,10 +726,11 @@ export function ItemDetailSheet({
                             return Number.isNaN(n) ? undefined : n;
                           },
                         })}
+                        {...errorProps('msrp')}
                         className="mt-1"
                       />
                       {form.formState.errors.msrp && (
-                        <p className="text-sm text-destructive mt-1">
+                        <p id={errorId('msrp')} className="text-sm text-destructive mt-1">
                           {form.formState.errors.msrp.message}
                         </p>
                       )}
@@ -724,10 +744,11 @@ export function ItemDetailSheet({
                         id="copies"
                         type="number"
                         {...form.register('copies', { valueAsNumber: true })}
+                        {...errorProps('copies')}
                         className="mt-1"
                       />
                       {form.formState.errors.copies && (
-                        <p className="text-sm text-destructive mt-1">
+                        <p id={errorId('copies')} className="text-sm text-destructive mt-1">
                           {form.formState.errors.copies.message}
                         </p>
                       )}
@@ -745,10 +766,11 @@ export function ItemDetailSheet({
                             return Number.isNaN(n) ? undefined : n;
                           },
                         })}
+                        {...errorProps('parts')}
                         className="mt-1"
                       />
                       {form.formState.errors.parts && (
-                        <p className="text-sm text-destructive mt-1">
+                        <p id={errorId('parts')} className="text-sm text-destructive mt-1">
                           {form.formState.errors.parts.message}
                         </p>
                       )}
@@ -798,7 +820,7 @@ export function ItemDetailSheet({
                           <button
                             type="button"
                             onClick={() => handleRemoveExistingImage(imageName)}
-                            className="absolute top-2 right-2 p-1.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="absolute top-2 right-2 p-1.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity"
                             aria-label="Bild entfernen"
                           >
                             <Trash2Icon className="size-4" />
@@ -817,7 +839,7 @@ export function ItemDetailSheet({
                           <button
                             type="button"
                             onClick={() => handleRemoveNewImage(index)}
-                            className="absolute top-2 right-2 p-1.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="absolute top-2 right-2 p-1.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity"
                             aria-label="Bild entfernen"
                           >
                             <Trash2Icon className="size-4" />

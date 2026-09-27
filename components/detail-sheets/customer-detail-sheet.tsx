@@ -240,6 +240,17 @@ export function CustomerDetailSheet({
     }
   };
 
+  // Id of a field's validation message, and the aria props linking the
+  // field to it while it is shown
+  const errorId = (field: keyof CustomerFormValues) => `customer-${field}-error`;
+  const errorProps = (field: keyof CustomerFormValues) => {
+    const invalid = !!form.formState.errors[field];
+    return {
+      'aria-invalid': invalid || undefined,
+      'aria-describedby': invalid ? errorId(field) : undefined,
+    };
+  };
+
   const handleSave = async (data: CustomerFormValues) => {
     if (isSavingRef.current) return;
     isSavingRef.current = true;
@@ -509,10 +520,11 @@ export function CustomerDetailSheet({
                         id="iid"
                         type="number"
                         {...form.register('iid', { valueAsNumber: true })}
+                        {...errorProps('iid')}
                         className="mt-1.5"
                       />
                       {form.formState.errors.iid && (
-                        <p className="text-sm text-destructive mt-1">
+                        <p id={errorId('iid')} className="text-sm text-destructive mt-1">
                           {form.formState.errors.iid.message}
                         </p>
                       )}
@@ -525,10 +537,11 @@ export function CustomerDetailSheet({
                         <Input
                           id="firstname"
                           {...form.register('firstname')}
+                          {...errorProps('firstname')}
                           className="mt-1.5"
                         />
                         {form.formState.errors.firstname && (
-                          <p className="text-sm text-destructive mt-1">
+                          <p id={errorId('firstname')} className="text-sm text-destructive mt-1">
                             {form.formState.errors.firstname.message}
                           </p>
                         )}
@@ -539,10 +552,11 @@ export function CustomerDetailSheet({
                         <Input
                           id="lastname"
                           {...form.register('lastname')}
+                          {...errorProps('lastname')}
                           className="mt-1.5"
                         />
                         {form.formState.errors.lastname && (
-                          <p className="text-sm text-destructive mt-1">
+                          <p id={errorId('lastname')} className="text-sm text-destructive mt-1">
                             {form.formState.errors.lastname.message}
                           </p>
                         )}
@@ -557,10 +571,11 @@ export function CustomerDetailSheet({
                           id="email"
                           type="email"
                           {...form.register('email')}
+                          {...errorProps('email')}
                           className="mt-1.5"
                         />
                         {form.formState.errors.email && (
-                          <p className="text-sm text-destructive mt-1">
+                          <p id={errorId('email')} className="text-sm text-destructive mt-1">
                             {form.formState.errors.email.message}
                           </p>
                         )}
@@ -571,10 +586,11 @@ export function CustomerDetailSheet({
                         <Input
                           id="phone"
                           {...form.register('phone')}
+                          {...errorProps('phone')}
                           className="mt-1.5"
                         />
                         {form.formState.errors.phone && (
-                          <p className="text-sm text-destructive mt-1">
+                          <p id={errorId('phone')} className="text-sm text-destructive mt-1">
                             {form.formState.errors.phone.message}
                           </p>
                         )}

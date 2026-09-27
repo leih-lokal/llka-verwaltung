@@ -603,6 +603,17 @@ export function RentalDetailSheet({
     setValue('deposit', totalDeposit, { shouldDirty: true });
   };
 
+  // Id of a field's validation message, and the aria props linking the
+  // field to it while it is shown
+  const errorId = (field: keyof RentalFormValues) => `rental-${field}-error`;
+  const errorProps = (field: keyof RentalFormValues) => {
+    const invalid = !!form.formState.errors[field];
+    return {
+      'aria-invalid': invalid || undefined,
+      'aria-describedby': invalid ? errorId(field) : undefined,
+    };
+  };
+
   const handleSave = async (data: RentalFormValues) => {
     if (isSavingRef.current) return;
     isSavingRef.current = true;
@@ -1073,9 +1084,11 @@ export function RentalDetailSheet({
                     <Popover open={customerSearchOpen} onOpenChange={setCustomerSearchOpen}>
                       <PopoverTrigger asChild>
                         <Button
+                          id="customer"
                           variant="outline"
                           role="combobox"
                           aria-expanded={customerSearchOpen}
+                          {...errorProps('customer_iid')}
                           className="w-full justify-between mt-1"
                         >
                           {selectedCustomer
@@ -1133,7 +1146,7 @@ export function RentalDetailSheet({
                       </PopoverContent>
                     </Popover>
                     {form.formState.errors.customer_iid && (
-                      <p className="text-sm text-destructive mt-1">
+                      <p id={errorId('customer_iid')} className="text-sm text-destructive mt-1">
                         {form.formState.errors.customer_iid.message}
                       </p>
                     )}
@@ -1182,9 +1195,11 @@ export function RentalDetailSheet({
                     <Popover open={itemSearchOpen} onOpenChange={setItemSearchOpen}>
                       <PopoverTrigger asChild>
                         <Button
+                          id="item"
                           variant="outline"
                           role="combobox"
                           aria-expanded={itemSearchOpen}
+                          {...errorProps('item_iids')}
                           className="w-full justify-between mt-1"
                         >
                           {selectedItems.length > 0
@@ -1240,7 +1255,7 @@ export function RentalDetailSheet({
                       </PopoverContent>
                     </Popover>
                     {form.formState.errors.item_iids && (
-                      <p className="text-sm text-destructive mt-1">
+                      <p id={errorId('item_iids')} className="text-sm text-destructive mt-1">
                         {form.formState.errors.item_iids.message}
                       </p>
                     )}
@@ -1354,7 +1369,7 @@ export function RentalDetailSheet({
                             {/* Return status badge */}
                             {hasReturns && (
                               <div className="mt-2 pt-2 border-t">
-                                <Badge variant="outline" className="text-green-600 border-green-600">
+                                <Badge variant="outline" className="text-green-700 border-green-700 dark:text-green-400 dark:border-green-400">
                                   {returnedCount}/{copyCount} zurückgegeben
                                   {remainingCount > 0 && ` • ${remainingCount} noch aus`}
                                 </Badge>
@@ -1425,6 +1440,7 @@ export function RentalDetailSheet({
                     <div className="relative flex-1">
                       <Input
                         id="rented_on"
+                        {...errorProps('rented_on')}
                         value={rentedOn && stringToDate(rentedOn) ? formatDateDisplay(stringToDate(rentedOn)) : ''}
                         placeholder="Tag auswählen..."
                         className="bg-background pr-10 cursor-pointer"
@@ -1474,7 +1490,7 @@ export function RentalDetailSheet({
                     </Button>
                   </div>
                   {form.formState.errors.rented_on && (
-                    <p className="text-sm text-destructive mt-1">
+                    <p id={errorId('rented_on')} className="text-sm text-destructive mt-1">
                       {form.formState.errors.rented_on.message}
                     </p>
                   )}
@@ -1487,6 +1503,7 @@ export function RentalDetailSheet({
                     <div className="relative flex-1">
                       <Input
                         id="expected_on"
+                        {...errorProps('expected_on')}
                         value={expectedOn && stringToDate(expectedOn) ? formatDateDisplay(stringToDate(expectedOn)) : ''}
                         placeholder="Tag auswählen..."
                         className="bg-background pr-10 cursor-pointer"
@@ -1555,7 +1572,7 @@ export function RentalDetailSheet({
                     </div>
                   </div>
                   {form.formState.errors.expected_on && (
-                    <p className="text-sm text-destructive mt-1">
+                    <p id={errorId('expected_on')} className="text-sm text-destructive mt-1">
                       {form.formState.errors.expected_on.message}
                     </p>
                   )}
@@ -1694,10 +1711,11 @@ export function RentalDetailSheet({
                     type="number"
                     step="0.01"
                     {...form.register('deposit', { valueAsNumber: true })}
+                    {...errorProps('deposit')}
                     className="mt-1"
                   />
                   {form.formState.errors.deposit && (
-                    <p className="text-sm text-destructive mt-1">
+                    <p id={errorId('deposit')} className="text-sm text-destructive mt-1">
                       {form.formState.errors.deposit.message}
                     </p>
                   )}
@@ -1711,10 +1729,11 @@ export function RentalDetailSheet({
                       type="number"
                       step="0.01"
                       {...form.register('deposit_back', { valueAsNumber: true })}
+                      {...errorProps('deposit_back')}
                       className="mt-1"
                     />
                     {form.formState.errors.deposit_back && (
-                      <p className="text-sm text-destructive mt-1">
+                      <p id={errorId('deposit_back')} className="text-sm text-destructive mt-1">
                         {form.formState.errors.deposit_back.message}
                       </p>
                     )}
@@ -1734,10 +1753,11 @@ export function RentalDetailSheet({
                   <Input
                     id="employee"
                     {...form.register('employee')}
+                    {...errorProps('employee')}
                     className="mt-1"
                   />
                   {form.formState.errors.employee && (
-                    <p className="text-sm text-destructive mt-1">
+                    <p id={errorId('employee')} className="text-sm text-destructive mt-1">
                       {form.formState.errors.employee.message}
                     </p>
                   )}
@@ -1778,6 +1798,7 @@ export function RentalDetailSheet({
                   size="lg"
                   className="w-10 h-10 p-0"
                   title="Abbrechen"
+                  aria-label="Abbrechen"
                 >
                   <XIcon className="size-5" />
                 </Button>
@@ -1790,6 +1811,7 @@ export function RentalDetailSheet({
                     size="lg"
                     className="w-10 h-10 p-0"
                     title="Löschen"
+                    aria-label="Löschen"
                   >
                     <TrashIcon className="size-5" />
                   </Button>
@@ -1803,6 +1825,7 @@ export function RentalDetailSheet({
                     size="lg"
                     className="w-10 h-10 p-0"
                     title="Drucken"
+                    aria-label="Drucken"
                   >
                     <PrinterIcon className="size-5" />
                   </Button>
@@ -1814,7 +1837,7 @@ export function RentalDetailSheet({
                     <Button
                       type="button"
                       variant="outline"
-                      className="min-w-[140px] border-green-600 text-green-600 hover:bg-green-50"
+                      className="min-w-[140px] border-green-700 text-green-700 hover:bg-green-50 dark:border-green-400 dark:text-green-400 dark:hover:bg-green-950/30"
                       onClick={() => setShowPartialReturnDialog(true)}
                       disabled={isLoading}
                       size="lg"
@@ -1825,7 +1848,7 @@ export function RentalDetailSheet({
                     <Button
                       type="button"
                       variant="default"
-                      className="bg-green-600 hover:bg-green-700 min-w-[140px]"
+                      className="bg-green-700 hover:bg-green-800 text-white min-w-[140px]"
                       onClick={handleReturn}
                       disabled={isLoading}
                       size="lg"
@@ -1919,6 +1942,8 @@ export function RentalDetailSheet({
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <Checkbox
+                          id={`partial-return-${item.id}`}
+                          aria-describedby={`partial-return-${item.id}-status`}
                           checked={selectedCount > 0}
                           onCheckedChange={(checked) => {
                             if (checked) {
@@ -1931,11 +1956,13 @@ export function RentalDetailSheet({
                             }
                           }}
                         />
-                        <FormattedId id={item.iid} size="md" className="mr-2" />
-                        <span className="font-semibold">{item.name}</span>
+                        <label htmlFor={`partial-return-${item.id}`} className="flex items-center gap-2 cursor-pointer">
+                          <FormattedId id={item.iid} size="md" className="mr-2" />
+                          <span className="font-semibold">{item.name}</span>
+                        </label>
                       </div>
 
-                      <div className="text-sm text-muted-foreground ml-6">
+                      <div id={`partial-return-${item.id}-status`} className="text-sm text-muted-foreground ml-6">
                         {remainingCopies} von {requestedCopies} noch ausstehend
                         {alreadyReturned > 0 && ` (${alreadyReturned} bereits zurück)`}
                         {depositPerCopy > 0 && ` • ${formatCurrency(depositPerCopy)} Pfand/Stück`}
@@ -1955,6 +1982,7 @@ export function RentalDetailSheet({
                               }))
                             }
                             disabled={selectedCount <= 1}
+                            aria-label={`Anzahl für ${item.name} verringern`}
                           >
                             <MinusIcon className="h-3 w-3" />
                           </Button>
@@ -1971,6 +1999,7 @@ export function RentalDetailSheet({
                               }))
                             }
                             disabled={selectedCount >= remainingCopies}
+                            aria-label={`Anzahl für ${item.name} erhöhen`}
                           >
                             <PlusIcon className="h-3 w-3" />
                           </Button>

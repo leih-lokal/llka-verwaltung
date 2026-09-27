@@ -323,6 +323,17 @@ export function ReservationDetailSheet({
     };
   }, [reservation, isNewReservation, form, open]);
 
+  // Id of a field's validation message, and the aria props linking the
+  // field to it while it is shown
+  const errorId = (field: keyof ReservationFormValues) => `reservation-${field}-error`;
+  const errorProps = (field: keyof ReservationFormValues) => {
+    const invalid = !!form.formState.errors[field];
+    return {
+      "aria-invalid": invalid || undefined,
+      "aria-describedby": invalid ? errorId(field) : undefined,
+    };
+  };
+
   const handleSave = async (data: ReservationFormValues) => {
     if (isSavingRef.current) return;
     isSavingRef.current = true;
@@ -607,13 +618,14 @@ export function ReservationDetailSheet({
                   <div className="space-y-4">
                     {!isNewCustomer && (
                       <div>
-                        <Label>Bestehenden Nutzer auswählen</Label>
+                        <Label htmlFor="reservation-customer">Bestehenden Nutzer auswählen</Label>
                         <Popover
                           open={customerSearchOpen}
                           onOpenChange={setCustomerSearchOpen}
                         >
                           <PopoverTrigger asChild>
                             <Button
+                              id="reservation-customer"
                               variant="outline"
                               role="combobox"
                               aria-expanded={customerSearchOpen}
@@ -738,11 +750,12 @@ export function ReservationDetailSheet({
                       <Input
                         id="customer_name"
                         {...form.register("customer_name")}
+                        {...errorProps("customer_name")}
                         className="mt-1"
                         readOnly={!isNewCustomer && !!selectedCustomer}
                       />
                       {form.formState.errors.customer_name && (
-                        <p className="text-sm text-destructive mt-1">
+                        <p id={errorId("customer_name")} className="text-sm text-destructive mt-1">
                           {form.formState.errors.customer_name.message}
                         </p>
                       )}
@@ -754,11 +767,12 @@ export function ReservationDetailSheet({
                         <Input
                           id="customer_phone"
                           {...form.register("customer_phone")}
+                          {...errorProps("customer_phone")}
                           className="mt-1"
                           readOnly={!isNewCustomer && !!selectedCustomer}
                         />
                         {form.formState.errors.customer_phone && (
-                          <p className="text-sm text-destructive mt-1">
+                          <p id={errorId("customer_phone")} className="text-sm text-destructive mt-1">
                             {form.formState.errors.customer_phone.message}
                           </p>
                         )}
@@ -770,11 +784,12 @@ export function ReservationDetailSheet({
                           id="customer_email"
                           type="email"
                           {...form.register("customer_email")}
+                          {...errorProps("customer_email")}
                           className="mt-1"
                           readOnly={!isNewCustomer && !!selectedCustomer}
                         />
                         {form.formState.errors.customer_email && (
-                          <p className="text-sm text-destructive mt-1">
+                          <p id={errorId("customer_email")} className="text-sm text-destructive mt-1">
                             {form.formState.errors.customer_email.message}
                           </p>
                         )}
@@ -803,16 +818,18 @@ export function ReservationDetailSheet({
                   {/* Items Selection */}
                   <div className="space-y-4">
                     <div>
-                      <Label>Artikel hinzufügen *</Label>
+                      <Label htmlFor="reservation-items">Artikel hinzufügen *</Label>
                       <Popover
                         open={itemSearchOpen}
                         onOpenChange={setItemSearchOpen}
                       >
                         <PopoverTrigger asChild>
                           <Button
+                            id="reservation-items"
                             variant="outline"
                             role="combobox"
                             aria-expanded={itemSearchOpen}
+                            {...errorProps("item_ids")}
                             className="w-full justify-between mt-1"
                           >
                             <span className="flex items-center gap-2">
@@ -881,7 +898,7 @@ export function ReservationDetailSheet({
                         </PopoverContent>
                       </Popover>
                       {form.formState.errors.item_ids && (
-                        <p className="text-sm text-destructive mt-1">
+                        <p id={errorId("item_ids")} className="text-sm text-destructive mt-1">
                           {form.formState.errors.item_ids.message}
                         </p>
                       )}
@@ -939,11 +956,12 @@ export function ReservationDetailSheet({
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="pickup">Abholung (Datum & Zeit) *</Label>
+                    <Label htmlFor="pickup_date">Abholung (Datum & Zeit) *</Label>
                     <div className="flex gap-2 mt-1">
                       <div className="relative flex-1">
                         <Input
                           id="pickup_date"
+                          {...errorProps("pickup")}
                           value={
                             form.watch("pickup")
                               ? new Date(
@@ -1010,6 +1028,7 @@ export function ReservationDetailSheet({
                       <Input
                         id="pickup_time"
                         type="time"
+                        aria-label="Abholzeit"
                         value={
                           form.watch("pickup")
                             ? form.watch("pickup").slice(11, 16)
@@ -1027,7 +1046,7 @@ export function ReservationDetailSheet({
                       />
                     </div>
                     {form.formState.errors.pickup && (
-                      <p className="text-sm text-destructive mt-1">
+                      <p id={errorId("pickup")} className="text-sm text-destructive mt-1">
                         {form.formState.errors.pickup.message}
                       </p>
                     )}
