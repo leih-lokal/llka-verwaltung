@@ -33,6 +33,7 @@ const STORAGE_KEY_CURRENT = 'current_employee_name';
 const STORAGE_KEY_HISTORY = 'employee_name_history';
 const MAX_HISTORY_SIZE = 5;
 const IDENTITY_TTL = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
+const EXPIRY_CHECK_INTERVAL = 60 * 1000; // 1 minute
 
 interface IdentityWithTimestamp {
   value: string;
@@ -118,6 +119,26 @@ export function IdentityProvider({ children }: { children: ReactNode }) {
     if (storedHistory.length > 0) {
       setIdentityHistory(storedHistory.slice(0, MAX_HISTORY_SIZE));
     }
+  }, []);
+
+  // Re-check the expiry while the app stays open: a tab left open overnight
+  // would otherwise keep yesterday's employee and auto-fill them on today's
+  // rentals. Checked when the tab regains focus or becomes visible, and once
+  // a minute for a window that never loses focus.
+  useEffect(() => {
+    const recheck = () => {
+      if (document.visibilityState === 'hidden') return;
+      setCurrentIdentityState(loadIdentityFromStorage());
+    };
+
+    window.addEventListener('focus', recheck);
+    document.addEventListener('visibilitychange', recheck);
+    const interval = window.setInterval(recheck, EXPIRY_CHECK_INTERVAL);
+    return () => {
+      window.removeEventListener('focus', recheck);
+      document.removeEventListener('visibilitychange', recheck);
+      window.clearInterval(interval);
+    };
   }, []);
 
   const setIdentity = (name: string) => {
