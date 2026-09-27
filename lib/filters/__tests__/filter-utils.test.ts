@@ -178,7 +178,7 @@ describe('buildPocketBaseFilter category filters', () => {
 
   it('matches any selected value of a multi-select', () => {
     expect(buildPocketBaseFilter([filter({ type: 'category', field: 'category', value: 'Küche' })], '', multi)).toBe(
-      "category ?= 'Küche'"
+      "category:each ?= 'Küche'"
     );
     expect(
       buildPocketBaseFilter(
@@ -189,13 +189,13 @@ describe('buildPocketBaseFilter category filters', () => {
         '',
         multi
       )
-    ).toBe("(category ?= 'Küche' || category ?= 'Garten')");
+    ).toBe("(category:each ?= 'Küche' || category:each ?= 'Garten')");
   });
 
   it('excludes a value only when no element equals it', () => {
     expect(
       buildPocketBaseFilter([filter({ type: 'category', field: 'category', value: 'Küche', exclude: true })], '', multi)
-    ).toBe("category != 'Küche'");
+    ).toBe("category:each != 'Küche'");
   });
 
   it('uses :length for "no category" on a multi-select', () => {

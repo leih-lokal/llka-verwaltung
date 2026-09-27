@@ -172,7 +172,9 @@ export function buildPocketBaseFilter(
             fieldParts.push(
               filter.value === '__none__'
                 ? `${filter.field}:length = 0`
-                : pb.filter(`${filter.field} ?= {:v}`, { v: filter.value })
+                : // A bare multi-select resolves to its raw JSON text; `:each`
+                  // compares element-wise and `?=` matches if any element does
+                  pb.filter(`${filter.field}:each ?= {:v}`, { v: filter.value })
             );
           } else if (filter.value === '__none__') {
             fieldParts.push(`(${filter.field} = '' || ${filter.field} = null)`);
@@ -269,8 +271,10 @@ export function buildPocketBaseFilter(
               ? `${filter.field}:length > 0`
               : `(${filter.field} != '' && ${filter.field} != null)`
           );
+        } else if (isMultiValue(filter.field)) {
+          // `:each !=` must hold for every element, i.e. none equals the value
+          filterParts.push(pb.filter(`${filter.field}:each != {:v}`, { v: filter.value }));
         } else {
-          // On a multi-valued field `!=` must hold for every value, i.e. none equals it
           filterParts.push(pb.filter(`${filter.field} != {:v}`, { v: filter.value }));
         }
         break;

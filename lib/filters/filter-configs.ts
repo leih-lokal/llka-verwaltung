@@ -31,9 +31,10 @@ export interface EntityFilterConfig {
 
   /**
    * Fields and relation paths that hold several values: multi-select fields
-   * and paths through multi-relations (e.g. `items.name`). PocketBase applies
-   * plain operators on them to ALL values, so search and filters use the
-   * any-of forms (`?=`, `?~`) there.
+   * and paths through multi-relations (e.g. `items.name`). On relation paths
+   * PocketBase applies plain operators to ALL related records, so search and
+   * filters use the any-of forms (`?=`, `?~`). A bare multi-select resolves to
+   * its raw JSON text, so category filters compare element-wise via `:each`.
    */
   multiValueFields?: string[];
 
