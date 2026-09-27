@@ -4,6 +4,7 @@ import * as React from "react"
 import * as SheetPrimitive from "@radix-ui/react-dialog"
 
 import { cn } from "@/lib/utils"
+import { FocusReturnCapture, useRestoreFocus } from "@/components/ui/restore-focus"
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
@@ -48,20 +49,25 @@ function SheetContent({
   children,
   side = "right",
   overlayContent,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
+  /**
+   * Rendered in the dimmed area beside the sheet (e.g. a help panel).
+   * Positioned absolutely within a viewport-sized layer.
+   */
   overlayContent?: React.ReactNode
 }) {
+  const restoreFocus = useRestoreFocus(onCloseAutoFocus)
+
   return (
     <SheetPortal>
-      <SheetOverlay>
-        {overlayContent}
-      </SheetOverlay>
+      <SheetOverlay />
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
+          "group/sheet bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
           side === "right" &&
             "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm",
           side === "left" &&
@@ -72,9 +78,28 @@ function SheetContent({
             "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 h-auto border-t",
           className
         )}
+        onCloseAutoFocus={restoreFocus.onCloseAutoFocus}
         {...props}
       >
+        <FocusReturnCapture onCapture={restoreFocus.capture} />
         {children}
+        {/*
+          overlayContent lives inside the Content (not the Overlay) so it is
+          inside Radix's focus trap and not in the region Radix hides from
+          screen readers. It comes after `children` so it neither takes the
+          initial focus nor precedes the sheet in tab order.
+          The layer is `fixed` to the viewport, which is only true while the
+          Content has no transform: the slide-in/out animations apply one,
+          making the Content its containing block. So the layer stays
+          invisible until the 500ms open animation has finished and is
+          hidden as soon as closing starts.
+        */}
+        <div
+          data-slot="sheet-overlay-content"
+          className="pointer-events-none fixed inset-0 animate-in fade-in-0 delay-500 fill-mode-backwards group-data-[state=closed]/sheet:hidden [&>*]:pointer-events-auto"
+        >
+          {overlayContent}
+        </div>
       </SheetPrimitive.Content>
     </SheetPortal>
   )
