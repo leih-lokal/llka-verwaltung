@@ -32,6 +32,19 @@ export interface TypedPocketBase extends PocketBase {
 }
 
 /**
+ * True if `url` parses and uses http: or https:. `new URL()` alone also
+ * accepts javascript:, data:, file: etc.
+ */
+export function isValidPocketBaseUrl(url: string): boolean {
+  try {
+    const { protocol } = new URL(url);
+    return protocol === 'http:' || protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Get PocketBase URL from localStorage, environment, or default
  */
 function getPocketBaseUrl(): string {
@@ -39,7 +52,12 @@ function getPocketBaseUrl(): string {
   if (typeof window !== 'undefined') {
     const storedUrl = localStorage.getItem('pocketbase_url');
     if (storedUrl) {
-      return storedUrl;
+      if (isValidPocketBaseUrl(storedUrl)) {
+        return storedUrl;
+      }
+      // Stored before validation existed, or written by something else —
+      // don't send requests (or credentials) to it.
+      localStorage.removeItem('pocketbase_url');
     }
     // Fall back to environment variable or default
     return process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://localhost:8090';
@@ -141,16 +159,6 @@ export function onAuthStateChange(
  */
 export function getServerUrl(): string {
   return getPocketBaseUrl();
-}
-
-/**
- * Set the PocketBase server URL
- * Note: This will take effect on next request, but requires page reload for full effect
- */
-export function setServerUrl(url: string): void {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('pocketbase_url', url);
-  }
 }
 
 /**
