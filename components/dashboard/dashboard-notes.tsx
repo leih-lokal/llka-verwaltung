@@ -172,6 +172,8 @@ export function DashboardNotes({ onRequestAddNote }: DashboardNotesProps = {}) {
     onDeleted: (note) => {
       setNotes((prev) => prev.filter((n) => n.id !== note.id));
     },
+    // Changes missed while paused or disconnected
+    onResubscribe: () => loadNotes(),
   });
 
   async function loadNotes() {

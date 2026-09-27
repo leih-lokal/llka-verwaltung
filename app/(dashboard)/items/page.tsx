@@ -136,6 +136,8 @@ export default function ItemsPage() {
       // Remove from list
       setItems((prev) => prev.filter((i) => i.id !== item.id));
     },
+    // Changes missed while paused or disconnected
+    onResubscribe: () => reloadFirstPage(),
   });
 
   // Handle URL query parameters (action=new or view=id)
@@ -232,12 +234,17 @@ export default function ItemsPage() {
   const fetchRef = useRef(fetchItems);
   fetchRef.current = fetchItems;
 
-  useEffect(() => {
+  // Start over at page 1. Also how the realtime subscription catches up.
+  const reloadFirstPage = useCallback(() => {
     setItems([]);
     setCurrentPage(1);
     setHasMore(true);
     fetchRef.current(1);
-  }, [debouncedSearch, filters.activeFilters, sortField]);
+  }, []);
+
+  useEffect(() => {
+    reloadFirstPage();
+  }, [debouncedSearch, filters.activeFilters, sortField, reloadFirstPage]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(

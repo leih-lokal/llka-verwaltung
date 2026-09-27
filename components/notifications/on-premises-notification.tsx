@@ -9,7 +9,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, MapPin, Package, User, Clock } from 'lucide-react';
 import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
-import { collections } from '@/lib/pocketbase/client';
+import { collections, pb } from '@/lib/pocketbase/client';
 import { formatDateTime } from '@/lib/utils/formatting';
 import type { Reservation, ReservationExpanded } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -37,6 +37,35 @@ export function OnPremisesNotification() {
     }
   };
 
+  // `updated` of the last notification per reservation, so a catch-up doesn't
+  // repeat one that was already shown
+  const notifiedRef = useRef(new Map<string, string>());
+  // Time up to which reservation changes have been seen (set on mount, on
+  // every event and on every catch-up)
+  const seenUntilRef = useRef<Date | null>(null);
+
+  useEffect(() => {
+    seenUntilRef.current = new Date();
+  }, []);
+
+  // Show notification for an on-premises reservation (expanded items)
+  const addNotification = (reservation: ReservationExpanded) => {
+    notifiedRef.current.set(reservation.id, reservation.updated);
+
+    // Replace an earlier notification for the same reservation (updates
+    // re-notify) instead of stacking a duplicate with the same key
+    setNotifications((prev) => [
+      reservation,
+      ...prev.filter((n) => n.id !== reservation.id),
+    ]);
+    playSound();
+
+    // Auto-dismiss after 30 seconds
+    setTimeout(() => {
+      dismissNotification(reservation.id);
+    }, 30000);
+  };
+
   // Show notification for on-premises reservation
   const showNotification = async (reservation: Reservation) => {
     try {
@@ -45,19 +74,7 @@ export function OnPremisesNotification() {
         reservation.id,
         { expand: 'items' }
       );
-
-      // Replace an earlier notification for the same reservation (updates
-      // re-notify) instead of stacking a duplicate with the same key
-      setNotifications((prev) => [
-        expandedReservation,
-        ...prev.filter((n) => n.id !== expandedReservation.id),
-      ]);
-      playSound();
-
-      // Auto-dismiss after 30 seconds
-      setTimeout(() => {
-        dismissNotification(reservation.id);
-      }, 30000);
+      addNotification(expandedReservation);
     } catch (err) {
       console.error('Error fetching reservation details:', err);
     }
@@ -68,15 +85,37 @@ export function OnPremisesNotification() {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
 
+  // Notify about open on-premises reservations changed while the
+  // subscription was paused or disconnected (at most the 10 latest)
+  const catchUp = async () => {
+    const since = seenUntilRef.current;
+    seenUntilRef.current = new Date();
+    if (!since) return;
+
+    const { items } = await collections.reservations().getList<ReservationExpanded>(1, 10, {
+      filter: pb.filter('on_premises = true && done = false && updated >= {:since}', { since }),
+      expand: 'items',
+      sort: 'updated',
+      skipTotal: true,
+    });
+    for (const reservation of items) {
+      if (notifiedRef.current.get(reservation.id) !== reservation.updated) {
+        addNotification(reservation);
+      }
+    }
+  };
+
   // Subscribe to reservation changes
   useRealtimeSubscription<Reservation>('reservation', {
     onCreated: async (reservation) => {
+      seenUntilRef.current = new Date();
       // Show notification if on_premises is true
       if (reservation.on_premises) {
         await showNotification(reservation);
       }
     },
     onUpdated: async (reservation) => {
+      seenUntilRef.current = new Date();
       // Show notification if on_premises changed from false to true
       // or if it's already on_premises (re-notification)
       if (reservation.on_premises) {
@@ -85,6 +124,8 @@ export function OnPremisesNotification() {
         await showNotification(reservation);
       }
     },
+    // Terminal pickups announced while paused or disconnected
+    onResubscribe: catchUp,
   });
 
   if (notifications.length === 0) {

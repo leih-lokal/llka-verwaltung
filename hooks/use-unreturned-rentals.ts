@@ -1,6 +1,7 @@
 /**
  * Live list of unreturned rentals (with customer and items expanded) for the
- * dashboard widgets. Loads once, then follows realtime rental events.
+ * dashboard widgets. Loads once, then follows realtime rental events; loads
+ * again after a realtime pause or reconnect.
  */
 
 'use client';
@@ -33,30 +34,47 @@ export function useUnreturnedRentals(): UseUnreturnedRentalsReturn {
     return seq;
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    collections
-      .rentals()
-      .getFullList<RentalExpanded>({
+  // Id of the latest load; a superseded load's response is dropped
+  const loadIdRef = useRef(0);
+
+  // (Re)load the whole list. Rentals that got a realtime event while the
+  // request ran keep what the event handlers made of them, as the response
+  // may predate that event.
+  const load = useCallback(async () => {
+    const loadId = ++loadIdRef.current;
+    const seqAtStart = new Map(eventSeqRef.current);
+    try {
+      const result = await collections.rentals().getFullList<RentalExpanded>({
         expand: 'customer,items',
         filter: 'returned_on = ""',
         sort: 'expected_on',
-      })
-      .then((result) => {
-        if (!cancelled) setRentals(result);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        console.error('Failed to load rentals:', error);
-        toast.error('Fehler beim Laden der Ausleihen');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
+      if (loadId !== loadIdRef.current) return;
+      const changed = new Set<string>();
+      eventSeqRef.current.forEach((seq, id) => {
+        if (seqAtStart.get(id) !== seq) changed.add(id);
+      });
+      setRentals((prev) =>
+        prev
+          .filter((r) => changed.has(r.id))
+          .reduce(upsertUnreturnedRental, result.filter((r) => !changed.has(r.id)))
+      );
+    } catch (error) {
+      if (loadId !== loadIdRef.current) return;
+      console.error('Failed to load rentals:', error);
+      toast.error('Fehler beim Laden der Ausleihen');
+    } finally {
+      if (loadId === loadIdRef.current) setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    load();
+    // Drop the response if unmounted meanwhile
+    return () => {
+      loadIdRef.current += 1;
+    };
+  }, [load]);
 
   const fetchAndUpsert = async (id: string) => {
     const seq = nextSeq(id);
@@ -86,6 +104,8 @@ export function useUnreturnedRentals(): UseUnreturnedRentalsReturn {
       else fetchAndUpsert(rental.id);
     },
     onDeleted: (rental) => drop(rental.id),
+    // Changes missed while paused or disconnected
+    onResubscribe: () => load(),
   });
 
   return { rentals, loading };

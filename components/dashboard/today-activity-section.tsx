@@ -97,6 +97,9 @@ export function TodayActivitySection() {
     onCreated: () => loadCounts(),
     onUpdated: () => loadCounts(),
     onDeleted: () => loadCounts(),
+    // Changes missed while paused or disconnected. One reload covers all
+    // three collections: they pause and reconnect together.
+    onResubscribe: () => loadCounts(),
   });
 
   useRealtimeSubscription<Customer>('customer', {

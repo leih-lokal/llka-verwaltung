@@ -177,6 +177,8 @@ export default function ReservationsPage() {
       // Remove from list
       setReservations((prev) => prev.filter((r) => r.id !== reservation.id));
     },
+    // Changes missed while paused or disconnected
+    onResubscribe: () => reloadFirstPage(),
   });
 
   // Debounce search input
@@ -249,12 +251,17 @@ export default function ReservationsPage() {
   const fetchRef = useRef(fetchReservations);
   fetchRef.current = fetchReservations;
 
-  useEffect(() => {
+  // Start over at page 1. Also how the realtime subscription catches up.
+  const reloadFirstPage = useCallback(() => {
     setReservations([]);
     setCurrentPage(1);
     setHasMore(true);
     fetchRef.current(1);
-  }, [debouncedSearch, filters.activeFilters, sortField]);
+  }, []);
+
+  useEffect(() => {
+    reloadFirstPage();
+  }, [debouncedSearch, filters.activeFilters, sortField, reloadFirstPage]);
 
   // Intersection Observer for infinite scroll
   useEffect(() => {

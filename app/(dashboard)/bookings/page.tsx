@@ -70,6 +70,8 @@ export default function BookingsPage() {
     onCreated: () => grid.refetch(),
     onUpdated: () => grid.refetch(),
     onDeleted: () => grid.refetch(),
+    // Changes missed while paused or disconnected
+    onResubscribe: () => grid.refetch(),
   });
 
   const handleCreateBooking = useCallback(

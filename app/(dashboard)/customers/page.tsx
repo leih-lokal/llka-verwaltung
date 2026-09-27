@@ -125,6 +125,8 @@ export default function CustomersPage() {
       // Remove from list
       setCustomers((prev) => prev.filter((c) => c.id !== customer.id));
     },
+    // Changes missed while paused or disconnected
+    onResubscribe: () => reloadFirstPage(),
   });
 
   // Handle URL query parameters (action=new or view=id)
@@ -224,12 +226,17 @@ export default function CustomersPage() {
   const fetchRef = useRef(fetchCustomers);
   fetchRef.current = fetchCustomers;
 
-  useEffect(() => {
+  // Start over at page 1. Also how the realtime subscription catches up.
+  const reloadFirstPage = useCallback(() => {
     setCustomers([]);
     setCurrentPage(1);
     setHasMore(true);
     fetchRef.current(1);
-  }, [debouncedSearch, filters.activeFilters, sortField]);
+  }, []);
+
+  useEffect(() => {
+    reloadFirstPage();
+  }, [debouncedSearch, filters.activeFilters, sortField, reloadFirstPage]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(

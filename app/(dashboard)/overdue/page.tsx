@@ -74,6 +74,8 @@ export default function OverduePage() {
     onDeleted: (rental) => {
       removeRentalFromAllCategories(rental.id);
     },
+    // Changes missed while paused or disconnected
+    onResubscribe: () => loadRentals(),
   });
 
   async function loadRentals() {

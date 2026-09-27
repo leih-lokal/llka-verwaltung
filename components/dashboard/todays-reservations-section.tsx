@@ -102,6 +102,8 @@ export function TodaysReservationsSection({
     onDeleted: (reservation) => {
       setReservations((prev) => prev.filter((r) => r.id !== reservation.id));
     },
+    // Changes missed while paused or disconnected
+    onResubscribe: () => loadReservations(),
   });
 
   async function loadReservations() {

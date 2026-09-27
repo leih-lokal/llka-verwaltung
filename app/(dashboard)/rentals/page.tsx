@@ -118,6 +118,8 @@ export default function RentalsPage() {
       // Remove from list
       setRentals((prev) => prev.filter((r) => r.id !== rental.id));
     },
+    // Changes missed while paused or disconnected
+    onResubscribe: () => reloadFirstPage(),
   });
 
   // Handle URL query parameters (action=new or view=id)
@@ -250,16 +252,21 @@ export default function RentalsPage() {
   const fetchRef = useRef(fetchRentals);
   fetchRef.current = fetchRentals;
 
+  // Start over at page 1. Also how the realtime subscription catches up.
+  const reloadFirstPage = useCallback(() => {
+    setRentals([]);
+    setCurrentPage(1);
+    setHasMore(true);
+    fetchRef.current(1);
+  }, []);
+
   // Reset + fetch in a single effect keyed on the actual inputs.
   // Previously this was two effects (reset pagination, then fetch via
   // fetchRentals-identity), which meant every filter-string mutation
   // tore down and rebuilt the infinite-scroll observer below.
   useEffect(() => {
-    setRentals([]);
-    setCurrentPage(1);
-    setHasMore(true);
-    fetchRef.current(1);
-  }, [debouncedSearch, filters.activeFilters, sortField]);
+    reloadFirstPage();
+  }, [debouncedSearch, filters.activeFilters, sortField, reloadFirstPage]);
 
   // Intersection Observer for infinite scroll. Depends only on pagination
   // state — not fetchRentals identity — so it isn't recreated on every
