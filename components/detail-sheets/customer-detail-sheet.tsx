@@ -39,7 +39,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { collections } from '@/lib/pocketbase/client';
-import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate, formatPhoneNumber, formatPhoneNumberForTel, isValidPhoneNumber } from '@/lib/utils/formatting';
+import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate, formatPhoneNumber, formatPhoneNumberForTel, isValidPhoneNumber, toBusinessDay } from '@/lib/utils/formatting';
 import { fetchNextIid } from '@/lib/utils/next-iid';
 import { getRentalStatusLabel } from '@/lib/constants/statuses';
 import { generateCustomerPrintContent } from '@/components/print/customer-print-content';
@@ -156,9 +156,9 @@ export function CustomerDetailSheet({
         street: customer.street || '',
         postal_code: customer.postal_code || '',
         city: customer.city || '',
-        // Extract just the date part (YYYY-MM-DD) from PocketBase format (YYYY-MM-DD HH:MM:SS.000Z)
-        registered_on: customer.registered_on.split(' ')[0],
-        renewed_on: customer.renewed_on ? customer.renewed_on.split(' ')[0] : '',
+        // Calendar day (YYYY-MM-DD) of the stored date; see toBusinessDay
+        registered_on: toBusinessDay(customer.registered_on),
+        renewed_on: toBusinessDay(customer.renewed_on),
         newsletter: customer.newsletter,
         remark: customer.remark || '',
         highlight_color: (customer.highlight_color || '') as '' | 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'purple' | 'pink',

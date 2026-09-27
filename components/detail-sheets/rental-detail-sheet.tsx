@@ -49,7 +49,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { collections, pb } from '@/lib/pocketbase/client';
 import { buildCustomerSearchFilter } from '@/lib/filters/filter-utils';
-import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate, formatPhoneNumber, formatPhoneNumberForTel } from '@/lib/utils/formatting';
+import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate, formatPhoneNumber, formatPhoneNumberForTel, toBusinessDay } from '@/lib/utils/formatting';
 import { cn } from '@/lib/utils';
 import { useIdentity } from '@/hooks/use-identity';
 import { HighlightColor, RentalStatus, type Rental, type RentalExpanded, type Customer, type Item } from '@/types';
@@ -272,12 +272,11 @@ export function RentalDetailSheet({
         setInstanceData({});
       }
 
-      // Set form values - handle both 'T' and space separators in date strings
-      const parseDate = (dateStr: string | undefined) => {
-        if (!dateStr) return '';
-        // Handle both ISO format (2022-11-10T00:00:00) and space format (2022-11-10 00:00:00)
-        return dateStr.split(/[T\s]/)[0];
-      };
+      // Date-only fields as the calendar day they stand for. Cutting at the
+      // 'T'/space would take the UTC date, which for older records stored as
+      // local midnight ("2026-04-14 22:00:00.000Z") is the day before; saving
+      // the form would then move the date back a day.
+      const parseDate = (dateStr: string | undefined) => toBusinessDay(dateStr);
 
       const rentedOnValue = parseDate(rental.rented_on) || dateToLocalString(new Date());
       const returnedOnValue = parseDate(rental.returned_on);

@@ -39,7 +39,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { collections, pb } from '@/lib/pocketbase/client';
-import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate } from '@/lib/utils/formatting';
+import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate, toBusinessDay } from '@/lib/utils/formatting';
 import type { Item, ItemFormData, RentalExpanded, ItemCategory, ItemStatus, HighlightColor } from '@/types';
 import { fetchNextIid } from '@/lib/utils/next-iid';
 import { compressImage } from '@/lib/image/compress';
@@ -211,8 +211,8 @@ export function ItemDetailSheet({
         status: item.status,
         highlight_color: (item.highlight_color || '') as '' | 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'purple' | 'pink',
         internal_note: item.internal_note || '',
-        // Extract just the date part (YYYY-MM-DD) from PocketBase format (YYYY-MM-DD HH:MM:SS.000Z)
-        added_on: item.added_on.split(' ')[0],
+        // Calendar day (YYYY-MM-DD) of the stored date; see toBusinessDay
+        added_on: toBusinessDay(item.added_on),
         msrp: typeof item.msrp === 'number' ? item.msrp : EMPTY_NUMBER,
         is_protected: item.is_protected || false,
       });
