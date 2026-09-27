@@ -44,20 +44,55 @@ export function isValidPocketBaseUrl(url: string): boolean {
   }
 }
 
+const SERVER_URL_STORAGE_KEY = 'pocketbase_url';
+
 /**
- * Get PocketBase URL from localStorage, environment, or default
+ * Server URL of a login attempt in flight (see setPendingServerUrl).
+ */
+let pendingServerUrl: string | null = null;
+
+/**
+ * Point the client at `url` in memory only, without persisting it. Used
+ * for a login attempt so the request goes to the URL the user typed, while
+ * localStorage keeps the last server that actually accepted a login.
+ * Pass null to go back to the stored/default URL.
+ */
+export function setPendingServerUrl(url: string | null): void {
+  pendingServerUrl = url !== null && isValidPocketBaseUrl(url) ? url : null;
+}
+
+/**
+ * Remember `url` as this browser's PocketBase server (after a successful
+ * login). Returns false if it's invalid or storage is unavailable.
+ */
+export function persistServerUrl(url: string): boolean {
+  if (!isValidPocketBaseUrl(url)) return false;
+  try {
+    localStorage.setItem(SERVER_URL_STORAGE_KEY, url);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Get PocketBase URL from a pending login attempt, localStorage,
+ * environment, or default
  */
 function getPocketBaseUrl(): string {
   // Client-side: check localStorage first (user-configured)
   if (typeof window !== 'undefined') {
-    const storedUrl = localStorage.getItem('pocketbase_url');
+    if (pendingServerUrl) {
+      return pendingServerUrl;
+    }
+    const storedUrl = localStorage.getItem(SERVER_URL_STORAGE_KEY);
     if (storedUrl) {
       if (isValidPocketBaseUrl(storedUrl)) {
         return storedUrl;
       }
       // Stored before validation existed, or written by something else —
       // don't send requests (or credentials) to it.
-      localStorage.removeItem('pocketbase_url');
+      localStorage.removeItem(SERVER_URL_STORAGE_KEY);
     }
     // Fall back to environment variable or default
     return process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://localhost:8090';

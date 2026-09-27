@@ -23,8 +23,8 @@ interface UseAuthReturn {
   user: AuthUser | null;
   /** Is auth check in progress? */
   isLoading: boolean;
-  /** Login function */
-  login: (username: string, password: string) => Promise<{
+  /** Login function (serverUrl is persisted only if the login succeeds) */
+  login: (username: string, password: string, serverUrl?: string) => Promise<{
     success: boolean;
     error?: string;
   }>;
@@ -71,10 +71,11 @@ export function useAuth(): UseAuthReturn {
    */
   const login = async (
     username: string,
-    password: string
+    password: string,
+    serverUrl?: string
   ): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
-    const result = await authLogin(username, password);
+    const result = await authLogin(username, password, serverUrl);
 
     if (result.success) {
       setIsAuthenticated(true);

@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/use-auth';
@@ -22,27 +22,27 @@ import {
 } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { LogIn, Server, User, Lock, ArrowRight, Activity, Info, ExternalLink } from 'lucide-react';
-import { getServerUrl } from '@/lib/pocketbase/client';
+import { getServerUrl, isValidPocketBaseUrl } from '@/lib/pocketbase/client';
+
+// The remembered URL isn't observable for changes; it's only read on render.
+const subscribeNoop = () => () => {};
 
 export default function LoginPage() {
   const router = useRouter();
   const { login, isAuthenticated } = useAuth();
   const { settings, getFileUrl, isLoading: settingsLoading } = usePublicSettings();
-  const defaultPlaceholderUrl = getServerUrl();
-  const [serverUrl, setServerUrl] = useState(defaultPlaceholderUrl);
+  // Server URL of the last successful login (or the default). Read from
+  // localStorage on the client only; the prerendered HTML and hydration use
+  // '' so they agree.
+  const rememberedServerUrl = useSyncExternalStore(subscribeNoop, getServerUrl, () => '');
+  // null until the user edits the field
+  const [serverUrlInput, setServerUrlInput] = useState<string | null>(null);
+  const serverUrl = serverUrlInput ?? rememberedServerUrl;
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const logoUrl = getFileUrl(settings.logo);
-
-  // Load stored server URL on mount
-  useEffect(() => {
-    const storedUrl = localStorage.getItem('pocketbase_url');
-    if (storedUrl) {
-      setServerUrl(storedUrl);
-    }
-  }, []);
 
   // Redirect if already authenticated
   if (isAuthenticated) {
@@ -53,7 +53,9 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!serverUrl || !username || !password) {
+    const url = serverUrl.trim();
+
+    if (!url || !username || !password) {
       toast.error('Bitte füllen Sie alle Felder aus');
       return;
     }
@@ -61,23 +63,17 @@ export default function LoginPage() {
     // Validate URL format and restrict to http(s). `new URL()` alone accepts
     // javascript:, data:, file: — any of which would turn a phishing link
     // into credential exfiltration.
-    try {
-      const parsed = new URL(serverUrl);
-      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-        toast.error('Server-URL muss mit http:// oder https:// beginnen');
-        return;
-      }
-    } catch {
-      toast.error('Bitte geben Sie eine gültige Server-URL ein');
+    if (!isValidPocketBaseUrl(url)) {
+      toast.error('Bitte geben Sie eine gültige Server-URL ein (http:// oder https://)');
       return;
     }
 
     setIsLoading(true);
 
-    // Store server URL in localStorage before login
-    localStorage.setItem('pocketbase_url', serverUrl);
-
-    const result = await login(username, password);
+    // The attempt goes to `url`, but it is only saved to localStorage if the
+    // login succeeds — a failed attempt must not leave an arbitrary URL
+    // prefilled (and used for branding) for the next person at this terminal.
+    const result = await login(username, password, url);
 
     if (result.success) {
       toast.success('Erfolgreich angemeldet');
@@ -132,7 +128,7 @@ export default function LoginPage() {
                   placeholder="https://leihlokal.de"
                   className="pl-10 h-11 transition-all border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-primary/20 dark:bg-slate-900 dark:focus:bg-slate-950"
                   value={serverUrl}
-                  onChange={(e) => setServerUrl(e.target.value)}
+                  onChange={(e) => setServerUrlInput(e.target.value)}
                   disabled={isLoading}
                   autoComplete="url"
                   autoFocus

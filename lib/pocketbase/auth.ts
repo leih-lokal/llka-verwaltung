@@ -2,21 +2,52 @@
  * Authentication utilities for PocketBase
  */
 
-import { pb } from './client';
+import {
+  pb,
+  isValidPocketBaseUrl,
+  persistServerUrl,
+  setPendingServerUrl,
+} from './client';
 
 /**
  * Login with username and password
+ *
+ * With `serverUrl`, the attempt goes to that server, but the URL is only
+ * persisted (and so prefilled for the next person at a shared terminal, and
+ * used to load the login page branding) once the server accepted the login.
  */
 export async function login(
   username: string,
-  password: string
+  password: string,
+  serverUrl?: string
 ): Promise<{ success: boolean; error?: string }> {
+  if (serverUrl !== undefined) {
+    if (!isValidPocketBaseUrl(serverUrl)) {
+      return {
+        success: false,
+        error: 'Bitte geben Sie eine gültige Server-URL ein (http:// oder https://)',
+      };
+    }
+    setPendingServerUrl(serverUrl);
+  }
+
   try {
     // Authenticate as admin
     await pb.collection('_superusers').authWithPassword(username, password);
 
+    // Stored URL now matches, so the in-memory override can go. If storage
+    // is unavailable, keep it so this session stays on the server it just
+    // logged in to.
+    if (serverUrl !== undefined && persistServerUrl(serverUrl)) {
+      setPendingServerUrl(null);
+    }
+
     return { success: true };
   } catch (error) {
+    // Back to the previously stored (or default) server
+    if (serverUrl !== undefined) {
+      setPendingServerUrl(null);
+    }
     console.error('Login error:', error);
     return {
       success: false,
