@@ -23,19 +23,14 @@ export function generateCustomerPrintContent({
 }: CustomerPrintContentProps): string {
   const activeRentals = rentals.filter(r => !r.returned_on);
   const overdueRentals = activeRentals.filter(r => {
-    const status = calculateRentalStatus(r.rented_on, r.returned_on, r.expected_on, r.extended_on);
+    const status = calculateRentalStatus(r);
     return status === 'overdue';
   });
   const openReservations = reservations.filter(r => !r.done);
 
   // Generate active rentals HTML
   const activeRentalsHtml = activeRentals.length > 0 ? activeRentals.map((rental) => {
-    const status = calculateRentalStatus(
-      rental.rented_on,
-      rental.returned_on,
-      rental.expected_on,
-      rental.extended_on
-    );
+    const status = calculateRentalStatus(rental);
     const itemCount = rental.expand?.items?.length || 0;
 
     return `
@@ -83,12 +78,7 @@ export function generateCustomerPrintContent({
 
   // Generate rental history HTML
   const rentalHistoryHtml = rentals.length > 0 ? rentals.slice(0, 10).map((rental) => {
-    const status = calculateRentalStatus(
-      rental.rented_on,
-      rental.returned_on,
-      rental.expected_on,
-      rental.extended_on
-    );
+    const status = calculateRentalStatus(rental);
     const itemCount = rental.expand?.items?.length || 0;
 
     return `

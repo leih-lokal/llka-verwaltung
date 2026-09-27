@@ -96,56 +96,10 @@ export function formatCurrency(amount: number): string {
 
 /**
  * Calculate rental status based on dates and partial returns
- * Overload for full rental object (preferred)
  */
-export function calculateRentalStatus(rental: Rental): RentalStatus;
-/**
- * Calculate rental status based on dates only (legacy)
- */
-export function calculateRentalStatus(
-  rented_on: string,
-  returned_on: string | null | undefined,
-  expected_on: string,
-  extended_on?: string | null
-): RentalStatus;
-/**
- * Implementation
- */
-export function calculateRentalStatus(
-  rentalOrRentedOn: Rental | string,
-  returned_on?: string | null,
-  expected_on?: string,
-  extended_on?: string | null
-): RentalStatus {
-  // Determine if we got a Rental object or individual fields
-  let rental: Rental | null = null;
-  let rentedOn: string;
-  let returnedOn: string | null | undefined;
-  let expectedOn: string;
-  let extendedOn: string | null | undefined;
-
-  if (typeof rentalOrRentedOn === 'object') {
-    // New signature: full rental object
-    rental = rentalOrRentedOn;
-    rentedOn = rental.rented_on;
-    returnedOn = rental.returned_on;
-    expectedOn = rental.expected_on;
-    extendedOn = rental.extended_on;
-  } else {
-    // Legacy signature: individual fields
-    rentedOn = rentalOrRentedOn;
-    returnedOn = returned_on;
-    expectedOn = expected_on!;
-    extendedOn = extended_on;
-  }
-
+export function calculateRentalStatus(rental: Rental): RentalStatus {
+  const { returned_on: returnedOn, expected_on: expectedOn } = rental;
   const today = toBusinessDay(new Date());
-
-  // Partial returns (only known with the full rental object) replace
-  // "active" only: an overdue or due-today rental stays overdue / due today
-  // even if some items are back, so overdue lists and counters keep it.
-  const isPartiallyReturned =
-    !!rental && !returnedOn && getRentalReturnStatus(rental).isPartiallyReturned;
 
   // Already returned
   if (returnedOn) {
@@ -169,7 +123,12 @@ export function calculateRentalStatus(
     return RentalStatus.DueToday;
   }
 
-  return isPartiallyReturned ? RentalStatus.PartiallyReturned : RentalStatus.Active;
+  // Partial returns replace "active" only: an overdue or due-today rental
+  // stays overdue / due today even if some items are back, so overdue lists
+  // and counters keep it.
+  return getRentalReturnStatus(rental).isPartiallyReturned
+    ? RentalStatus.PartiallyReturned
+    : RentalStatus.Active;
 }
 
 /**
@@ -177,8 +136,7 @@ export function calculateRentalStatus(
  */
 export function calculateDaysOverdue(
   returned_on: string | null | undefined,
-  expected_on: string,
-  extended_on?: string | null
+  expected_on: string
 ): number {
   // If already returned, no overdue
   if (returned_on) {

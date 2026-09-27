@@ -392,14 +392,7 @@ export default function SystemCheckPage() {
                       &gt; Status
                     </h3>
                     <Badge className="text-sm px-3 py-1 bg-amber-500/20 text-white border-amber-500">
-                      {getRentalStatusLabel(
-                        calculateRentalStatus(
-                          currentRental.rented_on,
-                          currentRental.returned_on,
-                          currentRental.expected_on,
-                          currentRental.extended_on
-                        )
-                      )}
+                      {getRentalStatusLabel(calculateRentalStatus(currentRental))}
                     </Badge>
                   </div>
 

@@ -33,24 +33,13 @@ export const OVERDUE_LEVEL_DAYS: Record<OverdueLevel, string> = {
   overdue: `1-${CRITICAL_DAYS - 1} Tage`,
 };
 
-type RentalDates = Pick<Rental, 'rented_on' | 'returned_on' | 'expected_on' | 'extended_on'>;
-
 /**
  * Severity bucket of a rental, or null if it is returned or not due within
  * DUE_SOON_DAYS
  */
-export function getOverdueSeverity(rental: RentalDates): OverdueSeverity | null {
-  const status = calculateRentalStatus(
-    rental.rented_on,
-    rental.returned_on,
-    rental.expected_on,
-    rental.extended_on
-  );
-  const daysOverdue = calculateDaysOverdue(
-    rental.returned_on,
-    rental.expected_on,
-    rental.extended_on
-  );
+export function getOverdueSeverity(rental: Rental): OverdueSeverity | null {
+  const status = calculateRentalStatus(rental);
+  const daysOverdue = calculateDaysOverdue(rental.returned_on, rental.expected_on);
 
   if (status === RentalStatus.Overdue) {
     if (daysOverdue >= SEVERELY_CRITICAL_DAYS) return 'severely_critical';
@@ -58,7 +47,8 @@ export function getOverdueSeverity(rental: RentalDates): OverdueSeverity | null 
     return 'overdue';
   }
   if (status === RentalStatus.DueToday) return 'due_today';
-  if (status === RentalStatus.Active && daysOverdue < 0 && daysOverdue >= -DUE_SOON_DAYS) {
+  const isOpen = status === RentalStatus.Active || status === RentalStatus.PartiallyReturned;
+  if (isOpen && daysOverdue < 0 && daysOverdue >= -DUE_SOON_DAYS) {
     return 'due_soon';
   }
   return null;

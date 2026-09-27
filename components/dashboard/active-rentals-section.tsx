@@ -27,12 +27,7 @@ export function ActiveRentalsSection({ onRentalReturned }: ActiveRentalsSectionP
     const active: RentalExpanded[] = [];
 
     rentals.forEach((rental) => {
-      const status = calculateRentalStatus(
-        rental.rented_on,
-        rental.returned_on,
-        rental.expected_on,
-        rental.extended_on
-      );
+      const status = calculateRentalStatus(rental);
 
       if (status === RentalStatus.Overdue) {
         overdue.push(rental);

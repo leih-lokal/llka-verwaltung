@@ -16,6 +16,7 @@ function atNoonApril15() {
 function rental(expectedDay: string, returnedOn = ''): RentalExpanded {
   return {
     id: expectedDay,
+    items: [],
     rented_on: '2026-03-01 00:00:00.000Z',
     expected_on: `${expectedDay} 00:00:00.000Z`,
     returned_on: returnedOn,
@@ -39,6 +40,19 @@ describe('getOverdueSeverity', () => {
     expect(getOverdueSeverity(rental('2026-04-16'))).toBe('due_soon');
     expect(getOverdueSeverity(rental('2026-04-18'))).toBe('due_soon');
     expect(getOverdueSeverity(rental('2026-04-19'))).toBeNull();
+  });
+
+  it('keeps partially returned rentals in their bucket', () => {
+    atNoonApril15();
+    const partial = (expectedDay: string) =>
+      ({
+        ...rental(expectedDay),
+        items: ['a', 'b'],
+        requested_copies: {},
+        returned_items: { a: 1 },
+      }) as unknown as RentalExpanded;
+    expect(getOverdueSeverity(partial('2026-04-14'))).toBe('overdue');
+    expect(getOverdueSeverity(partial('2026-04-16'))).toBe('due_soon');
   });
 
   it('ignores returned rentals', () => {

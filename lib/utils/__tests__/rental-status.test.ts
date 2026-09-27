@@ -15,6 +15,20 @@ function setNow(iso: string) {
   vi.setSystemTime(new Date(iso));
 }
 
+/** A one-item rental from April 1st with the given return and due dates */
+function rental(returned_on: string, expected_on: string): Rental {
+  return {
+    id: 'r0',
+    items: ['a'],
+    requested_copies: {},
+    returned_items: {},
+    rented_on: '2026-04-01 00:00:00.000Z',
+    returned_on,
+    expected_on,
+    extended_on: '',
+  } as unknown as Rental;
+}
+
 describe('toBusinessDay', () => {
   it('maps UTC-midnight date-only values to their calendar day', () => {
     expect(toBusinessDay('2026-04-15 00:00:00.000Z')).toBe('2026-04-15');
@@ -39,18 +53,18 @@ describe('toBusinessDay', () => {
 describe('calculateRentalStatus', () => {
   it('is due today on the due day, including just after midnight Berlin time', () => {
     setNow('2026-04-14T22:30:00Z'); // 00:30 on the 15th in Berlin
-    expect(calculateRentalStatus('2026-04-01 00:00:00.000Z', '', '2026-04-15 00:00:00.000Z')).toBe(
+    expect(calculateRentalStatus(rental('', '2026-04-15 00:00:00.000Z'))).toBe(
       RentalStatus.DueToday
     );
   });
 
   it('is overdue the day after, active the day before', () => {
     setNow('2026-04-16T10:00:00Z');
-    expect(calculateRentalStatus('2026-04-01 00:00:00.000Z', '', '2026-04-15 00:00:00.000Z')).toBe(
+    expect(calculateRentalStatus(rental('', '2026-04-15 00:00:00.000Z'))).toBe(
       RentalStatus.Overdue
     );
     setNow('2026-04-14T10:00:00Z');
-    expect(calculateRentalStatus('2026-04-01 00:00:00.000Z', '', '2026-04-15 00:00:00.000Z')).toBe(
+    expect(calculateRentalStatus(rental('', '2026-04-15 00:00:00.000Z'))).toBe(
       RentalStatus.Active
     );
   });
@@ -58,17 +72,17 @@ describe('calculateRentalStatus', () => {
   it('detects returned today vs. earlier', () => {
     setNow('2026-04-15T21:30:00Z'); // 23:30 in Berlin
     expect(
-      calculateRentalStatus('2026-04-01 00:00:00.000Z', '2026-04-15 00:00:00.000Z', '2026-04-20 00:00:00.000Z')
+      calculateRentalStatus(rental('2026-04-15 00:00:00.000Z', '2026-04-20 00:00:00.000Z'))
     ).toBe(RentalStatus.ReturnedToday);
     expect(
-      calculateRentalStatus('2026-04-01 00:00:00.000Z', '2026-04-14 00:00:00.000Z', '2026-04-20 00:00:00.000Z')
+      calculateRentalStatus(rental('2026-04-14 00:00:00.000Z', '2026-04-20 00:00:00.000Z'))
     ).toBe(RentalStatus.Returned);
   });
 
   it('treats a missing or invalid due date as active', () => {
     setNow('2026-04-15T10:00:00Z');
-    expect(calculateRentalStatus('2026-04-01 00:00:00.000Z', '', '')).toBe(RentalStatus.Active);
-    expect(calculateRentalStatus('2026-04-01 00:00:00.000Z', '', 'garbage')).toBe(RentalStatus.Active);
+    expect(calculateRentalStatus(rental('', ''))).toBe(RentalStatus.Active);
+    expect(calculateRentalStatus(rental('', 'garbage'))).toBe(RentalStatus.Active);
   });
 });
 

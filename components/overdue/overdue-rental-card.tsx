@@ -49,11 +49,7 @@ export function OverdueRentalCard({ rental, variant, onUpdated }: OverdueRentalC
     ? `${String(firstItem.iid).padStart(4, '0')} ${firstItem.name}${itemCount > 1 ? ` +${itemCount - 1}` : ''}`
     : `${itemCount} ${itemCount === 1 ? 'Gegenstand' : 'Gegenstände'}`;
 
-  const daysOverdue = calculateDaysOverdue(
-    rental.returned_on,
-    rental.expected_on,
-    rental.extended_on
-  );
+  const daysOverdue = calculateDaysOverdue(rental.returned_on, rental.expected_on);
 
   const isOverdue = daysOverdue > 0;
 
