@@ -34,6 +34,7 @@ import type {
 } from '@/types';
 import { Loader2, UserIcon, PackageIcon, RepeatIcon, CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatDate } from '@/lib/utils/formatting';
 
 interface SearchResults {
   customers: Customer[];
@@ -48,6 +49,10 @@ type SelectedEntity =
   | { type: 'rental'; data: RentalExpanded }
   | { type: 'reservation'; data: ReservationExpanded }
   | null;
+
+function formatItemCount(count: number): string {
+  return `${count} ${count === 1 ? 'Gegenstand' : 'Gegenstände'}`;
+}
 
 export function QuickFindModal() {
   const { open, setOpen } = useQuickFind();
@@ -105,12 +110,13 @@ export function QuickFindModal() {
             .then((res) => res.items)
             .catch(() => []),
 
-          // Search rentals by customer IID or item IID
+          // Search rentals by customer IID or item IID. Filters address
+          // relations by field path (customer.iid), not via `expand`.
           collections
             .rentals()
             .getList<RentalExpanded>(1, 20, {
               expand: 'customer,items',
-              filter: pb.filter('expand.customer.iid = {:iid} || expand.items.iid ?= {:iid}', { iid }),
+              filter: pb.filter('customer.iid = {:iid} || items.iid ?= {:iid}', { iid }),
               sort: '-created',
             })
             .then((res) => res.items)
@@ -121,7 +127,7 @@ export function QuickFindModal() {
             .reservations()
             .getList<ReservationExpanded>(1, 20, {
               expand: 'items',
-              filter: pb.filter('customer_iid = {:iid} || expand.items.iid ?= {:iid}', { iid }),
+              filter: pb.filter('customer_iid = {:iid} || items.iid ?= {:iid}', { iid }),
               sort: '-created',
             })
             .then((res) => res.items)
@@ -241,9 +247,9 @@ export function QuickFindModal() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Quick Find</DialogTitle>
+            <DialogTitle>Schnellsuche</DialogTitle>
             <DialogDescription>
-              Enter a 4-digit ID to search across all entities
+              4-stellige ID eingeben, um Kund:innen, Gegenstände, Leihvorgänge und Reservierungen zu durchsuchen
             </DialogDescription>
           </DialogHeader>
 
@@ -269,14 +275,14 @@ export function QuickFindModal() {
             {isSearching && (
               <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Searching...</span>
+                <span>Suche…</span>
               </div>
             )}
 
             {/* Results */}
             {!isSearching && value.length === 4 && totalResults === 0 && (
               <div className="text-center text-muted-foreground text-sm">
-                No results found for ID {value}
+                Keine Ergebnisse für ID {value}
               </div>
             )}
 
@@ -286,7 +292,7 @@ export function QuickFindModal() {
                 {results.customers.length > 0 && (
                   <div>
                     <h3 className="text-xs font-semibold text-muted-foreground mb-2">
-                      CUSTOMERS ({results.customers.length})
+                      KUND:INNEN ({results.customers.length})
                     </h3>
                     {results.customers.map((customer, idx) => {
                       const globalIndex = allResults.findIndex(
@@ -336,7 +342,7 @@ export function QuickFindModal() {
                 {results.items.length > 0 && (
                   <div>
                     <h3 className="text-xs font-semibold text-muted-foreground mb-2">
-                      ITEMS ({results.items.length})
+                      GEGENSTÄNDE ({results.items.length})
                     </h3>
                     {results.items.map((item) => {
                       const globalIndex = allResults.findIndex(
@@ -384,7 +390,7 @@ export function QuickFindModal() {
                 {results.rentals.length > 0 && (
                   <div>
                     <h3 className="text-xs font-semibold text-muted-foreground mb-2">
-                      RENTALS ({results.rentals.length})
+                      LEIHVORGÄNGE ({results.rentals.length})
                     </h3>
                     {results.rentals.map((rental) => {
                       const globalIndex = allResults.findIndex(
@@ -412,8 +418,8 @@ export function QuickFindModal() {
                               {rental.expand?.customer?.lastname}
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              {rental.expand?.items?.length || 0} item(s) •{' '}
-                              {new Date(rental.rented_on).toLocaleDateString()}
+                              {formatItemCount(rental.expand?.items?.length || 0)} •{' '}
+                              {formatDate(rental.rented_on)}
                             </div>
                           </div>
                           {globalIndex < 10 && (
@@ -436,7 +442,7 @@ export function QuickFindModal() {
                 {results.reservations.length > 0 && (
                   <div>
                     <h3 className="text-xs font-semibold text-muted-foreground mb-2">
-                      RESERVATIONS ({results.reservations.length})
+                      RESERVIERUNGEN ({results.reservations.length})
                     </h3>
                     {results.reservations.map((reservation) => {
                       const globalIndex = allResults.findIndex(
@@ -463,8 +469,8 @@ export function QuickFindModal() {
                               {reservation.customer_name}
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              {reservation.expand?.items?.length || 0} item(s) •{' '}
-                              {new Date(reservation.pickup).toLocaleDateString()}
+                              {formatItemCount(reservation.expand?.items?.length || 0)} •{' '}
+                              {formatDate(reservation.pickup)}
                             </div>
                           </div>
                           {globalIndex < 10 && (
@@ -488,7 +494,7 @@ export function QuickFindModal() {
             {/* Keyboard shortcuts hint */}
             {totalResults > 0 && (
               <div className="text-xs text-muted-foreground text-center">
-                Use ↑↓ or 0-9 to select • Enter to open
+                ↑↓ oder 0–9 zum Auswählen • Enter zum Öffnen
               </div>
             )}
           </div>

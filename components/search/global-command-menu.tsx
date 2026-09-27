@@ -80,7 +80,8 @@ export function GlobalCommandMenu() {
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const searchTerm = query.toLowerCase();
+        // Not lowercased: LIKE ignores ASCII case and lowercasing breaks "Öztürk"
+        const searchTerm = query;
 
         // Check if search term is numeric (for IID search with leading zeros)
         const isNumeric = /^\d+$/.test(searchTerm);
