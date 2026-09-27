@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { dateToLocalString } from '@/lib/utils/formatting';
 import type { InstanceData } from '@/lib/utils/instance-data';
+import { getMultipleItemAvailability, type ItemAvailability } from '@/lib/utils/item-availability';
 import type { Rental } from '@/types';
 
 export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
@@ -85,6 +86,30 @@ export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
     setIsCreating(true);
 
     try {
+      // Re-check availability immediately before create: the items step
+      // only saw availability when each item was added, and another
+      // operator may have rented the same copies since. Fail closed if the
+      // check itself fails.
+      let availability: Map<string, ItemAvailability>;
+      try {
+        availability = await getMultipleItemAvailability(
+          selectedItems.map(({ item }) => item.id)
+        );
+      } catch {
+        toast.error('Verfügbarkeit konnte nicht geprüft werden — bitte erneut versuchen');
+        return;
+      }
+
+      for (const { item, quantity } of selectedItems) {
+        const itemAvailability = availability.get(item.id);
+        if (!itemAvailability || quantity > itemAvailability.availableCopies) {
+          toast.error(
+            `${item.name} (#${String(item.iid).padStart(4, '0')}): Nur ${itemAvailability?.availableCopies ?? 0} von ${itemAvailability?.totalCopies ?? 0} Exemplaren verfügbar`
+          );
+          return;
+        }
+      }
+
       // Build instance data from selected items
       const instanceData: InstanceData = {};
       selectedItems.forEach(({ item, quantity }) => {

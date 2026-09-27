@@ -142,6 +142,9 @@ export function RentalDetailSheet({
 }: RentalDetailSheetProps) {
   const { currentIdentity } = useIdentity();
   const [isLoading, setIsLoading] = useState(false);
+  // Synchronous double-submit guard for handleSave (Enter in a field submits
+  // the form even while the save button is disabled).
+  const isSavingRef = useRef(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { isCollapsed: isHelpCollapsed, toggle: toggleHelp } = useHelpCollapsed();
@@ -321,11 +324,17 @@ export function RentalDetailSheet({
 
     const fetchAvailability = async () => {
       const itemIds = selectedItems.map(item => item.id);
-      const availabilityMap = await getMultipleItemAvailability(
-        itemIds,
-        rental?.id // Exclude current rental when editing
-      );
-      setItemAvailability(availabilityMap);
+      try {
+        const availabilityMap = await getMultipleItemAvailability(
+          itemIds,
+          rental?.id // Exclude current rental when editing
+        );
+        setItemAvailability(availabilityMap);
+      } catch {
+        // Unknown availability: fall back to showing total copies rather
+        // than a misleading "0 von 0". handleSave re-checks before saving.
+        setItemAvailability(new Map());
+      }
     };
 
     fetchAvailability();
@@ -568,6 +577,8 @@ export function RentalDetailSheet({
   };
 
   const handleSave = async (data: RentalFormValues) => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
     setIsLoading(true);
     try {
       // Get customer by iid to get its PocketBase ID
@@ -581,13 +592,22 @@ export function RentalDetailSheet({
         })
       );
 
-      // Validate that all items are available (instock or reserved)
-      // Skip this check if we're returning a rental (returned_on is set)
-      // Also skip this check when editing an existing rental (the copy availability check below handles it)
+      // Validate availability of whatever this save puts out. Skipped when
+      // returning (returned_on is set). A new rental puts out every item;
+      // an edit only what it adds on top of the stored rental (new items,
+      // raised copy counts), so e.g. editing the remark of a rental whose
+      // item has since gone out of stock still saves. Re-opening a returned
+      // rental puts all of its items back out.
       const isReturning = !!data.returned_on;
 
-      if (!isReturning && isNewRental) {
+      if (!isReturning) {
+        const heldItemIds = isNewRental || rental?.returned_on ? [] : rental?.items ?? [];
+        const heldCopies = (itemId: string) =>
+          heldItemIds.includes(itemId) ? getCopyCount(rental?.requested_copies, itemId) : 0;
+
+        // Status check (instock or reserved) for items not already held
         const unavailableItems = items.filter(item =>
+          !heldItemIds.includes(item.id) &&
           item.status !== 'instock' && item.status !== 'reserved'
         );
 
@@ -600,25 +620,40 @@ export function RentalDetailSheet({
           return;
         }
 
-        // Re-fetch availability immediately before create. The cached
+        // Re-fetch availability immediately before saving. The cached
         // map was loaded when the user opened the sheet; another operator
         // may have rented the same copy since. This narrows (but can't
         // eliminate) the TOCTOU window — true atomicity would need a
         // PocketBase server hook.
-        const freshAvailability = await getMultipleItemAvailability(
-          items.map(item => item.id)
+        const increasedItems = items.filter(item =>
+          getCopyCount(instanceData, item.id) > heldCopies(item.id)
         );
 
-        for (const item of items) {
-          const requestedCopies = getCopyCount(instanceData, item.id);
-          const availability = freshAvailability.get(item.id);
-
-          if (!availability || requestedCopies > availability.availableCopies) {
-            toast.error(
-              `${item.name} (#${String(item.iid).padStart(4, '0')}): Nur ${availability?.availableCopies ?? 0} von ${availability?.totalCopies ?? 0} Exemplaren verfügbar`
+        if (increasedItems.length > 0) {
+          let freshAvailability: Map<string, ItemAvailability>;
+          try {
+            freshAvailability = await getMultipleItemAvailability(
+              increasedItems.map(item => item.id),
+              rental?.id // Exclude this rental's own copies when editing
             );
+          } catch {
+            // Fail closed, but don't show a misleading "0 von 0" count
+            toast.error('Verfügbarkeit konnte nicht geprüft werden — bitte erneut versuchen');
             setIsLoading(false);
             return;
+          }
+
+          for (const item of increasedItems) {
+            const requestedCopies = getCopyCount(instanceData, item.id);
+            const availability = freshAvailability.get(item.id);
+
+            if (!availability || requestedCopies > availability.availableCopies) {
+              toast.error(
+                `${item.name} (#${String(item.iid).padStart(4, '0')}): Nur ${availability?.availableCopies ?? 0} von ${availability?.totalCopies ?? 0} Exemplaren verfügbar`
+              );
+              setIsLoading(false);
+              return;
+            }
           }
         }
       }
@@ -724,6 +759,7 @@ export function RentalDetailSheet({
 
       toast.error(errorMessage);
     } finally {
+      isSavingRef.current = false;
       setIsLoading(false);
     }
   };

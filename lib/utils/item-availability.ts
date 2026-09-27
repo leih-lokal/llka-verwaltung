@@ -26,6 +26,7 @@ export interface ItemAvailability {
  * @param itemId - The item ID to check
  * @param excludeRentalId - Optional rental ID to exclude from counting (used when editing a rental)
  * @returns ItemAvailability object with total, rented, and available copy counts
+ * @throws If the item or its rentals can't be fetched
  */
 export async function getItemAvailability(
   itemId: string,
@@ -69,13 +70,10 @@ export async function getItemAvailability(
     };
   } catch (error) {
     console.error('Error fetching item availability:', error);
-    // On error, be conservative: report 0 available so the UI refuses
-    // the rental rather than letting an operator proceed blind.
-    return {
-      totalCopies: 0,
-      rentedCopies: 0,
-      availableCopies: 0,
-    };
+    // Rethrow rather than reporting "0 available": callers must refuse the
+    // rental (fail closed) but tell the operator that the check itself
+    // failed instead of showing a misleading "0 von 0" count.
+    throw error;
   }
 }
 
@@ -86,6 +84,7 @@ export async function getItemAvailability(
  * @param itemIds - Array of item IDs to check
  * @param excludeRentalId - Optional rental ID to exclude from counting
  * @returns Map of item IDs to their availability info
+ * @throws If the items or their rentals can't be fetched
  */
 export async function getMultipleItemAvailability(
   itemIds: string[],
@@ -147,9 +146,10 @@ export async function getMultipleItemAvailability(
       }
     }
 
-    // Build availability map
+    // Build availability map. An item missing from the response (e.g.
+    // deleted meanwhile) has no rentable copies.
     for (const itemId of itemIds) {
-      const totalCopies = itemCopiesMap.get(itemId) || 1;
+      const totalCopies = itemCopiesMap.get(itemId) ?? 0;
       const rentedCopies = rentedCopiesMap.get(itemId) || 0;
       const availableCopies = Math.max(0, totalCopies - rentedCopies);
 
@@ -163,16 +163,9 @@ export async function getMultipleItemAvailability(
     return availabilityMap;
   } catch (error) {
     console.error('Error fetching multiple item availability:', error);
-    // On error, report 0 available for every requested item so callers
-    // refuse the rental instead of proceeding on stale/missing data.
-    for (const itemId of itemIds) {
-      availabilityMap.set(itemId, {
-        totalCopies: 0,
-        rentedCopies: 0,
-        availableCopies: 0,
-      });
-    }
-    return availabilityMap;
+    // Rethrow (see getItemAvailability): callers refuse the rental and
+    // report that availability couldn't be checked.
+    throw error;
   }
 }
 
@@ -183,6 +176,7 @@ export async function getMultipleItemAvailability(
  * @param requestedCopies - Number of copies requested
  * @param excludeRentalId - Optional rental ID to exclude from counting
  * @returns True if the requested number of copies is available
+ * @throws If availability can't be fetched
  */
 export async function canRentCopies(
   itemId: string,

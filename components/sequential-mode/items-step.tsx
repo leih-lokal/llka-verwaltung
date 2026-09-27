@@ -14,6 +14,7 @@ import type { Item } from '@/types';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/utils/formatting';
 import { useSequentialMode } from '@/hooks/use-sequential-mode';
+import { getMultipleItemAvailability, type ItemAvailability } from '@/lib/utils/item-availability';
 import { toast } from 'sonner';
 
 export function ItemsStep() {
@@ -23,6 +24,10 @@ export function ItemsStep() {
   const [isSearching, setIsSearching] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [pendingQuantity, setPendingQuantity] = useState(1);
+  // Available copies per selected item, fetched when an item is added. No
+  // entry = unknown (still loading or fetch failed): fall back to total
+  // copies — the finalize step re-checks before creating the rental.
+  const [availability, setAvailability] = useState<Map<string, ItemAvailability>>(new Map());
   const inputRef = useRef<HTMLInputElement>(null);
   const selectedRef = useRef<HTMLDivElement>(null);
 
@@ -30,6 +35,35 @@ export function ItemsStep() {
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // Fetch availability for selected items we don't know about yet
+  useEffect(() => {
+    const missing = selectedItems.filter(({ item }) => !availability.has(item.id));
+    if (missing.length === 0) return;
+
+    let cancelled = false;
+    getMultipleItemAvailability(missing.map(({ item }) => item.id))
+      .then((fetched) => {
+        if (cancelled) return;
+        setAvailability((prev) => new Map([...prev, ...fetched]));
+        for (const { item } of missing) {
+          if ((fetched.get(item.id)?.availableCopies ?? 0) === 0) {
+            toast.error(
+              `${item.name} (#${String(item.iid).padStart(4, '0')}): Kein Exemplar verfügbar`
+            );
+          }
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          toast.warning('Verfügbarkeit konnte nicht geprüft werden');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedItems, availability]);
 
   // Debounced search - only instock and reserved items
   useEffect(() => {
@@ -214,7 +248,7 @@ export function ItemsStep() {
                           {hasMultipleCopies && (
                             <>
                               <span className="mx-2">•</span>
-                              <span>{item.copies} Exemplare verfügbar</span>
+                              <span>{item.copies} Exemplare</span>
                             </>
                           )}
                         </div>
@@ -261,6 +295,8 @@ export function ItemsStep() {
             selectedItems.map(({ item, quantity }) => {
               const hasMultipleCopies = item.copies > 1;
               const totalDeposit = (item.deposit || 0) * quantity;
+              const itemAvailability = availability.get(item.id);
+              const maxQuantity = itemAvailability?.availableCopies ?? item.copies;
 
               return (
                 <div
@@ -304,9 +340,9 @@ export function ItemsStep() {
                           variant="outline"
                           size="sm"
                           onClick={() =>
-                            updateItemQuantity(item.id, Math.min(item.copies, quantity + 1))
+                            updateItemQuantity(item.id, Math.min(maxQuantity, quantity + 1))
                           }
-                          disabled={quantity >= item.copies}
+                          disabled={quantity >= maxQuantity}
                           className="h-6 w-6 p-0"
                         >
                           <Plus className="h-3 w-3" />
@@ -324,6 +360,22 @@ export function ItemsStep() {
                       {formatCurrency(item.deposit || 0)}
                     </div>
                   )}
+
+                  {/* Available copies (once known); flagged if short */}
+                  {itemAvailability &&
+                    (hasMultipleCopies || quantity > itemAvailability.availableCopies) && (
+                      <div
+                        className={cn(
+                          'text-xs mt-1',
+                          quantity > itemAvailability.availableCopies
+                            ? 'text-destructive'
+                            : 'text-muted-foreground'
+                        )}
+                      >
+                        {quantity > itemAvailability.availableCopies && 'Nur '}
+                        {itemAvailability.availableCopies} von {itemAvailability.totalCopies} verfügbar
+                      </div>
+                    )}
                 </div>
               );
             })
