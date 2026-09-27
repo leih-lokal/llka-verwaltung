@@ -22,6 +22,12 @@ import {
   addImageCompressionField,
   hasImageCompressionField,
 } from "@/lib/pocketbase/settings-schema"
+import {
+  compressImageWithOutcome,
+  readImageDimensions,
+  type CompressOutcome,
+  type CompressResult,
+} from "@/lib/image/compress"
 
 const OUTPUT_FORMAT_OPTIONS: { value: ImageOutputFormat; label: string; description: string }[] = [
   {
@@ -261,6 +267,8 @@ export function FeaturesTab() {
               </SelectContent>
             </Select>
           </div>
+
+          <CompressionPreview settings={ic} />
         </CardContent>
       </Card>
 
@@ -269,6 +277,96 @@ export function FeaturesTab() {
           {isSaving ? "Speichert..." : "Änderungen speichern"}
         </Button>
       </div>
+    </div>
+  )
+}
+
+type Dimensions = { width: number; height: number } | null
+
+const KEPT_ORIGINAL_NOTE: Record<Exclude<CompressOutcome, "compressed">, string> = {
+  disabled: "Komprimierung ist deaktiviert – das Original würde unverändert hochgeladen.",
+  unsupported: "Dieses Format (z. B. SVG, GIF) wird nicht komprimiert – das Original würde hochgeladen.",
+  below_threshold: "Die Datei liegt unter der Mindestgröße – das Original würde hochgeladen.",
+  larger: "Die komprimierte Datei wäre nicht kleiner – das Original würde hochgeladen.",
+  failed: "Komprimierung fehlgeschlagen (z. B. Bild zu groß für diesen Browser) – das Original würde hochgeladen.",
+}
+
+const formatKb = (bytes: number) =>
+  `${(bytes / 1024).toLocaleString("de-DE", { maximumFractionDigits: 1 })} KB`
+const formatDimensions = (d: Dimensions) => (d ? `${d.width} × ${d.height} px` : "–")
+
+/**
+ * Runs the compression helper on a local test image with the current
+ * (possibly unsaved) settings. Nothing is uploaded.
+ */
+function CompressionPreview({ settings }: { settings: ImageCompressionSettings }) {
+  const [file, setFile] = useState<File | null>(null)
+  const [preview, setPreview] = useState<{
+    original: File
+    originalDims: Dimensions
+    result: CompressResult
+    resultDims: Dimensions
+  } | null>(null)
+
+  // Re-run (debounced) whenever the test file or the settings change
+  useEffect(() => {
+    if (!file) return
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      // Sequential, not parallel: two concurrent decodes of a large photo can
+      // exhaust memory on mobile Safari.
+      const originalDims = await readImageDimensions(file)
+      const result = await compressImageWithOutcome(file, settings)
+      const resultDims =
+        result.file === file ? originalDims : await readImageDimensions(result.file)
+      if (!cancelled) setPreview({ original: file, originalDims, result, resultDims })
+    }, 300)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [file, settings])
+
+  const saved =
+    preview && preview.result.outcome === "compressed"
+      ? Math.round((1 - preview.result.file.size / preview.original.size) * 100)
+      : null
+
+  return (
+    <div className="space-y-2 border-t pt-4">
+      <Label htmlFor="ic-preview">Vorschau mit Testbild</Label>
+      <Input
+        id="ic-preview"
+        type="file"
+        accept="image/*"
+        onChange={(e) => {
+          const next = e.target.files?.[0] ?? null
+          setFile(next)
+          if (!next) setPreview(null)
+        }}
+      />
+      <p className="text-xs text-muted-foreground">
+        Wendet die aktuellen, auch ungespeicherten Einstellungen an. Es wird nichts hochgeladen.
+      </p>
+
+      {preview && (
+        <div className="space-y-1 text-sm">
+          <p>
+            <span className="text-muted-foreground">Original:</span>{" "}
+            {formatKb(preview.original.size)} · {formatDimensions(preview.originalDims)}
+          </p>
+          <p>
+            <span className="text-muted-foreground">Nach Komprimierung:</span>{" "}
+            {formatKb(preview.result.file.size)} · {formatDimensions(preview.resultDims)}
+            {saved !== null && ` (−${saved} %)`}
+          </p>
+          {preview.result.outcome !== "compressed" && (
+            <p className="text-xs text-muted-foreground">
+              {KEPT_ORIGINAL_NOTE[preview.result.outcome]}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   )
 }
