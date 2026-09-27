@@ -667,6 +667,8 @@ export function RentalDetailSheet({
 
       const itemIds = items.map(item => item.id);
 
+      // Cleared optional fields are sent as '' rather than undefined: PATCH
+      // only updates fields present in the body, and JSON drops undefined.
       const formData: Partial<Rental> = {
         customer: customer.id,
         items: itemIds, // Multiple items per rental
@@ -674,12 +676,12 @@ export function RentalDetailSheet({
         deposit: data.deposit,
         deposit_back: data.deposit_back,
         rented_on: data.rented_on,
-        returned_on: data.returned_on || undefined,
+        returned_on: data.returned_on ?? '',
         expected_on: data.expected_on,
-        extended_on: data.extended_on || undefined,
-        remark: data.remark || undefined, // User notes, no instance data
+        extended_on: data.extended_on ?? '',
+        remark: data.remark ?? '', // User notes, no instance data
         employee: data.employee,
-        employee_back: data.employee_back || undefined,
+        employee_back: data.employee_back ?? '',
       };
 
       let savedRental: Rental;

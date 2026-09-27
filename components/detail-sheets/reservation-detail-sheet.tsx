@@ -342,15 +342,18 @@ export function ReservationDetailSheet({
       const pickupDate = fromLocalInput(data.pickup);
       const pickupISO = pickupDate.toISOString();
 
+      // Cleared optional fields are sent as empty values rather than
+      // undefined: PATCH only updates fields present in the body, and JSON
+      // drops undefined. customer_iid is a number field, so 0 means "none".
       const formData: Partial<Reservation> = {
-        customer_iid: data.is_new_customer ? undefined : data.customer_iid,
+        customer_iid: data.is_new_customer ? 0 : (data.customer_iid ?? 0),
         customer_name: data.customer_name,
-        customer_phone: formatPhoneNumber(data.customer_phone || "") || undefined,
-        customer_email: data.customer_email || undefined,
+        customer_phone: formatPhoneNumber(data.customer_phone || ""),
+        customer_email: data.customer_email ?? "",
         is_new_customer: data.is_new_customer,
         items: data.item_ids,
         pickup: pickupISO,
-        comments: data.comments || undefined,
+        comments: data.comments ?? "",
         done: data.done,
         on_premises: data.on_premises,
       };

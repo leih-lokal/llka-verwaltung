@@ -261,19 +261,21 @@ export function CustomerDetailSheet({
   const handleSave = async (data: CustomerFormValues) => {
     setIsLoading(true);
     try {
+      // Cleared optional fields are sent as '' rather than undefined: PATCH
+      // only updates fields present in the body, and JSON drops undefined.
       const formData: Partial<Customer> = {
         iid: data.iid,
         firstname: data.firstname,
         lastname: data.lastname,
-        email: data.email,
+        email: data.email ?? '',
         phone: formatPhoneNumber(data.phone || ''),
-        street: data.street || undefined,
-        postal_code: data.postal_code || undefined,
-        city: data.city || undefined,
+        street: data.street ?? '',
+        postal_code: data.postal_code ?? '',
+        city: data.city ?? '',
         registered_on: data.registered_on,
-        renewed_on: data.renewed_on || undefined,
+        renewed_on: data.renewed_on ?? '',
         newsletter: data.newsletter,
-        remark: data.remark || undefined,
+        remark: data.remark ?? '',
         highlight_color: data.highlight_color ? (data.highlight_color as HighlightColor) : '',
       };
 

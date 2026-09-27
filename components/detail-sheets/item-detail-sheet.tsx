@@ -304,15 +304,21 @@ export function ItemDetailSheet({
       // Build FormData for file upload support
       const formData = new FormData();
 
-      // Add all text fields
+      // Add all text fields. Optional ones are always appended (even empty)
+      // so PATCH can clear a previously-set value.
       formData.append('iid', data.iid.toString());
       formData.append('name', data.name);
-      if (data.brand) formData.append('brand', data.brand);
-      if (data.model) formData.append('model', data.model);
-      if (data.description) formData.append('description', data.description);
+      formData.append('brand', data.brand ?? '');
+      formData.append('model', data.model ?? '');
+      formData.append('description', data.description ?? '');
 
-      // Add category array
-      data.category.forEach(cat => formData.append('category', cat));
+      // Add category array. With no category, append a single '' so PATCH
+      // clears the field (PocketBase drops empty values from multi-selects).
+      if (data.category.length > 0) {
+        data.category.forEach(cat => formData.append('category', cat));
+      } else {
+        formData.append('category', '');
+      }
 
       formData.append('deposit', data.deposit.toString());
 
@@ -325,15 +331,15 @@ export function ItemDetailSheet({
         .join(', ');
       formData.append('synonyms', synonymsStr);
 
-      if (data.packaging) formData.append('packaging', data.packaging);
-      if (data.manual) formData.append('manual', data.manual);
+      formData.append('packaging', data.packaging ?? '');
+      formData.append('manual', data.manual ?? '');
       // Always append parts/msrp (even empty) so PATCH can clear a previously-set value.
       formData.append('parts', data.parts !== undefined ? data.parts.toString() : '');
       formData.append('copies', data.copies.toString());
       formData.append('status', data.status);
       // Always append (even empty) so PATCH can clear a previously-set colour.
       formData.append('highlight_color', data.highlight_color ?? '');
-      if (data.internal_note) formData.append('internal_note', data.internal_note);
+      formData.append('internal_note', data.internal_note ?? '');
       formData.append('added_on', data.added_on);
       formData.append('msrp', data.msrp !== undefined ? data.msrp.toString() : '');
       formData.append('is_protected', data.is_protected ? 'true' : 'false');
