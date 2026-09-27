@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { pb } from '@/lib/pocketbase/client';
 import { cn } from '@/lib/utils';
 import { compressBrandingAsset } from '@/lib/image/compress';
+import { DEFAULT_SETTINGS } from '@/types';
 
 const LOGO_MAX = 500;
 
@@ -95,27 +96,25 @@ export default function SetupPage() {
   const handleComplete = async () => {
     setIsSaving(true);
     try {
-      const formData = new FormData();
-      formData.append('app_name', appName);
-      formData.append('tagline', tagline);
-      formData.append('primary_color', primaryColor);
-      formData.append('setup_complete', 'true');
+      // Plain object: the SDK sends it as multipart when it holds files
+      // (JSON fields go in @jsonPayload), as JSON otherwise
+      const data: Record<string, unknown> = {
+        app_name: appName,
+        tagline,
+        primary_color: primaryColor,
+        setup_complete: true,
+      };
 
       if (logoFile) {
-        const compressedLogo = await compressBrandingAsset(logoFile, settings.image_compression, LOGO_MAX);
-        formData.append('logo', compressedLogo);
+        data.logo = await compressBrandingAsset(logoFile, settings.image_compression, LOGO_MAX);
       }
 
       if (rawSettings) {
-        await pb.collection('settings').update(rawSettings.id, formData);
+        await pb.collection('settings').update(rawSettings.id, data);
       } else {
-        // Include defaults when creating new settings record
-        formData.append('copyright_holder', settings.copyright_holder);
-        formData.append('show_powered_by', String(settings.show_powered_by));
-        formData.append('id_format', settings.id_format);
-        formData.append('id_padding', String(settings.id_padding));
-        formData.append('reservations_enabled', String(settings.reservations_enabled));
-        await pb.collection('settings').create(formData);
+        // Start from all defaults like updateSettings() does, so the new
+        // record also gets opening_hours, image_compression, etc.
+        await pb.collection('settings').create({ ...DEFAULT_SETTINGS, ...data });
       }
 
       await refreshSettings();
