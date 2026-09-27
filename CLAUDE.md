@@ -4,347 +4,120 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**LLKA-V** is a modern library/rental shop management system built with Next.js 16, React 19, and PocketBase. It manages customers, items (inventory), rentals, and reservations with a focus on performance, accessibility, and offline-first PWA capabilities.
+**LLKA-V** is the staff front-end of the leih.lokal lending library: customers, items (with multiple copies), rentals (with partial returns), reservations, bookings of protected items, a dashboard, and admin tools (overdue list, system check, label designer, logs, settings). Next.js 16 (App Router) + React 19 + strict TypeScript, talking to a PocketBase 0.26 backend whose schema, API rules and hooks live in [leihbackend](https://github.com/leih-lokal/leihbackend). The UI text is German.
 
-## Development Commands
+## Commands
 
 ```bash
-# Development
-npm run dev              # Start dev server (localhost:3000)
-
-# Testing
-npm run test            # Run unit tests with Vitest
-npm run test:ui         # Run Vitest with UI
-npm run test:coverage   # Generate test coverage report
-npm run test:e2e        # Run Playwright E2E tests
-npm run test:e2e:ui     # Run Playwright with UI
-
-# Code Quality
-npm run lint            # Run ESLint
-npm run lint:fix        # Auto-fix ESLint errors
-npm run type-check      # Run TypeScript type checking
+npm run dev                              # Dev server on localhost:3000
+npx vitest run                           # Unit tests once (npm run test = watch mode)
+npx tsc --noEmit                         # Type check (npm run type-check)
+npx eslint app components hooks lib types  # Lint the sources (same as CI)
 ```
 
-**Note**: User handles building (`npm run build`) themselves - no need to build or type-check unless explicitly requested.
+**Note**: User handles building (`npm run build`) themselves - no need to build unless explicitly requested.
 
-## Architecture Overview
+The app can't run without a PocketBase server; validate changes with tsc, vitest, eslint and careful reading. `npm run test:e2e`, `test:ui` and `test:coverage` exist in package.json but have no tests/tooling behind them.
 
-### Tech Stack
-- **Frontend**: Next.js 16 (App Router), React 19, TypeScript (strict mode)
-- **Backend**: PocketBase (v0.26.x)
-- **UI**: Shadcn/ui (Radix UI primitives) + Tailwind CSS 4
-- **State**: React Context + Server Components (no global state library)
-- **Forms**: React Hook Form + Zod validation
-- **Charts**: Recharts
-- **PWA**: @ducanh2912/next-pwa
-- **Drag & Drop**: @dnd-kit
-- **Testing**: Vitest + Playwright
+CI (`.github/workflows/check.yml`) runs tsc, vitest and eslint on every push and PR; eslint errors fail it, warnings don't. `.github/workflows/nextjs.yml` deploys `main` to GitHub Pages.
 
-### Directory Structure
+## Architecture
+
+### Rendering and deployment
+- **Everything is a client component.** Each browser picks its own PocketBase server on the login page, so nothing can be fetched at build or request time. All pages, `app/(dashboard)/layout.tsx` and the error boundaries are `'use client'`; the only server components are static shells (`app/layout.tsx`, `app/not-found.tsx`, the setup layout) and the redirecting `app/page.tsx`. Don't add server-side data fetching.
+- **Static export by default** (`output: 'export'`, `out/`). `DOCKER_BUILD=true` switches to `standalone` (see Dockerfile/DOCKER.md). `BASE_PATH` sets a sub-path (GitHub Pages uses `/llka-verwaltung`); reference files in `public/` with `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/file`.
+- The dashboard layout renders nothing until the auth check has run on the client, so providers and pages inside it never hydrate server HTML (lazy `useState` initialisers may read localStorage there).
+- No PWA/service worker, no server components for data, no global state library: React context providers (settings, identity, command menu, quick find, sequential mode, keyboard shortcuts) in `app/(dashboard)/layout.tsx`.
+
+### Directory structure
 
 ```
-/app
-  /(auth)/login           # Authentication route group
-  /(dashboard)            # Main app route group
-    /dashboard            # Dashboard with notes & stats
-    /customers            # Customer CRUD
-    /items                # Item CRUD
-    /rentals              # Rental CRUD
-    /reservations         # Reservation CRUD
-    /settings             # API configuration
-    /logs                 # Application logs
-    layout.tsx            # Shared layout with navigation
-
-/components
-  /ui                     # Shadcn UI components
-  /table                  # Data table components
-  /layout                 # Navigation & header components
-  /search                 # Search/command menu components
-
-/lib
-  /pocketbase             # PocketBase client & auth
-  /constants              # Categories, statuses, colors
-  /filters                # Filter utilities & configs
-  /tables                 # Table column configs
-  /utils                  # Utility functions & formatting
-
-/hooks                    # Custom React hooks
-  use-auth.ts             # Authentication state
-  use-filters.ts          # Table filtering logic
-  use-column-visibility.ts # Table column management
-  use-command-menu.ts     # Command palette
-
-/types
-  index.ts                # All TypeScript types & interfaces
-
-/public                   # Static assets
+app/
+  (auth)/login/            Login: server URL + superuser credentials
+  (dashboard)/             layout.tsx (auth gate, providers, navbar), error.tsx
+    dashboard/ customers/ items/ items/analytics/ rentals/ reservations/
+    bookings/ overdue/ system-check/ label-designer/ logs/ settings/ setup/
+components/
+  ui/                      shadcn/ui primitives (no `form` component; use react-hook-form directly)
+  table/                   List building blocks: sortable-header, column-selector, empty-state,
+                           row-open-button, highlight-marker
+  detail-sheets/           Create/edit sheets per entity, form-help-panel, highlight-color-picker
+  layout/                  navbar.tsx (main nav + overflow menu), nav-link.tsx, identity-picker.tsx
+  search/                  search-bar, filter-popover, global-command-menu, quick-find-modal
+  dashboard/ bookings/ overdue/ print/ sequential-mode/ settings/ label-designer/ …
+hooks/                     use-auth, use-filters, use-column-visibility, use-settings (.tsx),
+                           use-identity (.tsx), use-command-menu (.tsx), use-quick-find (.tsx),
+                           use-sequential-mode (.tsx), use-keyboard-shortcuts (.tsx),
+                           use-realtime-subscription, use-realtime-connection,
+                           use-unreturned-rentals, use-booking-grid, use-dashboard-preferences,
+                           use-help-collapsed
+lib/
+  pocketbase/              client.ts (pb, collections), auth.ts, realtime.ts, settings-schema.ts
+  api/                     bookings.ts, stats.ts
+  filters/                 filter-configs.ts (per-entity filters), filter-utils.ts
+  tables/                  column-configs.ts (per-entity columns, default sort)
+  constants/               statuses.ts, categories.ts, colors.ts, documentation.ts (form help)
+  utils/                   Domain helpers (see below)
+  utils.ts                 cn()
+  image/ keyboard-shortcuts/
+types/index.ts             All shared types and enums
 ```
 
-## PocketBase Integration
+Imports use the `@/` alias (`@/lib/utils` resolves to `lib/utils.ts`).
 
-### Client Setup
-- **Location**: `lib/pocketbase/client.ts`
-- **Singleton pattern**: Use exported `pb` instance (Proxy-based)
-- **URL management**: Supports dynamic PocketBase URL via localStorage
-- **Collections**: Type-safe accessors via `collections` object
+## PocketBase
 
-### Collections
-```typescript
-// Available collections
-collections.customers()     // Customer records
-collections.items()         // Item/inventory records
-collections.rentals()       // Rental records
-collections.reservations()  // Reservation records
-collections.notes()         // Dashboard sticky notes
-collections.logs()          // Application logs
-```
+- **Client**: `import { pb, collections } from '@/lib/pocketbase/client'`. `pb` is a Proxy that re-creates the SDK client when the server URL changes. The URL comes from an in-flight login attempt, else localStorage `pocketbase_url` (written only after a successful login), else `NEXT_PUBLIC_POCKETBASE_URL`, else `http://localhost:8090`; read it with `getServerUrl()`. Never hardcode it.
+- **Collections**: `collections.customers()`, `.customerRentals()` (stats view), `.items()`, `.rentals()`, `.reservations()`, `.bookings()`, `.notes()`, `.settings()`. There is no log collection: logs come from `pb.send('/api/logs')`, dashboard stats from `pb.send('/api/stats')` (`lib/api/stats.ts`).
+- **Auth**: superusers (`_superusers`). `lib/pocketbase/auth.ts` (login/logout/refresh, one shared auto-refresh interval) and `hooks/use-auth.ts` (`useAuth`, `useRequireAuth`). A 401 on a request made with the current token clears the auth store, which routes to `/login`.
+- **Filters**: pass every value through `pb.filter()`, one key per call for user input (with several keys in one call, a value like `{:b}` gets substituted too). Helpers in `lib/filters/filter-utils.ts`: `buildCustomerSearchFilter(term)` (iid / name search used by all customer pickers), `buildBookingSiblingFilter(booking)` (all records of one multi-copy booking), `buildRecordInListFilter(id, listFilter)` (does a record match the list's current filters), `buildPocketBaseFilter` (used by `use-filters`).
+- **Realtime**: `useRealtimeSubscription(collection, { onCreated, onUpdated, onDeleted, onResubscribe, filter, enabled })`. Callbacks are kept in refs (no re-subscribe when they change). Subscriptions pause while the tab is hidden; missed events are not replayed, so every call site passes `onResubscribe` to refetch (list pages reuse their reset-and-load-page-1 path). `useRealtimeConnection()` exposes the connection state and `reconnect`; `components/ui/realtime-status.tsx` shows it as a toast.
 
-### Authentication
-```typescript
-import { pb, isAuthenticated, getCurrentUser } from '@/lib/pocketbase/client';
+## Domain Model (`types/index.ts`)
 
-// Login page stores PocketBase URL in localStorage
-// URL can be different per user/environment
-```
+- Records extend `BaseRecord` (`id`, `created`, `updated`). Show the integer `iid` to users (formatted with `FormattedId` / the ID format setting), use `id` in code. `*Expanded` types carry `expand` relations; `CustomerWithStats` / `ItemWithStats` add client-computed stats.
+- `ItemStatus`: instock, outofstock, reserved, onbackorder, lost, repairing, forsale, deleted (soft delete).
+- Categories are stored as German strings (`GermanCategory`: Küche, Haushalt, Garten, Kinder, Freizeit, Heimwerken, Sonstige); `ItemCategory` is only an English-key mapping (`lib/constants/categories.ts`).
+- `RentalStatus` (computed, never stored): active, returned, partially_returned, overdue, due_today, returned_today. `BookingStatus`: reserved, active, returned, overdue.
+- `HighlightColor`: red, orange, yellow, green, teal, blue, purple, pink.
+- Rentals: `items` (ids), `requested_copies` and `returned_items` (per item id copy counts, see `lib/utils/instance-data.ts`, `partial-returns.ts`), `rented_on`, `expected_on` (the due date; extending moves it), `extended_on` (when it was extended), `returned_on`.
+- Status/label maps live in `lib/constants/statuses.ts`.
 
-### Important Patterns
-1. **Never hardcode PocketBase URL** - always use `getPocketBaseUrl()` or environment variables
-2. **Type safety**: All collections have corresponding TypeScript types in `/types/index.ts`
-3. **Error handling**: Wrap PocketBase calls in try-catch with appropriate error messages
+## Business Logic Helpers
 
-## Type System
+- **Rental status**: `calculateRentalStatus(rental)` (`lib/utils/formatting.ts`, full rental object only). Returned (today) if `returned_on`; otherwise overdue / due today by `expected_on`; otherwise partially returned if some copies are back, else active. Overdue and due today win over partially returned.
+- **Dates**: date-only fields are compared as calendar days in `BUSINESS_TIME_ZONE` (Europe/Berlin) via `toBusinessDay()`, independent of the browser's zone. Write date-only fields with `dateToLocalString(date)` (`YYYY-MM-DD`), never `toISOString()`; parse with `localStringToDate()`. Format with `formatDate` / `formatDateTime` (date-fns, German).
+- **Overdue**: `lib/utils/overdue.ts` (`getOverdueSeverity`, thresholds, labels) is shared by the overdue page and the dashboard.
+- **Availability**: an item can be rented if its status is `instock` or `reserved` and enough copies are free: `getMultipleItemAvailability(itemIds, excludeRentalId?)` (`lib/utils/item-availability.ts`) counts copies still out in unreturned rentals. It throws when it can't check; callers refuse the rental and say so (fail closed).
+- **Rental templates**: `lib/utils/rental-template.ts` builds unsaved, prefilled rentals from reservations/bookings: `buildRentalTemplate`, `createRentalTemplate`, `getDefaultExpectedDate` (loan period from pickup or today), `calculateRentalDeposit` (deposit × copies).
+- **Bookings**: `createBookings(data, count, copies)` (`lib/api/bookings.ts`) checks capacity with `assertBookingCapacity` and creates one record per copy all-or-nothing; conflicts throw `BookingConflictError` with a user-facing message. Capacity math in `lib/utils/booking-capacity.ts`, grid layout in `lib/utils/booking-grid.ts`.
+- **New IDs**: `fetchNextIid(collections.items())` (`lib/utils/next-iid.ts`) = highest iid + 1; rethrows errors instead of guessing.
+- **Highlight colours**: `lib/constants/colors.ts` is the single source for colour order, German names, customer/item meanings (`CUSTOMER_HIGHLIGHT_MEANINGS`, `ITEM_HIGHLIGHT_MEANINGS`, `describeHighlightColor`), filter options and Tailwind classes (`HIGHLIGHT_COLOR_CLASSES`, `getHighlightColorClasses`). The form help texts render the meanings from it. Never inline colour→class ternaries.
 
-All types defined in `/types/index.ts`. Key interfaces:
+## UI Patterns
 
-### Core Entities
-- `Customer` / `CustomerWithStats` / `CustomerFormData`
-- `Item` / `ItemWithStats` / `ItemFormData`
-- `Rental` / `RentalExpanded` / `RentalWithStatus`
-- `Reservation` / `ReservationExpanded`
-- `Note`, `LogEntry`, `Stats`
-
-### Enums
-- `ItemCategory`: kitchen, household, garden, kids, leisure, diy, other
-- `ItemStatus`: instock, outofstock, reserved, lost, repairing, forsale, deleted
-- `RentalStatus`: active, returned, overdue, due_today, returned_today
-- `HighlightColor`: green, blue, yellow, red
-
-### Patterns
-- All records extend `BaseRecord` (id, created, updated)
-- Use `iid` (integer ID) for user-facing IDs, `id` (string UUID) for internal references
-- Expanded types (e.g., `RentalExpanded`) include populated relations via `expand` property
-- Form data types separate from database types (e.g., `Date` vs `string`)
-
-## Component Patterns
-
-### Server vs Client Components
-- **Default to Server Components** for static content, data fetching
-- **Use Client Components** (`'use client'`) for:
-  - Interactive forms
-  - State management (useState, useContext)
-  - Event handlers
-  - Browser APIs (localStorage, etc.)
-  - Hooks (useAuth, useFilters, etc.)
-
-### Component Structure
-```tsx
-/**
- * Brief component description
- */
-'use client'; // Only if needed
-
-import { ... } from '...';
-
-interface ComponentProps {
-  /** Prop description */
-  propName: string;
-}
-
-export function Component({ propName }: ComponentProps) {
-  // Component logic
-}
-```
-
-### Path Aliases
-All imports use `@/` prefix:
-```typescript
-import { Customer } from '@/types';
-import { pb } from '@/lib/pocketbase/client';
-import { Button } from '@/components/ui/button';
-import { formatDate } from '@/lib/utils/formatting';
-```
-
-## State Management
-
-### Authentication
-- **Hook**: `use-auth.ts` - provides authentication state and methods
-- **Storage**: PocketBase authStore (persisted automatically)
-- **URL Storage**: localStorage key `pocketbase_url`
-
-### Table State
-- **Hook**: `use-filters.ts` - manages search, filters, sorting, pagination
-- **Pattern**: Combines URL search params for persistence
-- **Features**: Debounced search (300ms), client-side filtering, server-side pagination
-
-### Form State
-- **Library**: React Hook Form
-- **Validation**: Zod schemas (define inline or in validation files)
-- **Pattern**:
-  ```tsx
-  const form = useForm<FormData>({
-    resolver: zodResolver(schema),
-    defaultValues: { ... }
-  });
-  ```
-
-## Data Tables
-
-Reusable data table system in `/components/table`:
-- **Features**: Search, filtering, sorting, pagination, column visibility, row selection
-- **Column configs**: Defined in `/lib/tables/column-configs.ts`
-- **Filter configs**: Defined in `/lib/filters/filter-configs.ts`
-- **Color coding**: Rows can be color-coded based on business logic (e.g., overdue rentals = red)
-
-## Business Logic
-
-### Rental Status Computation
-Rentals don't have a status field - it's computed from dates:
-- `returned_on` exists → returned/returned_today
-- No `returned_on` + past `expected_on` → overdue
-- No `returned_on` + `expected_on` is today → due_today
-- No `returned_on` + future `expected_on` → active
-
-### Item Availability
-Items can be rented if:
-- `status === 'instock'`
-- Not currently in an active rental
-- Not soft-deleted
-
-### Color Highlighting
-Both customers and items support `highlight_color` (green/blue/yellow/red) for visual attention in tables.
-
-## Important Conventions
-
-### Naming
-- Components: PascalCase (`CustomerForm.tsx`)
-- Files: kebab-case (`use-filters.ts`)
-- Types/Interfaces: PascalCase (`Customer`, `ItemFormData`)
-- Enums: PascalCase keys (`ItemCategory.Kitchen`)
-
-### Formatting
-- **Dates**: Use `date-fns` (in `lib/utils/formatting.ts`)
-- **Currency**: EUR with German locale
-- **IDs**: Display `iid` to users, use `id` in code
-
-### Error Handling
-- Always show user-friendly error messages via toast notifications (Sonner)
-- Log errors to console in development
-- Never expose internal errors to users
-
-### Accessibility
-- All interactive elements have ARIA labels
-- Forms have associated labels
-- Color is never the only indicator (use icons/text too)
-- Keyboard navigation supported (focus visible, tab order)
-
-## Key Files to Check
-
-When working on specific features, check these files:
-
-### Authentication
-- `app/(auth)/login/page.tsx` - Login form with PocketBase URL input
-- `lib/pocketbase/auth.ts` - Auth utilities
-- `hooks/use-auth.ts` - Auth state management
-
-### CRUD Operations
-- Check `/lib/filters/filter-configs.ts` for available filters
-- Check `/lib/tables/column-configs.ts` for table columns
-- Check `/types/index.ts` for data structure
-
-### Utilities
-- `lib/utils/formatting.ts` - Date, currency, text formatting
-- `lib/utils/index.ts` - General utilities (cn, etc.)
-- `lib/constants/*` - Categories, statuses, colors
+- **List pages** (customers, items, rentals, reservations, logs) are hand-built tables: `useFilters` (active filters persisted in localStorage per entity, filter string built server-side) with configs from `lib/filters/filter-configs.ts`, `useColumnVisibility` with `lib/tables/column-configs.ts` (also localStorage), search debounced 500 ms, infinite scroll in pages of 50 (`skipTotal`), a request-id guard that drops superseded responses, and realtime handlers that check `buildRecordInListFilter` before inserting/keeping a record.
+- **Detail sheets** (`components/detail-sheets/`) handle view/create/edit. Forms: React Hook Form + `zodResolver` with the zod schema defined in the sheet. Help panels show `DOCUMENTATION` from `lib/constants/documentation.ts`.
+- **Settings** (`/settings`, `useSettings()` from `hooks/use-settings.tsx`) are white-label settings stored in the PocketBase `settings` collection: branding (name, logo, favicon), appearance (primary colour, ID format/padding), features (reservations on/off, image compression for uploads), opening hours. `/setup` is the first-run wizard; `usePublicSettings()` serves the login page.
+- Errors: user-facing German toasts via `sonner`, `console.error` for details; never show raw internal errors.
+- Accessibility: label every control (German `aria-label`s), never convey state by colour alone, keep visible keyboard focus (see the focus rules in `app/globals.css`).
+- Styling: Tailwind 4 + shadcn/ui, flat look (a global reset removes border radius and box shadows; `.crt-allow-shadow` exempts the system check).
 
 ## Testing
 
-### Unit Tests (Vitest)
-- Focus on utilities, hooks, and business logic
-- Located next to source files or in `__tests__`
-- Use `@testing-library/react` for component tests
+- Vitest (`vitest.config.ts`, mirrors the `@/` alias). Run `npx vitest run`.
+- Tests live in `__tests__/` next to the module (`lib/utils/__tests__/…`, `hooks/__tests__/…`). Tests that need a DOM start with `// @vitest-environment jsdom` and use `@testing-library/react`; PocketBase is mocked with `vi.mock('@/lib/pocketbase/client', …)`.
+- Focus on utilities, hooks and business rules (dates and time zones, status, availability, filters). There are no E2E tests.
 
-### E2E Tests (Playwright)
-- Test critical user flows
-- Located in `tests/` or `e2e/`
-- Run against development server
+## Conventions
 
-### Coverage Goals
-- Utilities: 80%+
-- Components: 60%+
-- E2E: Critical paths covered
-
-## PWA & Offline
-
-- **Configuration**: `next-pwa` in `next.config.ts`
-- **Service Worker**: Auto-generated, caches static assets
-- **Manifest**: `/public/manifest.json` with app metadata
-- **Strategy**: Network-first for API, cache-first for static assets
-
-## Common Tasks
-
-### Adding a New Page
-1. Create route in `/app/(dashboard)/route-name/page.tsx`
-2. Add navigation link in `/components/layout/nav.tsx`
-3. Define types in `/types/index.ts` if needed
-4. Create API functions in `/lib/api/` if needed
-
-### Adding a New Form
-1. Define form data type in `/types/index.ts`
-2. Create Zod schema for validation
-3. Use React Hook Form with zodResolver
-4. Use Shadcn form components (form, input, select, etc.)
-
-### Adding a New Table
-1. Define columns in `/lib/tables/column-configs.ts`
-2. Define filters in `/lib/filters/filter-configs.ts`
-3. Use `use-filters` hook for state management
-4. Implement data fetching with PocketBase
-
-### Modifying PocketBase Schema
-1. Update types in `/types/index.ts`
-2. Update collection accessors in `/lib/pocketbase/client.ts`
-3. Update forms and validation schemas
-4. Update table columns if displayed
+- Files kebab-case (`rental-detail-sheet.tsx`), components PascalCase, types/interfaces PascalCase.
+- Component files start with a short doc comment, then `'use client'`, imports, a props interface with documented props.
+- Currency: EUR, German locale (`formatCurrency`).
+- When the PocketBase schema changes: update `types/index.ts`, the accessors in `lib/pocketbase/client.ts`, forms/zod schemas and column/filter configs.
+- New dashboard pages go under `app/(dashboard)/`; add navigation in `components/layout/navbar.tsx` (main links or the overflow menu).
 
 ## Troubleshooting
 
-### PocketBase Connection Issues
-- Check `localStorage.getItem('pocketbase_url')` in browser console
-- Verify PocketBase server is running (`./pocketbase serve`)
-- Check CORS settings in PocketBase
-
-### Type Errors
-- Run `npm run type-check` for detailed errors
-- Check that types in `/types/index.ts` match PocketBase schema
-- Verify path aliases are configured in `tsconfig.json`
-
-### Build Issues
-- Clear `.next` folder: `rm -rf .next`
-- Clear node_modules: `rm -rf node_modules && npm install`
-- Check Next.js version compatibility
-
-## Migration Context
-
-This project is a rewrite from Svelte 3 → Next.js 16 (see PLAN.md for details). Key differences:
-- Uses Next.js App Router (not Pages Router)
-- Server Components by default (different from client-only Svelte)
-- PocketBase backend remains unchanged (same schema)
-- Modern React patterns (hooks, not class components)
-
-## References
-
-- [Next.js 16 Docs](https://nextjs.org/docs) - App Router, Server Components
-- [Shadcn/ui](https://ui.shadcn.com) - Component library
-- [PocketBase Docs](https://pocketbase.io/docs/) - Backend API
-- [React Hook Form](https://react-hook-form.com) - Form handling
-- [Zod](https://zod.dev) - Schema validation
+- Connection problems: check `localStorage.getItem('pocketbase_url')`, that PocketBase runs, and its CORS settings.
+- Build issues: `rm -rf .next`.
