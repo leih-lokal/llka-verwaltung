@@ -180,10 +180,10 @@ export function useFilters({ entity, config, persist = true, defaultFilters }: U
           });
         }
 
-        filterString = filterString.replace(
-          `__SEARCH__:"${searchTerm}"`,
-          `(${searchConditions.join(' || ')})`
-        );
+        // Function replacement: a string replacement would expand `$&` / `$\`` in the
+        // (escaped) search text and re-insert the raw, unescaped placeholder.
+        const searchFilter = `(${searchConditions.join(' || ')})`;
+        filterString = filterString.replace(`__SEARCH__:"${searchTerm}"`, () => searchFilter);
       }
 
       return filterString;
