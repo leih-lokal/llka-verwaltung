@@ -41,6 +41,7 @@ import type {
   Customer,
 } from "@/types";
 import { formatDateTime } from "@/lib/utils/formatting";
+import { buildRentalTemplate } from "@/lib/utils/rental-template";
 import { cn } from "@/lib/utils";
 import { FormattedId } from "@/components/ui/formatted-id";
 
@@ -309,52 +310,28 @@ export default function ReservationsPage() {
     // Close reservation sheet
     setIsSheetOpen(false);
 
-    // Expected return defaults to 7 days from today, but if the reservation
-    // carries a pickup date and it's still in the future, honour it — that's
-    // the date the customer actually agreed to.
-    const defaultExpected = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    const pickupDate = reservation.pickup ? new Date(reservation.pickup) : null;
-    const expectedOn = pickupDate && !isNaN(pickupDate.getTime()) && pickupDate.getTime() > Date.now()
-      ? pickupDate
-      : defaultExpected;
-
-    // Create a template rental with data from reservation
-    const templateRental: any = {
-      id: "", // Empty ID indicates new rental
-      customer: "", // Will be set by customer_iid
-      items: reservation.items,
-      deposit: 0, // Will be calculated from items
-      deposit_back: 0,
-      rented_on: new Date().toISOString(),
-      returned_on: "",
-      expected_on: expectedOn.toISOString(),
-      extended_on: "",
-      remark: reservation.comments || "",
-      employee: "",
-      employee_back: "",
-      created: "",
-      updated: "",
-      collectionId: "",
-      collectionName: "rental",
-      expand: {
-        items: reservation.expand?.items || [],
-      },
-    };
-
     // If we have a customer IID, fetch the full customer data
+    let customer: Customer | undefined;
     if (reservation.customer_iid) {
       try {
-        const customer = await collections
+        customer = await collections
           .customers()
           .getFirstListItem<Customer>(`iid=${reservation.customer_iid}`);
-        templateRental.customer = customer.id;
-        templateRental.expand.customer = customer;
       } catch (err) {
         console.error("Error fetching customer:", err);
       }
     }
 
-    setRentalFromReservation(templateRental as RentalExpanded);
+    // Create a template rental with data from reservation. The loan period
+    // starts at the pickup day if that's still in the future.
+    const templateRental = buildRentalTemplate({
+      customer,
+      items: reservation.expand?.items || [],
+      pickup: reservation.pickup,
+      remark: reservation.comments,
+    });
+
+    setRentalFromReservation(templateRental);
     setConvertSourceReservationId(reservation.id);
     setIsRentalSheetOpen(true);
   };

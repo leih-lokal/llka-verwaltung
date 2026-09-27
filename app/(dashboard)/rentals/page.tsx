@@ -116,6 +116,7 @@ export default function RentalsPage() {
       const customerIidParam = searchParams.get('customer_iid');
       const itemIdsParam = searchParams.get('item_ids');
       const fromReservationId = searchParams.get('from_reservation');
+      const pickup = searchParams.get('pickup');
 
       // If we have pre-fill data, create a template rental
       if (customerIidParam || itemIdsParam) {
@@ -128,6 +129,7 @@ export default function RentalsPage() {
           customerIid,
           itemIids,
           reservationId: fromReservationId || undefined,
+          pickup: pickup || undefined,
         }).then((template) => {
           if (template) {
             setSelectedRental(template);

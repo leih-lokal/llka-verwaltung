@@ -150,6 +150,11 @@ export function TodaysReservationsSection({
       params.set("item_ids", itemIids);
     }
 
+    // Pickup determines the default return date (see getDefaultExpectedDate)
+    if (reservation.pickup) {
+      params.set("pickup", reservation.pickup);
+    }
+
     router.push(`/rentals?${params.toString()}`);
   }
 
