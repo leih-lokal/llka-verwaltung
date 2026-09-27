@@ -9,8 +9,8 @@ import {
   createContext,
   useContext,
   useEffect,
-  useState,
   useCallback,
+  useMemo,
   useRef,
   type ReactNode,
 } from 'react';
@@ -49,9 +49,9 @@ const DOUBLE_SHIFT_TIMEOUT = 300; // 300ms for double Shift detection
 
 export function KeyboardShortcutsProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const [sequenceState, setSequenceState] = useState<SequenceState>({
-    status: 'idle',
-  });
+  // A ref, not state: nothing renders from it, and state would re-attach the
+  // keydown listener on every step (whose cleanup cleared the reset timer).
+  const sequenceRef = useRef<SequenceState>({ status: 'idle' });
   const lastShiftPressRef = useRef<number>(0);
 
   // Modal state setters (populated by bridge component)
@@ -76,15 +76,16 @@ export function KeyboardShortcutsProvider({ children }: { children: ReactNode })
 
   // Reset sequence state
   const resetSequence = useCallback(() => {
+    const sequenceState = sequenceRef.current;
     if (sequenceState.status === 'waiting') {
       toast.dismiss(sequenceState.toastId);
     }
-    setSequenceState({ status: 'idle' });
+    sequenceRef.current = { status: 'idle' };
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
-  }, [sequenceState]);
+  }, []);
 
   // Keyboard event handler
   useEffect(() => {
@@ -100,6 +101,7 @@ export function KeyboardShortcutsProvider({ children }: { children: ReactNode })
       }
 
       const key = e.key.toLowerCase();
+      const sequenceState = sequenceRef.current;
 
       // Handle Escape to cancel sequence
       if (key === 'escape' && sequenceState.status === 'waiting') {
@@ -152,12 +154,12 @@ export function KeyboardShortcutsProvider({ children }: { children: ReactNode })
           );
 
           // Update state
-          setSequenceState({
+          sequenceRef.current = {
             status: 'waiting',
             firstKey: key,
             timestamp: Date.now(),
             toastId,
-          });
+          };
 
           // Set timeout to reset
           timeoutRef.current = setTimeout(() => {
@@ -199,7 +201,7 @@ export function KeyboardShortcutsProvider({ children }: { children: ReactNode })
           }
 
           // Reset state
-          setSequenceState({ status: 'idle' });
+          sequenceRef.current = { status: 'idle' };
           if (timeoutRef.current) {
             clearTimeout(timeoutRef.current);
             timeoutRef.current = null;
@@ -225,22 +227,26 @@ export function KeyboardShortcutsProvider({ children }: { children: ReactNode })
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [sequenceState, getShortcutContext, resetSequence]);
+  }, [getShortcutContext, resetSequence]);
 
-  const value: KeyboardShortcutsContextValue = {
-    registerCommandMenu: (setter) => {
-      commandMenuOpenRef.current = setter;
-    },
-    registerQuickFind: (setter) => {
-      quickFindOpenRef.current = setter;
-    },
-    registerSequentialMode: (setter) => {
-      sequentialModeOpenRef.current = setter;
-    },
-    registerIdentityPicker: (setter) => {
-      identityPickerOpenRef.current = setter;
-    },
-  };
+  // Register functions only write refs, so the value never needs to change
+  const value = useMemo<KeyboardShortcutsContextValue>(
+    () => ({
+      registerCommandMenu: (setter) => {
+        commandMenuOpenRef.current = setter;
+      },
+      registerQuickFind: (setter) => {
+        quickFindOpenRef.current = setter;
+      },
+      registerSequentialMode: (setter) => {
+        sequentialModeOpenRef.current = setter;
+      },
+      registerIdentityPicker: (setter) => {
+        identityPickerOpenRef.current = setter;
+      },
+    }),
+    []
+  );
 
   return (
     <KeyboardShortcutsContext.Provider value={value}>
