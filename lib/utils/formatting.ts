@@ -141,13 +141,11 @@ export function calculateRentalStatus(
 
   const today = toBusinessDay(new Date());
 
-  // Check for partial returns first (only if we have the full rental object)
-  if (rental && !returnedOn) {
-    const returnStatus = getRentalReturnStatus(rental);
-    if (returnStatus.isPartiallyReturned) {
-      return RentalStatus.PartiallyReturned;
-    }
-  }
+  // Partial returns (only known with the full rental object) replace
+  // "active" only: an overdue or due-today rental stays overdue / due today
+  // even if some items are back, so overdue lists and counters keep it.
+  const isPartiallyReturned =
+    !!rental && !returnedOn && getRentalReturnStatus(rental).isPartiallyReturned;
 
   // Already returned
   if (returnedOn) {
@@ -161,20 +159,17 @@ export function calculateRentalStatus(
   // Note: extended_on now represents when the extension was made, not the new deadline
   // The new deadline is stored in expected_on (which gets updated when extending)
   const dueDay = toBusinessDay(expectedOn);
-  if (!dueDay) {
-    return RentalStatus.Active;
-  }
 
   // YYYY-MM-DD strings compare chronologically
-  if (dueDay < today) {
+  if (dueDay && dueDay < today) {
     return RentalStatus.Overdue;
   }
 
-  if (dueDay === today) {
+  if (dueDay && dueDay === today) {
     return RentalStatus.DueToday;
   }
 
-  return RentalStatus.Active;
+  return isPartiallyReturned ? RentalStatus.PartiallyReturned : RentalStatus.Active;
 }
 
 /**

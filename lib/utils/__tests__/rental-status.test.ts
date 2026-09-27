@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { calculateRentalStatus, calculateDaysOverdue, toBusinessDay } from '../formatting';
-import { RentalStatus } from '@/types';
+import { RentalStatus, type Rental } from '@/types';
 
 // Results must not depend on the browser's time zone. Run with e.g.
 // TZ=America/Los_Angeles or TZ=Asia/Tokyo to exercise that.
@@ -82,5 +82,41 @@ describe('calculateDaysOverdue', () => {
     setNow('2026-04-10T10:00:00Z');
     expect(calculateDaysOverdue('', '2026-04-15 00:00:00.000Z')).toBe(-5);
     expect(calculateDaysOverdue('2026-04-09 00:00:00.000Z', '2026-04-01 00:00:00.000Z')).toBe(0);
+  });
+});
+
+describe('calculateRentalStatus with partial returns', () => {
+  // Two items, one of them back
+  const partial = (expected_on: string) =>
+    ({
+      id: 'r1',
+      items: ['a', 'b'],
+      requested_copies: {},
+      returned_items: { a: 1 },
+      rented_on: '2026-04-01 00:00:00.000Z',
+      returned_on: '',
+      expected_on,
+      extended_on: '',
+    }) as unknown as Rental;
+
+  it('is partially returned while not yet due', () => {
+    setNow('2026-04-10T10:00:00Z');
+    expect(calculateRentalStatus(partial('2026-04-15 00:00:00.000Z'))).toBe(
+      RentalStatus.PartiallyReturned
+    );
+  });
+
+  it('stays overdue / due today when some items are back', () => {
+    setNow('2026-04-16T10:00:00Z');
+    expect(calculateRentalStatus(partial('2026-04-15 00:00:00.000Z'))).toBe(RentalStatus.Overdue);
+    setNow('2026-04-15T10:00:00Z');
+    expect(calculateRentalStatus(partial('2026-04-15 00:00:00.000Z'))).toBe(RentalStatus.DueToday);
+  });
+
+  it('is active when nothing is back yet', () => {
+    setNow('2026-04-10T10:00:00Z');
+    expect(
+      calculateRentalStatus({ ...partial('2026-04-15 00:00:00.000Z'), returned_items: {} } as Rental)
+    ).toBe(RentalStatus.Active);
   });
 });
