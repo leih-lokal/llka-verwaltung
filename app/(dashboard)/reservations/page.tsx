@@ -63,6 +63,11 @@ export default function ReservationsPage() {
   const [isRentalSheetOpen, setIsRentalSheetOpen] = useState(false);
   const [rentalFromReservation, setRentalFromReservation] =
     useState<RentalExpanded | null>(null);
+  // Reservation being converted (marked done once the rental is created).
+  // Tracked separately from selectedReservation: the per-row convert button
+  // never opens (or sets) the reservation sheet.
+  const [convertSourceReservationId, setConvertSourceReservationId] =
+    useState<string | undefined>(undefined);
 
   const observerTarget = useRef<HTMLDivElement>(null);
   const perPage = 50;
@@ -350,13 +355,24 @@ export default function ReservationsPage() {
     }
 
     setRentalFromReservation(templateRental as RentalExpanded);
+    setConvertSourceReservationId(reservation.id);
     setIsRentalSheetOpen(true);
+  };
+
+  // Forget the convert source whenever the rental sheet closes, so it can't
+  // be marked done by a later, unrelated rental
+  const handleRentalSheetOpenChange = (open: boolean) => {
+    setIsRentalSheetOpen(open);
+    if (!open) {
+      setConvertSourceReservationId(undefined);
+    }
   };
 
   // Handle rental save
   const handleRentalSave = () => {
     setIsRentalSheetOpen(false);
     setRentalFromReservation(null);
+    setConvertSourceReservationId(undefined);
     // Optionally refresh reservations list
     setReservations([]);
     setCurrentPage(1);
@@ -774,13 +790,9 @@ export default function ReservationsPage() {
       <RentalDetailSheet
         rental={rentalFromReservation}
         open={isRentalSheetOpen}
-        onOpenChange={setIsRentalSheetOpen}
+        onOpenChange={handleRentalSheetOpenChange}
         onSave={handleRentalSave}
-        sourceReservationId={
-          rentalFromReservation && !rentalFromReservation.id
-            ? selectedReservation?.id
-            : undefined
-        }
+        sourceReservationId={convertSourceReservationId}
       />
     </div>
   );

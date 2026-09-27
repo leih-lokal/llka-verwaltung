@@ -208,10 +208,14 @@ export function RentalDetailSheet({
   useEffect(() => {
     if (rental && open) {
 
-      // Set customer if expanded
+      // Set customer if expanded. Otherwise (e.g. a template converted from
+      // a reservation without customer) clear it, so the previously opened
+      // rental's customer/items don't linger in the sheet.
       if (rental.expand?.customer) {
         setSelectedCustomer(rental.expand.customer);
         setValue('customer_iid', rental.expand.customer.iid);
+      } else {
+        setSelectedCustomer(null);
       }
 
       // Set items if expanded (support multiple items)
@@ -221,6 +225,9 @@ export function RentalDetailSheet({
 
         // Load instance data from requested_copies field
         setInstanceData(rental.requested_copies || {});
+      } else {
+        setSelectedItems([]);
+        setInstanceData({});
       }
 
       // Set form values - handle both 'T' and space separators in date strings

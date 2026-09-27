@@ -156,6 +156,7 @@ export default function RentalsPage() {
         expand: 'customer,items',
       }).then((rental) => {
         setSelectedRental(rental);
+        setSourceReservationId(undefined);
         setIsSheetOpen(true);
         // Clear the URL parameter
         router.replace('/rentals');
@@ -284,13 +285,24 @@ export default function RentalsPage() {
   // Handle row click to open detail sheet
   const handleRowClick = (rental: RentalExpanded) => {
     setSelectedRental(rental);
+    setSourceReservationId(undefined);
     setIsSheetOpen(true);
   };
 
   // Handle new rental button
   const handleNewRental = () => {
     setSelectedRental(null);
+    setSourceReservationId(undefined);
     setIsSheetOpen(true);
+  };
+
+  // Forget the reservation being converted whenever the sheet closes, so a
+  // later, unrelated rental can't mark it done
+  const handleSheetOpenChange = (open: boolean) => {
+    setIsSheetOpen(open);
+    if (!open) {
+      setSourceReservationId(undefined);
+    }
   };
 
   // Handle rental save
@@ -706,7 +718,7 @@ export default function RentalsPage() {
       <RentalDetailSheet
         rental={selectedRental}
         open={isSheetOpen}
-        onOpenChange={setIsSheetOpen}
+        onOpenChange={handleSheetOpenChange}
         onSave={handleRentalSave}
         sourceReservationId={sourceReservationId}
       />
