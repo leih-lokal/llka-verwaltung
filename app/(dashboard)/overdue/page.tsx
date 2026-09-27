@@ -11,23 +11,14 @@ import { Button } from '@/components/ui/button';
 import { RefreshCwIcon, AlertCircleIcon } from 'lucide-react';
 import { collections } from '@/lib/pocketbase/client';
 import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
-import { calculateRentalStatus, calculateDaysOverdue } from '@/lib/utils/formatting';
-import type { Rental, RentalExpanded, RentalStatus } from '@/types';
-import { RentalStatus as RentalStatusEnum } from '@/types';
+import { getOverdueSeverity, OVERDUE_LEVEL_DAYS, type OverdueSeverity } from '@/lib/utils/overdue';
+import type { Rental, RentalExpanded } from '@/types';
 import { toast } from 'sonner';
 import { OverdueStatsCards } from '@/components/overdue/overdue-stats-cards';
 import { OverdueSection } from '@/components/overdue/overdue-section';
 
-// Severity levels for grouping rentals
-type SeverityLevel = 'severely_critical' | 'critical' | 'overdue' | 'due_today' | 'due_soon';
-
-interface CategorizedRentals {
-  severely_critical: RentalExpanded[]; // 7+ days overdue
-  critical: RentalExpanded[];          // 3-6 days overdue
-  overdue: RentalExpanded[];           // 1-2 days overdue
-  due_today: RentalExpanded[];         // Due today
-  due_soon: RentalExpanded[];          // Due in next 3 days
-}
+/** Unreturned rentals grouped by severity (thresholds: lib/utils/overdue.ts) */
+type CategorizedRentals = Record<OverdueSeverity, RentalExpanded[]>;
 
 export default function OverduePage() {
   const [loading, setLoading] = useState(true);
@@ -118,33 +109,9 @@ export default function OverduePage() {
     };
 
     for (const rental of rentals) {
-      const status = calculateRentalStatus(
-        rental.rented_on,
-        rental.returned_on,
-        rental.expected_on,
-        rental.extended_on
-      );
-
-      const daysOverdue = calculateDaysOverdue(
-        rental.returned_on,
-        rental.expected_on,
-        rental.extended_on
-      );
-
-      // Categorize by severity
-      if (status === RentalStatusEnum.Overdue) {
-        if (daysOverdue >= 7) {
-          categorized.severely_critical.push(rental);
-        } else if (daysOverdue >= 3) {
-          categorized.critical.push(rental);
-        } else {
-          categorized.overdue.push(rental);
-        }
-      } else if (status === RentalStatusEnum.DueToday) {
-        categorized.due_today.push(rental);
-      } else if (status === RentalStatusEnum.Active && daysOverdue < 0 && daysOverdue >= -3) {
-        // Due in next 3 days
-        categorized.due_soon.push(rental);
+      const severity = getOverdueSeverity(rental);
+      if (severity) {
+        categorized[severity].push(rental);
       }
     }
 
@@ -227,7 +194,7 @@ export default function OverduePage() {
           {/* Severely Critical (7+ days overdue) */}
           <OverdueSection
             title="🚨 EXTREM ÜBERFÄLLIG"
-            description="7+ Tage überfällig"
+            description={`${OVERDUE_LEVEL_DAYS.severely_critical} überfällig`}
             rentals={categorizedRentals.severely_critical}
             variant="severely_critical"
             onRentalUpdated={loadRentals}
@@ -236,7 +203,7 @@ export default function OverduePage() {
           {/* Critical (3-6 days overdue) */}
           <OverdueSection
             title="⚠ KRITISCH"
-            description="3-6 Tage überfällig"
+            description={`${OVERDUE_LEVEL_DAYS.critical} überfällig`}
             rentals={categorizedRentals.critical}
             variant="critical"
             onRentalUpdated={loadRentals}
@@ -245,7 +212,7 @@ export default function OverduePage() {
           {/* Overdue (1-2 days overdue) */}
           <OverdueSection
             title="📌 ÜBERFÄLLIG"
-            description="1-2 Tage überfällig"
+            description={`${OVERDUE_LEVEL_DAYS.overdue} überfällig`}
             rentals={categorizedRentals.overdue}
             variant="overdue"
             onRentalUpdated={loadRentals}

@@ -9,18 +9,19 @@ import { Button } from '@/components/ui/button';
 import { AlertCircle, ExternalLink } from 'lucide-react';
 import { collections } from '@/lib/pocketbase/client';
 import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
-import type { Rental, RentalExpanded, OverdueBreakdown } from '@/types';
+import type { Rental, RentalExpanded } from '@/types';
 import { calculateOverdueBreakdown } from '@/lib/utils/dashboard-metrics';
+import { OVERDUE_LEVEL_DAYS, type OverdueCounts } from '@/lib/utils/overdue';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
 export function OverdueAlertSection() {
   const [rentals, setRentals] = useState<RentalExpanded[]>([]);
   const [loading, setLoading] = useState(true);
-  const [breakdown, setBreakdown] = useState<OverdueBreakdown>({
-    severity1to3Days: 0,
-    severity4to7Days: 0,
-    severity8PlusDays: 0,
+  const [breakdown, setBreakdown] = useState<OverdueCounts>({
+    overdue: 0,
+    critical: 0,
+    severely_critical: 0,
     total: 0,
   });
 
@@ -147,28 +148,28 @@ export function OverdueAlertSection() {
 
       {/* Severity breakdown grid */}
       <div className="grid grid-cols-3 gap-2">
-        {/* 1-3 days (orange) */}
+        {/* Overdue (orange) */}
         <div className="bg-orange-50 border border-orange-200 rounded p-3 text-center">
           <div className="text-xl font-bold text-orange-700">
-            {breakdown.severity1to3Days}
+            {breakdown.overdue}
           </div>
-          <div className="text-xs text-orange-600 mt-1">1-3 Tage</div>
+          <div className="text-xs text-orange-600 mt-1">{OVERDUE_LEVEL_DAYS.overdue}</div>
         </div>
 
-        {/* 4-7 days (red) */}
+        {/* Critical (red) */}
         <div className="bg-red-50 border border-red-200 rounded p-3 text-center">
           <div className="text-xl font-bold text-red-700">
-            {breakdown.severity4to7Days}
+            {breakdown.critical}
           </div>
-          <div className="text-xs text-red-600 mt-1">4-7 Tage</div>
+          <div className="text-xs text-red-600 mt-1">{OVERDUE_LEVEL_DAYS.critical}</div>
         </div>
 
-        {/* 8+ days (dark red) */}
+        {/* Severely critical (dark red) */}
         <div className="bg-red-100 border border-red-400 rounded p-3 text-center">
           <div className="text-xl font-bold text-red-800">
-            {breakdown.severity8PlusDays}
+            {breakdown.severely_critical}
           </div>
-          <div className="text-xs text-red-700 mt-1">8+ Tage</div>
+          <div className="text-xs text-red-700 mt-1">{OVERDUE_LEVEL_DAYS.severely_critical}</div>
         </div>
       </div>
 

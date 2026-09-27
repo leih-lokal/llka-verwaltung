@@ -8,51 +8,34 @@ import type {
   RentalExpanded,
   Customer,
   Reservation,
-  OverdueBreakdown,
   TodayActivityMetrics,
   DueThisWeekItem,
 } from '@/types';
-import { calculateDaysOverdue, calculateRentalStatus } from './formatting';
-import { RentalStatus } from '@/types';
+import { getOverdueSeverity, type OverdueCounts } from './overdue';
 
 /**
- * Calculates overdue rental breakdown by severity
+ * Calculates overdue rental breakdown by severity (see getOverdueSeverity)
  * @param rentals - List of rental records (should be pre-filtered to active rentals)
  * @returns Breakdown of overdue rentals by severity level
  */
 export function calculateOverdueBreakdown(
   rentals: RentalExpanded[]
-): OverdueBreakdown {
-  const breakdown: OverdueBreakdown = {
-    severity1to3Days: 0,
-    severity4to7Days: 0,
-    severity8PlusDays: 0,
+): OverdueCounts {
+  const breakdown: OverdueCounts = {
+    overdue: 0,
+    critical: 0,
+    severely_critical: 0,
     total: 0,
   };
 
   rentals.forEach((rental) => {
-    const status = calculateRentalStatus(
-      rental.rented_on,
-      rental.returned_on,
-      rental.expected_on,
-      rental.extended_on
-    );
-
-    if (status === RentalStatus.Overdue) {
-      const daysOverdue = calculateDaysOverdue(
-        rental.returned_on,
-        rental.expected_on,
-        rental.extended_on
-      );
-
-      if (daysOverdue >= 1 && daysOverdue <= 3) {
-        breakdown.severity1to3Days++;
-      } else if (daysOverdue >= 4 && daysOverdue <= 7) {
-        breakdown.severity4to7Days++;
-      } else if (daysOverdue >= 8) {
-        breakdown.severity8PlusDays++;
-      }
-
+    const severity = getOverdueSeverity(rental);
+    if (
+      severity === 'overdue' ||
+      severity === 'critical' ||
+      severity === 'severely_critical'
+    ) {
+      breakdown[severity]++;
       breakdown.total++;
     }
   });

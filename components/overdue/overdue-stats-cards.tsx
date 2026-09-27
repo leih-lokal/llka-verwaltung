@@ -12,15 +12,10 @@ import { useEffect, useState } from 'react';
 import { collections } from '@/lib/pocketbase/client';
 import { differenceInDays, parseISO, subDays } from 'date-fns';
 import { dateToLocalString } from '@/lib/utils/formatting';
+import type { OverdueSeverity } from '@/lib/utils/overdue';
 
 interface OverdueStatsCardsProps {
-  categorizedRentals: {
-    severely_critical: RentalExpanded[];
-    critical: RentalExpanded[];
-    overdue: RentalExpanded[];
-    due_today: RentalExpanded[];
-    due_soon: RentalExpanded[];
-  };
+  categorizedRentals: Record<OverdueSeverity, RentalExpanded[]>;
 }
 
 export function OverdueStatsCards({ categorizedRentals }: OverdueStatsCardsProps) {
