@@ -23,11 +23,28 @@ The application will be available at `http://localhost:3000`.
 
 ## Environment Variables
 
+Runtime (`docker run -e …`):
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `3000` | Port the server listens on |
 | `HOSTNAME` | `0.0.0.0` | Hostname to bind to |
-| `NEXT_PUBLIC_BASE_PATH` | (empty) | Base path for assets (if serving from subdirectory) |
+
+Build time (`docker build --build-arg …`). These are inlined into the client bundle, so changing them requires a rebuild:
+
+| Build arg | Default | Description |
+|-----------|---------|-------------|
+| `BASE_PATH` | (empty) | Serve the app under a subpath, e.g. `/verwaltung` |
+| `NEXT_PUBLIC_POCKETBASE_URL` | `http://localhost:8090` | Server URL prefilled on the login page |
+| `BUILD_COMMIT` | `dev` | Commit hash shown in the menu footer (`.git` isn't copied into the image) |
+
+```bash
+docker build \
+  --build-arg BASE_PATH=/verwaltung \
+  --build-arg NEXT_PUBLIC_POCKETBASE_URL=https://api.example.com \
+  --build-arg BUILD_COMMIT=$(git rev-parse --short HEAD) \
+  -t llka-verwaltung .
+```
 
 Note: The PocketBase URL is configured at runtime through the login page and stored in the browser's localStorage.
 
@@ -44,19 +61,10 @@ Run the frontend and backend on different domains/ports:
 
 **PocketBase CORS Configuration:**
 
-In your PocketBase settings or code, configure CORS to allow the frontend origin:
+PocketBase allows all origins by default. To restrict it to the frontend, start it with `--origins`:
 
-```go
-// In your PocketBase main.go
-app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
-    e.Router.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-        AllowOrigins:     []string{"https://app.example.com"},
-        AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodPatch, http.MethodDelete},
-        AllowHeaders:     []string{"*"},
-        AllowCredentials: true,
-    }))
-    return nil
-})
+```bash
+./pocketbase serve --origins=https://app.example.com
 ```
 
 ### Option 2: Same-Origin with Reverse Proxy (Recommended)
@@ -127,20 +135,20 @@ server {
 
 ```caddyfile
 example.com {
-    # Frontend (Next.js)
-    reverse_proxy / localhost:3000
-
-    # PocketBase API
-    handle_path /api/* {
+    # PocketBase API + Admin UI (paths are passed through unchanged)
+    @pocketbase path /api/* /_/*
+    handle @pocketbase {
         reverse_proxy localhost:8090
     }
 
-    # PocketBase Admin UI
-    handle_path /_/* {
-        reverse_proxy localhost:8090
+    # Everything else: frontend (Next.js)
+    handle {
+        reverse_proxy localhost:3000
     }
 }
 ```
+
+`handle_path` would strip the `/api` prefix before proxying, and `reverse_proxy /` only matches the exact path `/`, so neither is used here.
 
 ---
 
@@ -150,8 +158,6 @@ For local development with both services:
 
 ```yaml
 # docker-compose.yml
-version: '3.8'
-
 services:
   frontend:
     build: .
@@ -227,7 +233,8 @@ docker logs <container_id>
 
 ### Static assets not loading
 
-If serving from a subdirectory, set `NEXT_PUBLIC_BASE_PATH`:
+If serving from a subdirectory, the base path has to be set when building the image (it's compiled into the bundle; setting it at `docker run` has no effect):
 ```bash
-docker run -e NEXT_PUBLIC_BASE_PATH=/app -p 3000:3000 llka-verwaltung
+docker build --build-arg BASE_PATH=/app -t llka-verwaltung .
+docker run -p 3000:3000 llka-verwaltung
 ```

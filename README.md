@@ -2,23 +2,22 @@
 
 ![Screenshot](sshot.png)
 
-Modern library management system built with Next.js 15, React 19, and PocketBase.
+Staff front-end for the leih.lokal lending library (customers, items, rentals, reservations, bookings), built with Next.js 16, React 19, and PocketBase.
 
 ## Tech Stack
 
-- **Frontend**: Next.js 15 (App Router), React 19, TypeScript
-- **UI**: Shadcn/ui + Tailwind CSS
-- **Backend**: PocketBase
-- **PWA**: next-pwa
+- **Frontend**: Next.js 16 (App Router, static export), React 19, TypeScript
+- **UI**: Shadcn/ui + Tailwind CSS 4
+- **Backend**: PocketBase 0.26 ([leihbackend](https://github.com/leih-lokal/leihbackend))
 - **Forms**: React Hook Form + Zod
 - **Charts**: Recharts
-- **Testing**: Vitest + Playwright
+- **Testing**: Vitest (unit tests)
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 20+ and npm
+- Node.js 20.9+ (24 recommended, as in the Docker image) and npm
 - PocketBase instance running (see [PocketBase Setup](#pocketbase-setup))
 
 ### Installation
@@ -36,13 +35,9 @@ cd llka-verwaltung
 npm install
 ```
 
-3. **Configure environment variables**
+3. **Optional: default server URL**
 
-```bash
-cp .env.local.example .env.local
-```
-
-Edit `.env.local` and set your PocketBase URL:
+The PocketBase URL is entered on the login page and remembered in the browser. To change the prefilled value, create `.env.local`:
 
 ```env
 NEXT_PUBLIC_POCKETBASE_URL=http://localhost:8090
@@ -58,64 +53,62 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### PocketBase Setup
 
-1. **Download PocketBase** from [pocketbase.io](https://pocketbase.io/docs/)
+1. **Run the backend.** The collections, API rules and hooks live in [leihbackend](https://github.com/leih-lokal/leihbackend) (PocketBase with migrations); follow its README, or use its Docker image (see [DOCKER.md](DOCKER.md#docker-compose-example)).
 
-2. **Run PocketBase**
+PocketBase runs on `http://localhost:8090` by default.
 
-```bash
-./pocketbase serve
-```
-
-PocketBase will run on `http://localhost:8090` by default.
-
-3. **Create admin account**
+2. **Create a superuser account**
 
 - Open `http://localhost:8090/_/` in your browser
-- Create your admin account
+- Create a superuser account. The app signs in against PocketBase's `_superusers` collection.
 
-4. **Login to the app**
+3. **Log in to the app**
 
 - Open the app at `http://localhost:3000`
 - You'll see the login page with three fields:
   - **PocketBase Server-URL**: Enter your PocketBase URL (e.g., `http://localhost:8090`)
   - **Benutzername**: Your admin email
   - **Passwort**: Your admin password
-- The server URL is stored in your browser and remembered for future logins
-
-5. **Import database schema** (coming soon)
-
-The PocketBase collections will be automatically created when you use the app, or you can manually import the schema from `pocketbase_schema.json`.
+- The server URL is stored in your browser and remembered after a successful login
 
 ## Deployment
-### Self-hosted
-To build and deploy as an SPA under a subpath, run:
+
+### Static files
+`npm run build` produces a static export in `out/`. To deploy under a subpath:
 
 ```bash
 BASE_PATH=/backend NEXT_PUBLIC_POCKETBASE_URL=https://leihlokal-ka.de npm run build
 ```
 
-Then, serve `out/` as static files.
+Then serve `out/` with any static file server. Pushes to `main` are deployed to GitHub Pages this way (`.github/workflows/nextjs.yml`).
+
+### Docker
+See [DOCKER.md](DOCKER.md). The image uses Next.js standalone output.
 
 ## Project Structure
 
 ```
 /app
-  (auth)/login          # Authentication
+  (auth)/login          # Login (server URL + credentials)
   (dashboard)           # Main app pages
     /dashboard          # Dashboard home
-    /customers          # Customer management
-    /items              # Item management
-    /rentals            # Rental management
-    /reservations       # Reservation management
-    /settings           # App settings
-    /logs               # Application logs
-/components
-  /ui                   # Shadcn UI components
-  /layout               # Navigation components
+    /customers          # Customers
+    /items              # Items (+ /items/analytics)
+    /rentals            # Rentals
+    /reservations       # Reservations
+    /bookings           # Booking calendar
+    /overdue            # Overdue rentals
+    /label-designer     # Item label printing
+    /system-check       # Check active rentals against what is physically on hand
+    /settings           # Branding, appearance, features, opening hours
+    /setup              # First-run setup
+    /logs               # PocketBase request logs
+/components             # Feature components (+ /ui for Shadcn primitives)
 /lib
   /pocketbase           # PocketBase client & auth
-  /constants            # App constants
-  /utils                # Utility functions
+  /filters, /tables     # Filter and column configs for the list pages
+  /constants            # Labels, statuses, help texts
+  /utils                # Formatting, availability, rental templates, …
 /hooks                  # Custom React hooks
 /types                  # TypeScript type definitions
 ```
@@ -123,13 +116,11 @@ Then, serve `out/` as static files.
 ## Available Scripts
 
 - `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm start` - Start production server
+- `npm run build` - Build for production (static export in `out/`)
 - `npm run lint` - Run ESLint
 - `npm run lint:fix` - Fix ESLint errors
 - `npm run type-check` - Run TypeScript compiler check
-- `npm run test` - Run unit tests
-- `npm run test:e2e` - Run E2E tests
+- `npm run test` - Run unit tests (Vitest, watch mode; `npx vitest run` for a single run)
 
 ## Settings
 
@@ -152,7 +143,7 @@ Opening hours configured here are used by leihbackend for reservation pickup val
 - Follow existing naming conventions
 - Add JSDoc comments for public APIs
 - Use functional components with hooks
-- Prefer Server Components when possible
+- Pages are client components: the PocketBase URL is chosen per browser at login, so data is fetched client-side
 
 ### Component Structure
 
@@ -190,9 +181,10 @@ import { formatDate } from '@/lib/utils/formatting';
 1. Create a feature branch
 2. Make your changes
 3. Run type check: `npm run type-check`
-4. Run linter: `npm run lint:fix`
-5. Commit and push
-6. Create a pull request
+4. Run tests: `npx vitest run`
+5. Run linter: `npm run lint:fix`
+6. Commit and push
+7. Create a pull request
 
 ## License
 
