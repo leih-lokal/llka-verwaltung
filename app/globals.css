@@ -121,10 +121,14 @@
     @apply bg-background text-foreground;
   }
 
-  /* Remove all shadows globally */
-  *,
-  *::before,
-  *::after {
+  /* Remove all shadows globally, except inside .crt-allow-shadow (the
+     system check's CRT glow). An exception has to be carved out here: an
+     !important declaration in a layer beats every unlayered one, so no
+     override outside @layer base can bring the shadows back. :where()
+     keeps the reset at zero specificity. */
+  :where(:not(.crt-allow-shadow, .crt-allow-shadow *)),
+  :where(:not(.crt-allow-shadow, .crt-allow-shadow *))::before,
+  :where(:not(.crt-allow-shadow, .crt-allow-shadow *))::after {
     box-shadow: none !important;
   }
 
@@ -271,11 +275,8 @@
    CRT System Check Mode Styles
    ============================================ */
 
-/* Override global shadow removal for CRT effects */
-.crt-allow-shadow,
-.crt-allow-shadow * {
-  box-shadow: revert !important;
-}
+/* .crt-allow-shadow (on the system check page) is exempt from the global
+   shadow reset in @layer base above */
 
 /* CRT Custom Properties */
 :root {
