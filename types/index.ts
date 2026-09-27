@@ -194,8 +194,8 @@ export interface Customer extends BaseRecord {
   /** Additional remarks */
   remark?: string;
 
-  /** Highlight color for special attention */
-  highlight_color?: HighlightColor;
+  /** Highlight color for special attention ('' = none; sending '' clears it) */
+  highlight_color?: HighlightColor | '';
 }
 
 /**
@@ -287,8 +287,8 @@ export interface Item extends BaseRecord {
   /** Image file names */
   images: string[];
 
-  /** Highlight color */
-  highlight_color?: HighlightColor;
+  /** Highlight color ('' = none; sending '' clears it) */
+  highlight_color?: HighlightColor | '';
 
   /** Internal staff note (not visible to customers) */
   internal_note?: string;

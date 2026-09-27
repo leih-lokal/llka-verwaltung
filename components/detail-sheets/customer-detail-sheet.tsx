@@ -274,7 +274,7 @@ export function CustomerDetailSheet({
         renewed_on: data.renewed_on || undefined,
         newsletter: data.newsletter,
         remark: data.remark || undefined,
-        highlight_color: data.highlight_color ? (data.highlight_color as HighlightColor) : ('' as any),
+        highlight_color: data.highlight_color ? (data.highlight_color as HighlightColor) : '',
       };
 
       let savedCustomer: Customer;

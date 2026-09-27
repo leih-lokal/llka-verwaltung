@@ -331,7 +331,8 @@ export function ItemDetailSheet({
       formData.append('parts', data.parts !== undefined ? data.parts.toString() : '');
       formData.append('copies', data.copies.toString());
       formData.append('status', data.status);
-      if (data.highlight_color) formData.append('highlight_color', data.highlight_color);
+      // Always append (even empty) so PATCH can clear a previously-set colour.
+      formData.append('highlight_color', data.highlight_color ?? '');
       if (data.internal_note) formData.append('internal_note', data.internal_note);
       formData.append('added_on', data.added_on);
       formData.append('msrp', data.msrp !== undefined ? data.msrp.toString() : '');
@@ -416,7 +417,7 @@ export function ItemDetailSheet({
     }
   };
 
-  const getHighlightColorBadge = (color?: HighlightColor) => {
+  const getHighlightColorBadge = (color?: HighlightColor | '') => {
     if (!color) return null;
     const colorMap = {
       red: 'bg-red-500',
