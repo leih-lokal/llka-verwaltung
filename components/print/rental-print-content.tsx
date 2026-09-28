@@ -30,7 +30,7 @@ function formatPrintDate(dateStr: string | undefined): string {
       year: 'numeric',
     });
   } catch {
-    return dateStr;
+    return escapeHtml(dateStr);
   }
 }
 
@@ -67,8 +67,8 @@ export function generateRentalPrintContent({
           ${item.model ? `<br><span style="font-size: 0.9em;">Modell: ${escapeHtml(item.model)}</span>` : ''}
         </td>
         <td style="padding: 10px 12px; border-bottom: 1px solid #333; text-align: center;">
-          ${copyCount}${hasCopies ? ' Stück' : ''}
-          ${hasPartialReturn ? `<br><span style="font-size: 0.85em; font-weight: 600; color: #16a34a;">${returnedCount} zurück, ${stillOut} noch aus</span>` : ''}
+          ${escapeHtml(copyCount)}${hasCopies ? ' Stück' : ''}
+          ${hasPartialReturn ? `<br><span style="font-size: 0.85em; font-weight: 600; color: #16a34a;">${escapeHtml(returnedCount)} zurück, ${escapeHtml(stillOut)} noch aus</span>` : ''}
         </td>
         <td style="padding: 10px 12px; border-bottom: 1px solid #333; text-align: right; font-weight: 600;">
           ${formatCurrency(totalDeposit)}
@@ -279,7 +279,7 @@ export function generateRentalPrintContent({
       </div>
 
       <div class="section">
-        <div class="section-title">Ausgeliehene Gegenstände (${totalCopies} ${totalCopies === 1 ? 'Stück' : 'Stück'})</div>
+        <div class="section-title">Ausgeliehene Gegenstände (${escapeHtml(totalCopies)} Stück)</div>
         <table>
           <thead>
             <tr>
@@ -322,12 +322,12 @@ export function generateRentalPrintContent({
         <div class="info-grid">
           <div class="info-item">
             <div class="info-label">Ausgabe</div>
-            <div class="info-value">${rental.employee || '-'}</div>
+            <div class="info-value">${escapeHtml(rental.employee) || '-'}</div>
           </div>
           ${rental.employee_back ? `
             <div class="info-item">
               <div class="info-label">Rücknahme</div>
-              <div class="info-value">${rental.employee_back}</div>
+              <div class="info-value">${escapeHtml(rental.employee_back)}</div>
             </div>
           ` : ''}
         </div>

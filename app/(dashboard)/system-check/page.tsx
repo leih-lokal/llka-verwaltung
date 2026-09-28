@@ -8,7 +8,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { ArrowLeftIcon, CheckIcon, XIcon } from 'lucide-react';
+import { CheckIcon, XIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RentalDetailSheet } from '@/components/detail-sheets/rental-detail-sheet';
@@ -30,30 +30,10 @@ export default function SystemCheckPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [selectedRental, setSelectedRental] = useState<RentalExpanded | null>(null);
-  const [currentTime, setCurrentTime] = useState('');
-  const [currentDate, setCurrentDate] = useState('');
 
   // Fetch active rentals on mount
   useEffect(() => {
     fetchActiveRentals();
-  }, []);
-
-  // Update date/time every second
-  useEffect(() => {
-    const updateDateTime = () => {
-      const now = new Date();
-      setCurrentDate(now.toLocaleDateString('de-DE'));
-      setCurrentTime(now.toLocaleTimeString('de-DE', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      }));
-    };
-
-    updateDateTime();
-    const interval = setInterval(updateDateTime, 1000);
-
-    return () => clearInterval(interval);
   }, []);
 
   const fetchActiveRentals = async () => {
@@ -300,7 +280,6 @@ export default function SystemCheckPage() {
                     key={rental.id}
                     rental={rental}
                     status={getQueueItemStatus(index)}
-                    isCurrent={index === currentIndex}
                   />
                 ))}
               </div>
@@ -392,14 +371,7 @@ export default function SystemCheckPage() {
                       &gt; Status
                     </h3>
                     <Badge className="text-sm px-3 py-1 bg-amber-500/20 text-white border-amber-500">
-                      {getRentalStatusLabel(
-                        calculateRentalStatus(
-                          currentRental.rented_on,
-                          currentRental.returned_on,
-                          currentRental.expected_on,
-                          currentRental.extended_on
-                        )
-                      )}
+                      {getRentalStatusLabel(calculateRentalStatus(currentRental))}
                     </Badge>
                   </div>
 

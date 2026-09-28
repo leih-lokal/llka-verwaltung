@@ -16,6 +16,8 @@ import { BookingDetailPopover } from '@/components/bookings/booking-detail-popov
 import { RentalDetailSheet } from '@/components/detail-sheets/rental-detail-sheet';
 import { CreateBookingDialog } from '@/components/bookings/create-booking-dialog';
 import { collections } from '@/lib/pocketbase/client';
+import { createBookings, BookingConflictError } from '@/lib/api/bookings';
+import { buildRentalTemplate } from '@/lib/utils/rental-template';
 import { BookingStatus } from '@/types';
 import type { Booking, BookingExpanded, RentalExpanded, Customer } from '@/types';
 
@@ -68,6 +70,8 @@ export default function BookingsPage() {
     onCreated: () => grid.refetch(),
     onUpdated: () => grid.refetch(),
     onDeleted: () => grid.refetch(),
+    // Changes missed while paused or disconnected
+    onResubscribe: () => grid.refetch(),
   });
 
   const handleCreateBooking = useCallback(
@@ -120,12 +124,9 @@ export default function BookingsPage() {
           status: BookingStatus.Reserved,
         };
 
-        // Create one booking per selected copy column
-        await Promise.all(
-          Array.from({ length: count }, () =>
-            collections.bookings().create(bookingData)
-          )
-        );
+        // One booking per copy; refused if the copies aren't free
+        const item = grid.items.find((i) => i.id === itemId);
+        await createBookings(bookingData, count, item?.copies);
 
         toast.success(
           count > 1
@@ -134,7 +135,9 @@ export default function BookingsPage() {
         );
         grid.refetch();
       } catch (err) {
-        console.error('Error creating booking:', err);
+        if (!(err instanceof BookingConflictError)) {
+          console.error('Error creating booking:', err);
+        }
         const message =
           (err instanceof Error ? err.message : null) ||
           'Fehler beim Erstellen der Buchung';
@@ -177,40 +180,23 @@ export default function BookingsPage() {
       }
 
       // Reserved booking → create a new rental pre-filled from booking
-      const templateRental = {
-        id: '',
-        customer: booking.customer || '',
-        items: [booking.item],
-        deposit: 0,
-        deposit_back: 0,
-        rented_on: new Date().toISOString(),
-        returned_on: '',
-        expected_on: booking.end_date,
-        extended_on: '',
-        remark: booking.notes || '',
-        employee: '',
-        employee_back: '',
-        created: '',
-        updated: '',
-        collectionId: '',
-        collectionName: 'rental',
-        expand: {
-          customer: booking.expand?.customer || ({} as Customer),
-          items: booking.expand?.item ? [booking.expand.item] : [],
-        },
-      } as RentalExpanded;
-
+      let customer = booking.expand?.customer;
       if (booking.customer) {
         try {
-          const customer = await collections
+          customer = await collections
             .customers()
             .getOne<Customer>(booking.customer);
-          templateRental.customer = customer.id;
-          templateRental.expand.customer = customer;
         } catch (err) {
           console.error('Error fetching customer:', err);
         }
       }
+
+      const templateRental = buildRentalTemplate({
+        customer,
+        items: booking.expand?.item ? [booking.expand.item] : [],
+        expectedOn: booking.end_date,
+        remark: booking.notes,
+      });
 
       setRentalFromBooking(templateRental);
       setIsRentalSheetOpen(true);

@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useId } from 'react';
 import { useCommandMenu } from '@/hooks/use-command-menu';
 import { collections, pb } from '@/lib/pocketbase/client';
 import type { Customer, Item, Reservation, RentalExpanded } from '@/types';
@@ -49,6 +49,10 @@ export function GlobalCommandMenu() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const selectedRef = useRef<HTMLDivElement>(null);
+  // The input is a combobox whose listbox holds the quick navigation or the
+  // results; the highlighted entry is exposed via aria-activedescendant
+  const listboxId = useId();
+  const optionId = (index: number) => `${listboxId}-option-${index}`;
 
   // Quick navigation items (shown when no query)
   const quickNav = [
@@ -80,7 +84,8 @@ export function GlobalCommandMenu() {
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const searchTerm = query.toLowerCase();
+        // Not lowercased: LIKE ignores ASCII case and lowercasing breaks "Öztürk"
+        const searchTerm = query;
 
         // Check if search term is numeric (for IID search with leading zeros)
         const isNumeric = /^\d+$/.test(searchTerm);
@@ -223,6 +228,7 @@ export function GlobalCommandMenu() {
   };
 
   const totalResults = flatResults.length;
+  const optionCount = query ? totalResults : quickNav.length;
 
   // Auto-scroll selected item into view
   useEffect(() => {
@@ -300,6 +306,14 @@ export function GlobalCommandMenu() {
           <Input
             ref={inputRef}
             type="text"
+            role="combobox"
+            aria-label="Globale Suche"
+            aria-autocomplete="list"
+            aria-expanded={optionCount > 0}
+            aria-controls={optionCount > 0 ? listboxId : undefined}
+            aria-activedescendant={
+              selectedIndex < optionCount ? optionId(selectedIndex) : undefined
+            }
             placeholder="Suche Kund:innen, Gegenstände, Reservierungen, Leihvorgänge..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -309,12 +323,21 @@ export function GlobalCommandMenu() {
           {isSearching && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
         </div>
 
+        {/* Result count for screen readers (polite live region, kept mounted) */}
+        <div role="status" className="sr-only">
+          {query && !isSearching
+            ? totalResults > 0
+              ? `${totalResults} Ergebnis${totalResults !== 1 ? 'se' : ''} gefunden`
+              : 'Keine Ergebnisse gefunden'
+            : ''}
+        </div>
+
         {/* Results */}
         <div className="max-h-[400px] overflow-y-auto">
           {/* Quick Navigation (no query) */}
           {!query && (
-            <div className="p-2">
-              <div className="px-3 py-2 text-xs font-medium text-muted-foreground">
+            <div className="p-2" role="listbox" id={listboxId} aria-label="Schnellnavigation">
+              <div aria-hidden="true" className="px-3 py-2 text-xs font-medium text-muted-foreground">
                 Schnellnavigation
               </div>
               {quickNav.map((item, index) => {
@@ -322,6 +345,9 @@ export function GlobalCommandMenu() {
                 return (
                   <div
                     key={item.path}
+                    id={optionId(index)}
+                    role="option"
+                    aria-selected={selectedIndex === index}
                     ref={selectedIndex === index ? selectedRef : null}
                     onClick={() => handleItemClick(index)}
                     className={cn(
@@ -349,20 +375,27 @@ export function GlobalCommandMenu() {
               )}
 
               {totalResults > 0 && (
-                <div className="p-2">
+                <div className="p-2" role="listbox" id={listboxId} aria-label="Suchergebnisse">
                   {/* Customers */}
                   {categoryCount.customers > 0 && (
-                    <>
-                      <div className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                    <div role="group" aria-labelledby={`${listboxId}-customers`}>
+                      <div
+                        id={`${listboxId}-customers`}
+                        aria-hidden="true"
+                        className="px-3 py-2 text-xs font-medium text-muted-foreground"
+                      >
                         Kund:innen ({categoryCount.customers})
                       </div>
-                      {results.customers.map((customer, idx) => {
+                      {results.customers.map((customer) => {
                         const globalIndex = flatResults.findIndex(
                           (r) => r.type === 'customer' && r.id === customer.id
                         );
                         return (
                           <div
                             key={customer.id}
+                            id={optionId(globalIndex)}
+                            role="option"
+                            aria-selected={selectedIndex === globalIndex}
                             ref={selectedIndex === globalIndex ? selectedRef : null}
                             onClick={() => handleItemClick(globalIndex)}
                             className={cn(
@@ -399,13 +432,17 @@ export function GlobalCommandMenu() {
                           </div>
                         );
                       })}
-                    </>
+                    </div>
                   )}
 
                   {/* Items */}
                   {categoryCount.items > 0 && (
-                    <>
-                      <div className="px-3 py-2 text-xs font-medium text-muted-foreground mt-2">
+                    <div role="group" aria-labelledby={`${listboxId}-items`}>
+                      <div
+                        id={`${listboxId}-items`}
+                        aria-hidden="true"
+                        className="px-3 py-2 text-xs font-medium text-muted-foreground mt-2"
+                      >
                         Gegenstände ({categoryCount.items})
                       </div>
                       {results.items.map((item) => {
@@ -415,6 +452,9 @@ export function GlobalCommandMenu() {
                         return (
                           <div
                             key={item.id}
+                            id={optionId(globalIndex)}
+                            role="option"
+                            aria-selected={selectedIndex === globalIndex}
                             ref={selectedIndex === globalIndex ? selectedRef : null}
                             onClick={() => handleItemClick(globalIndex)}
                             className={cn(
@@ -449,13 +489,17 @@ export function GlobalCommandMenu() {
                           </div>
                         );
                       })}
-                    </>
+                    </div>
                   )}
 
                   {/* Reservations */}
                   {categoryCount.reservations > 0 && (
-                    <>
-                      <div className="px-3 py-2 text-xs font-medium text-muted-foreground mt-2">
+                    <div role="group" aria-labelledby={`${listboxId}-reservations`}>
+                      <div
+                        id={`${listboxId}-reservations`}
+                        aria-hidden="true"
+                        className="px-3 py-2 text-xs font-medium text-muted-foreground mt-2"
+                      >
                         Reservierungen ({categoryCount.reservations})
                       </div>
                       {results.reservations.map((reservation) => {
@@ -465,6 +509,9 @@ export function GlobalCommandMenu() {
                         return (
                           <div
                             key={reservation.id}
+                            id={optionId(globalIndex)}
+                            role="option"
+                            aria-selected={selectedIndex === globalIndex}
                             ref={selectedIndex === globalIndex ? selectedRef : null}
                             onClick={() => handleItemClick(globalIndex)}
                             className={cn(
@@ -491,13 +538,17 @@ export function GlobalCommandMenu() {
                           </div>
                         );
                       })}
-                    </>
+                    </div>
                   )}
 
                   {/* Rentals */}
                   {categoryCount.rentals > 0 && (
-                    <>
-                      <div className="px-3 py-2 text-xs font-medium text-muted-foreground mt-2">
+                    <div role="group" aria-labelledby={`${listboxId}-rentals`}>
+                      <div
+                        id={`${listboxId}-rentals`}
+                        aria-hidden="true"
+                        className="px-3 py-2 text-xs font-medium text-muted-foreground mt-2"
+                      >
                         Leihvorgänge ({categoryCount.rentals})
                       </div>
                       {results.rentals.map((rental) => {
@@ -507,6 +558,9 @@ export function GlobalCommandMenu() {
                         return (
                           <div
                             key={rental.id}
+                            id={optionId(globalIndex)}
+                            role="option"
+                            aria-selected={selectedIndex === globalIndex}
                             ref={selectedIndex === globalIndex ? selectedRef : null}
                             onClick={() => handleItemClick(globalIndex)}
                             className={cn(
@@ -535,14 +589,14 @@ export function GlobalCommandMenu() {
                           </div>
                         );
                       })}
-                    </>
+                    </div>
                   )}
                 </div>
               )}
 
               {/* Results footer */}
               {totalResults > 0 && (
-                <div className="border-t px-4 py-2 text-center text-xs text-muted-foreground">
+                <div aria-hidden="true" className="border-t px-4 py-2 text-center text-xs text-muted-foreground">
                   {totalResults} Ergebnis{totalResults !== 1 ? 'se' : ''} gefunden
                 </div>
               )}

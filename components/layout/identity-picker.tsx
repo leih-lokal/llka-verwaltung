@@ -37,12 +37,14 @@ export function IdentityPicker() {
     }
   }, [popoverOpen]);
 
-  // Reset input when popover closes
-  useEffect(() => {
-    if (!popoverOpen) {
-      setInputValue('');
-    }
-  }, [popoverOpen]);
+  // Reset input when popover closes, however it was closed (it can also be
+  // toggled by keyboard shortcut). Adjusting state during render instead of
+  // in an effect avoids an extra render pass.
+  const [wasOpen, setWasOpen] = useState(popoverOpen);
+  if (popoverOpen !== wasOpen) {
+    setWasOpen(popoverOpen);
+    if (!popoverOpen) setInputValue('');
+  }
 
   const handleSelectIdentity = (identity: string) => {
     setIdentity(identity);
@@ -108,6 +110,7 @@ export function IdentityPicker() {
               ref={inputRef}
               type="text"
               placeholder="Dein Kürzel..."
+              aria-label="Dein Kürzel"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -120,7 +123,7 @@ export function IdentityPicker() {
                 onClick={handleSubmitInput}
               >
                 <Check className="h-3 w-3 mr-1" />
-                Set as {inputValue.trim()}
+                Als {inputValue.trim()} festlegen
               </Button>
             )}
           </div>

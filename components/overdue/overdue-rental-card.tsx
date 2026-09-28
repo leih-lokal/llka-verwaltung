@@ -18,18 +18,17 @@ import {
 } from 'lucide-react';
 import type { RentalExpanded } from '@/types';
 import { formatDate, formatFullName, calculateDaysOverdue } from '@/lib/utils/formatting';
+import type { OverdueSeverity } from '@/lib/utils/overdue';
 import Link from 'next/link';
 import { ExtendDialog } from './extend-dialog';
 
-type SeverityVariant = 'severely_critical' | 'critical' | 'overdue' | 'due_today' | 'due_soon';
-
 interface OverdueRentalCardProps {
   rental: RentalExpanded;
-  variant: SeverityVariant;
+  variant: OverdueSeverity;
   onUpdated: () => void;
 }
 
-const variantBgStyles: Record<SeverityVariant, string> = {
+const variantBgStyles: Record<OverdueSeverity, string> = {
   severely_critical: 'bg-red-50 dark:bg-red-950/10 border-red-200 dark:border-red-900',
   critical: 'bg-orange-50 dark:bg-orange-950/10 border-orange-200 dark:border-orange-900',
   overdue: 'bg-yellow-50 dark:bg-yellow-950/10 border-yellow-200 dark:border-yellow-900',
@@ -50,11 +49,7 @@ export function OverdueRentalCard({ rental, variant, onUpdated }: OverdueRentalC
     ? `${String(firstItem.iid).padStart(4, '0')} ${firstItem.name}${itemCount > 1 ? ` +${itemCount - 1}` : ''}`
     : `${itemCount} ${itemCount === 1 ? 'Gegenstand' : 'Gegenstände'}`;
 
-  const daysOverdue = calculateDaysOverdue(
-    rental.returned_on,
-    rental.expected_on,
-    rental.extended_on
-  );
+  const daysOverdue = calculateDaysOverdue(rental.returned_on, rental.expected_on);
 
   const isOverdue = daysOverdue > 0;
 

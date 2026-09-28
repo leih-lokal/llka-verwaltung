@@ -6,24 +6,24 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { toast } from "sonner";
 import {
   PlusIcon,
   CheckCircle2Icon,
   UserPlus,
   Check,
   X,
-  ArrowRightIcon,
   ArrowsUpFromLine,
 } from "lucide-react";
 import { SearchBar } from "@/components/search/search-bar";
 import { FilterPopover } from "@/components/search/filter-popover";
 import {
   SortableHeader,
+  ariaSort,
   type SortDirection,
 } from "@/components/table/sortable-header";
 import { ColumnSelector } from "@/components/table/column-selector";
 import { EmptyState } from "@/components/table/empty-state";
+import { RowOpenButton } from "@/components/table/row-open-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ReservationDetailSheet } from "@/components/detail-sheets/reservation-detail-sheet";
@@ -33,6 +33,7 @@ import { useFilters } from "@/hooks/use-filters";
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
 import { useRealtimeSubscription } from "@/hooks/use-realtime-subscription";
 import { reservationsFilterConfig } from "@/lib/filters/filter-configs";
+import { buildRecordInListFilter } from "@/lib/filters/filter-utils";
 import { reservationsColumnConfig } from "@/lib/tables/column-configs";
 import type {
   Reservation,
@@ -41,8 +42,12 @@ import type {
   Customer,
 } from "@/types";
 import { formatDateTime } from "@/lib/utils/formatting";
+import { buildRentalTemplate } from "@/lib/utils/rental-template";
 import { cn } from "@/lib/utils";
 import { FormattedId } from "@/components/ui/formatted-id";
+
+/** Columns that can carry the row's open button, by preference */
+const OPEN_BUTTON_COLUMNS = ["customer_name", "otp", "pickup"];
 
 export default function ReservationsPage() {
   const searchParams = useSearchParams();
@@ -63,8 +68,15 @@ export default function ReservationsPage() {
   const [isRentalSheetOpen, setIsRentalSheetOpen] = useState(false);
   const [rentalFromReservation, setRentalFromReservation] =
     useState<RentalExpanded | null>(null);
+  // Reservation being converted (marked done once the rental is created).
+  // Tracked separately from selectedReservation: the per-row convert button
+  // never opens (or sets) the reservation sheet.
+  const [convertSourceReservationId, setConvertSourceReservationId] =
+    useState<string | undefined>(undefined);
 
   const observerTarget = useRef<HTMLDivElement>(null);
+  // Bumped by every list request so responses of superseded ones are dropped
+  const requestIdRef = useRef(0);
   const perPage = 50;
 
   // Filter management
@@ -115,14 +127,25 @@ export default function ReservationsPage() {
     config: reservationsColumnConfig,
   });
 
+  // Fetch a reservation (expanded) only if it matches the current search and
+  // filters; null otherwise
+  const fetchIfListed = async (id: string) => {
+    const result = await collections
+      .reservations()
+      .getList<ReservationExpanded>(1, 1, {
+        filter: buildRecordInListFilter(id, filters.buildFilter(debouncedSearch)),
+        expand: "items",
+        skipTotal: true,
+      });
+    return result.items[0] ?? null;
+  };
+
   // Real-time subscription for live updates
   useRealtimeSubscription<Reservation>("reservation", {
     onCreated: async (reservation) => {
-      // Fetch the reservation with expanded data
       try {
-        const expandedReservation = await collections
-          .reservations()
-          .getOne<ReservationExpanded>(reservation.id, { expand: "items" });
+        const expandedReservation = await fetchIfListed(reservation.id);
+        if (!expandedReservation) return;
         setReservations((prev) => {
           // Check if reservation already exists (avoid duplicates)
           if (prev.some((r) => r.id === reservation.id)) {
@@ -136,13 +159,13 @@ export default function ReservationsPage() {
       }
     },
     onUpdated: async (reservation) => {
-      // Fetch the reservation with expanded data
       try {
-        const expandedReservation = await collections
-          .reservations()
-          .getOne<ReservationExpanded>(reservation.id, { expand: "items" });
+        const expandedReservation = await fetchIfListed(reservation.id);
+        // Drop it if it no longer matches the filters
         setReservations((prev) =>
-          prev.map((r) => (r.id === reservation.id ? expandedReservation : r)),
+          expandedReservation
+            ? prev.map((r) => (r.id === reservation.id ? expandedReservation : r))
+            : prev.filter((r) => r.id !== reservation.id),
         );
       } catch (err) {
         console.error("Error fetching expanded reservation:", err);
@@ -152,6 +175,8 @@ export default function ReservationsPage() {
       // Remove from list
       setReservations((prev) => prev.filter((r) => r.id !== reservation.id));
     },
+    // Changes missed while paused or disconnected
+    onResubscribe: () => reloadFirstPage(),
   });
 
   // Debounce search input
@@ -163,15 +188,13 @@ export default function ReservationsPage() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Reset pagination when search, filters, or sort change
-  useEffect(() => {
-    setReservations([]);
-    setCurrentPage(1);
-    setHasMore(true);
-  }, [debouncedSearch, filters.activeFilters, sortField]);
-
   const fetchReservations = useCallback(
     async (page: number) => {
+      // A request started after this one (new filter, sort or page) wins,
+      // even if this response arrives later
+      const requestId = ++requestIdRef.current;
+      const isStale = () => requestId !== requestIdRef.current;
+
       try {
         const isInitialLoad = page === 1;
         if (isInitialLoad) {
@@ -191,6 +214,7 @@ export default function ReservationsPage() {
             filter,
             skipTotal: true,
           });
+        if (isStale()) return;
 
         if (isInitialLoad) {
           setReservations(result.items);
@@ -202,6 +226,7 @@ export default function ReservationsPage() {
         setCurrentPage(page + 1);
         setError(null);
       } catch (err) {
+        if (isStale()) return;
         console.error("Error fetching reservations:", err);
         setError(
           err instanceof Error
@@ -209,18 +234,32 @@ export default function ReservationsPage() {
             : "Fehler beim Laden der Reservierungen",
         );
       } finally {
-        setIsLoading(false);
-        setIsLoadingMore(false);
+        if (!isStale()) {
+          setIsLoading(false);
+          setIsLoadingMore(false);
+        }
       }
     },
     [debouncedSearch, filters.buildFilter, sortField, perPage],
   );
 
-  // Initial load and reload on search change
-  useEffect(() => {
+  // See rentals/page.tsx for the rationale behind this pattern: one effect
+  // keyed on the real inputs + a fetchRef so the observer below doesn't
+  // tear down and rebuild on every filter-string mutation.
+  const fetchRef = useRef(fetchReservations);
+  fetchRef.current = fetchReservations;
+
+  // Start over at page 1. Also how the realtime subscription catches up.
+  const reloadFirstPage = useCallback(() => {
+    setReservations([]);
     setCurrentPage(1);
-    fetchReservations(1);
-  }, [debouncedSearch, fetchReservations]);
+    setHasMore(true);
+    fetchRef.current(1);
+  }, []);
+
+  useEffect(() => {
+    reloadFirstPage();
+  }, [debouncedSearch, filters.activeFilters, sortField, reloadFirstPage]);
 
   // Intersection Observer for infinite scroll
   useEffect(() => {
@@ -232,7 +271,7 @@ export default function ReservationsPage() {
           !isLoading &&
           !isLoadingMore
         ) {
-          fetchReservations(currentPage);
+          fetchRef.current(currentPage);
         }
       },
       { threshold: 0.1 },
@@ -243,7 +282,7 @@ export default function ReservationsPage() {
     }
 
     return () => observer.disconnect();
-  }, [fetchReservations, currentPage, hasMore, isLoading, isLoadingMore]);
+  }, [currentPage, hasMore, isLoading, isLoadingMore]);
 
   // Handle column sort
   const handleSort = (columnId: string) => {
@@ -304,59 +343,46 @@ export default function ReservationsPage() {
     // Close reservation sheet
     setIsSheetOpen(false);
 
-    // Expected return defaults to 7 days from today, but if the reservation
-    // carries a pickup date and it's still in the future, honour it — that's
-    // the date the customer actually agreed to.
-    const defaultExpected = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    const pickupDate = reservation.pickup ? new Date(reservation.pickup) : null;
-    const expectedOn = pickupDate && !isNaN(pickupDate.getTime()) && pickupDate.getTime() > Date.now()
-      ? pickupDate
-      : defaultExpected;
-
-    // Create a template rental with data from reservation
-    const templateRental: any = {
-      id: "", // Empty ID indicates new rental
-      customer: "", // Will be set by customer_iid
-      items: reservation.items,
-      deposit: 0, // Will be calculated from items
-      deposit_back: 0,
-      rented_on: new Date().toISOString(),
-      returned_on: "",
-      expected_on: expectedOn.toISOString(),
-      extended_on: "",
-      remark: reservation.comments || "",
-      employee: "",
-      employee_back: "",
-      created: "",
-      updated: "",
-      collectionId: "",
-      collectionName: "rental",
-      expand: {
-        items: reservation.expand?.items || [],
-      },
-    };
-
     // If we have a customer IID, fetch the full customer data
+    let customer: Customer | undefined;
     if (reservation.customer_iid) {
       try {
-        const customer = await collections
+        customer = await collections
           .customers()
           .getFirstListItem<Customer>(`iid=${reservation.customer_iid}`);
-        templateRental.customer = customer.id;
-        templateRental.expand.customer = customer;
       } catch (err) {
         console.error("Error fetching customer:", err);
       }
     }
 
-    setRentalFromReservation(templateRental as RentalExpanded);
+    // Create a template rental with data from reservation. The loan period
+    // starts at the pickup day if that's still in the future.
+    const templateRental = buildRentalTemplate({
+      customer,
+      items: reservation.expand?.items || [],
+      pickup: reservation.pickup,
+      remark: reservation.comments,
+    });
+
+    setRentalFromReservation(templateRental);
+    setConvertSourceReservationId(reservation.id);
     setIsRentalSheetOpen(true);
+  };
+
+  // Forget the convert source whenever the rental sheet closes, so it can't
+  // be marked done by a later, unrelated rental
+  const handleRentalSheetOpenChange = (open: boolean) => {
+    setIsRentalSheetOpen(open);
+    if (!open) {
+      setConvertSourceReservationId(undefined);
+    }
   };
 
   // Handle rental save
   const handleRentalSave = () => {
     setIsRentalSheetOpen(false);
     setRentalFromReservation(null);
+    setConvertSourceReservationId(undefined);
     // Optionally refresh reservations list
     setReservations([]);
     setCurrentPage(1);
@@ -370,7 +396,7 @@ export default function ReservationsPage() {
     switch (columnId) {
       case "customer_name":
         return (
-          <th key="customer_name" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="customer_name" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection("customer_name"))}>
             <SortableHeader
               label="Nutzer"
               sortDirection={getSortDirection("customer_name")}
@@ -381,7 +407,7 @@ export default function ReservationsPage() {
         );
       case "items":
         return (
-          <th key="items" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="items" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection("items"))}>
             <SortableHeader
               label="Gegenstände"
               sortDirection={getSortDirection("items")}
@@ -392,7 +418,7 @@ export default function ReservationsPage() {
         );
       case "customer_phone":
         return (
-          <th key="customer_phone" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="customer_phone" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection("customer_phone"))}>
             <SortableHeader
               label="Telefon"
               sortDirection={getSortDirection("customer_phone")}
@@ -403,7 +429,7 @@ export default function ReservationsPage() {
         );
       case "pickup":
         return (
-          <th key="pickup" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="pickup" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection("pickup"))}>
             <SortableHeader
               label="Abholung"
               sortDirection={getSortDirection("pickup")}
@@ -414,7 +440,7 @@ export default function ReservationsPage() {
         );
       case "status":
         return (
-          <th key="status" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="status" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection("status"))}>
             <button
               onClick={() => handleSort("status")}
               disabled={isLoading}
@@ -427,7 +453,7 @@ export default function ReservationsPage() {
         );
       case "customer_email":
         return (
-          <th key="customer_email" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="customer_email" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection("customer_email"))}>
             <SortableHeader
               label="Email"
               sortDirection={getSortDirection("customer_email")}
@@ -438,7 +464,7 @@ export default function ReservationsPage() {
         );
       case "customer_iid":
         return (
-          <th key="customer_iid" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="customer_iid" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection("customer_iid"))}>
             <SortableHeader
               label="Nutzer-ID"
               sortDirection={getSortDirection("customer_iid")}
@@ -449,9 +475,10 @@ export default function ReservationsPage() {
         );
       case "is_new_customer":
         return (
-          <th key="is_new_customer" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="is_new_customer" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection("is_new_customer"))}>
             <SortableHeader
               label={<UserPlus className="size-4" />}
+              ariaLabel="Neunutzer"
               sortDirection={getSortDirection("is_new_customer")}
               onSort={() => handleSort("is_new_customer")}
               disabled={isLoading}
@@ -460,7 +487,7 @@ export default function ReservationsPage() {
         );
       case "comments":
         return (
-          <th key="comments" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="comments" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection("comments"))}>
             <SortableHeader
               label="Kommentare"
               sortDirection={getSortDirection("comments")}
@@ -471,7 +498,7 @@ export default function ReservationsPage() {
         );
       case "on_premises":
         return (
-          <th key="on_premises" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="on_premises" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection("on_premises"))}>
             <SortableHeader
               label="Vor Ort"
               sortDirection={getSortDirection("on_premises")}
@@ -497,39 +524,64 @@ export default function ReservationsPage() {
     }
   };
 
+  // The row's open button goes into the first of these columns that is shown
+  const openColumnId = OPEN_BUTTON_COLUMNS.find((id) =>
+    columnVisibility.visibleColumns.includes(id),
+  );
+
   // Render table body cell for a given column and reservation
   const renderBodyCell = (
     columnId: string,
     reservation: ReservationExpanded,
   ) => {
     const dividerClass = columnVisibility.verticalDividers ? 'border-l first:border-l-0 border-border/30' : '';
+    // Keyboard/screen-reader access to the row's click action
+    const openable = (content: React.ReactNode) => {
+      if (columnId !== openColumnId) return content;
+      const name = reservation.customer_name?.trim();
+      const who = !name
+        ? reservation.customer_email || "Keine E-Mail"
+        : reservation.customer_iid
+          ? `#${String(reservation.customer_iid).padStart(4, "0")} ${name}`
+          : name;
+      return (
+        <RowOpenButton
+          label={`Reservierung von ${who} (Abholung ${formatDateTime(reservation.pickup)}) öffnen`}
+          onOpen={() => handleRowClick(reservation)}
+        >
+          {content}
+        </RowOpenButton>
+      );
+    };
 
     switch (columnId) {
       case "customer_name":
         return (
           <td key="customer_name" className={cn("px-4 py-3", dividerClass)}>
-            {!reservation.customer_name ||
-            reservation.customer_name.trim() === "" ? (
-              // Empty name → show NEW badge + email
-              <div className="flex items-center gap-2">
-                <Badge variant="default" className="text-xs shrink-0">
-                  ★
-                </Badge>
-                <span className="font-mono text-primary text-sm truncate">
-                  {reservation.customer_email || "Keine E-Mail"}
+            {openable(
+              !reservation.customer_name ||
+              reservation.customer_name.trim() === "" ? (
+                // Empty name → show NEW badge + email
+                <span className="flex items-center gap-2">
+                  <Badge variant="default" className="text-xs shrink-0">
+                    ★
+                  </Badge>
+                  <span className="font-mono text-primary text-sm truncate">
+                    {reservation.customer_email || "Keine E-Mail"}
+                  </span>
                 </span>
-              </div>
-            ) : reservation.customer_iid ? (
-              // Existing customer with ID
-              <span className="font-medium">
-                <span className="font-mono text-primary mr-2">
-                  #{String(reservation.customer_iid).padStart(4, "0")}
+              ) : reservation.customer_iid ? (
+                // Existing customer with ID
+                <span className="font-medium">
+                  <span className="font-mono text-primary mr-2">
+                    #{String(reservation.customer_iid).padStart(4, "0")}
+                  </span>
+                  {reservation.customer_name}
                 </span>
-                {reservation.customer_name}
-              </span>
-            ) : (
-              // New customer with name filled
-              <span className="font-medium">{reservation.customer_name}</span>
+              ) : (
+                // New customer with name filled
+                <span className="font-medium">{reservation.customer_name}</span>
+              ),
             )}
           </td>
         );
@@ -558,7 +610,7 @@ export default function ReservationsPage() {
       case "pickup":
         return (
           <td key="pickup" className={cn("px-4 py-3 text-sm text-muted-foreground", dividerClass)}>
-            {formatDateTime(reservation.pickup)}
+            {openable(formatDateTime(reservation.pickup))}
           </td>
         );
       case "status":
@@ -594,6 +646,7 @@ export default function ReservationsPage() {
             ) : (
               <X className="size-4 text-muted-foreground" />
             )}
+            <span className="sr-only">{reservation.is_new_customer ? "Ja" : "Nein"}</span>
           </td>
         );
       case "comments":
@@ -610,14 +663,17 @@ export default function ReservationsPage() {
             ) : (
               <X className="size-4 text-muted-foreground" />
             )}
+            <span className="sr-only">{reservation.on_premises ? "Ja" : "Nein"}</span>
           </td>
         );
       case "otp":
         return (
           <td key="otp" className={cn("px-4 py-3 text-base font-mono font-semibold text-primary", dividerClass)}>
-            {reservation.otp
-              ? `${reservation.otp.slice(0, 3)} ${reservation.otp.slice(3)}`
-              : "—"}
+            {openable(
+              reservation.otp
+                ? `${reservation.otp.slice(0, 3)} ${reservation.otp.slice(3)}`
+                : "—",
+            )}
           </td>
         );
       case "actions":
@@ -699,8 +755,9 @@ export default function ReservationsPage() {
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="h-8 w-8 animate-spin border-4 border-primary border-t-transparent" />
+          <div role="status" className="flex items-center justify-center py-8">
+            <div aria-hidden="true" className="h-8 w-8 animate-spin border-4 border-primary border-t-transparent" />
+            <span className="sr-only">Lädt…</span>
           </div>
         ) : error ? (
           <div className="text-center py-8">
@@ -739,15 +796,17 @@ export default function ReservationsPage() {
             {/* Infinite scroll trigger */}
             <div ref={observerTarget} className="h-4" />
 
-            {/* Loading more indicator */}
-            {isLoadingMore && (
-              <div className="flex items-center justify-center py-4">
-                <div className="h-6 w-6 animate-spin border-4 border-primary border-t-transparent" />
-                <span className="ml-2 text-sm text-muted-foreground">
-                  Lädt mehr...
-                </span>
-              </div>
-            )}
+            {/* Loading more indicator (polite live region, kept mounted) */}
+            <div role="status">
+              {isLoadingMore && (
+                <div className="flex items-center justify-center py-4">
+                  <div aria-hidden="true" className="h-6 w-6 animate-spin border-4 border-primary border-t-transparent" />
+                  <span className="ml-2 text-sm text-muted-foreground">
+                    Lädt mehr...
+                  </span>
+                </div>
+              )}
+            </div>
 
             {/* End of results */}
             {!hasMore && reservations.length > 0 && (
@@ -774,13 +833,9 @@ export default function ReservationsPage() {
       <RentalDetailSheet
         rental={rentalFromReservation}
         open={isRentalSheetOpen}
-        onOpenChange={setIsRentalSheetOpen}
+        onOpenChange={handleRentalSheetOpenChange}
         onSave={handleRentalSave}
-        sourceReservationId={
-          rentalFromReservation && !rentalFromReservation.id
-            ? selectedReservation?.id
-            : undefined
-        }
+        sourceReservationId={convertSourceReservationId}
       />
     </div>
   );

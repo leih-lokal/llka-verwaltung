@@ -5,10 +5,11 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useId } from 'react';
 import { Input } from '@/components/ui/input';
 import { User, Loader2 } from 'lucide-react';
-import { collections } from '@/lib/pocketbase/client';
+import { collections, pb } from '@/lib/pocketbase/client';
+import { buildCustomerSearchFilter } from '@/lib/filters/filter-utils';
 import type { Customer } from '@/types';
 import { cn } from '@/lib/utils';
 import { useSequentialMode } from '@/hooks/use-sequential-mode';
@@ -21,6 +22,8 @@ export function CustomerStep() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const selectedRef = useRef<HTMLDivElement>(null);
+  const listboxId = useId();
+  const optionId = (index: number) => `${listboxId}-option-${index}`;
 
   // Auto-focus input on mount
   useEffect(() => {
@@ -38,18 +41,16 @@ export function CustomerStep() {
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const filters = [];
         const isNumeric = /^\d+$/.test(searchQuery);
 
+        // Shared iid / name search, plus a fuzzy email match
+        const filters = [buildCustomerSearchFilter(searchQuery)];
         if (isNumeric) {
-          // Prioritize exact IID match
-          filters.push(`iid=${parseInt(searchQuery, 10)}`);
+          // The shared helper only matches the iid for digits; keep the name/email match too
+          filters.push(pb.filter('firstname ~ {:q} || lastname ~ {:q} || email ~ {:q}', { q: searchQuery }));
+        } else {
+          filters.push(pb.filter('email ~ {:q}', { q: searchQuery.trim() }));
         }
-
-        // Fuzzy search on name and email
-        filters.push(`firstname~'${searchQuery}'`);
-        filters.push(`lastname~'${searchQuery}'`);
-        filters.push(`email~'${searchQuery}'`);
 
         const filter = filters.join(' || ');
 
@@ -105,12 +106,9 @@ export function CustomerStep() {
     goNext(); // Auto-advance to items step
   };
 
-  // Get active rentals count for display
-  const getActiveRentalsText = (customer: Customer) => {
-    // This is a simplified version - in production, you might want to fetch this
-    // For now, we'll just show a placeholder
-    return '';
-  };
+  // The input stays focused while arrow keys move through the results, so it
+  // is a combobox pointing at the highlighted option
+  const showResults = !isSearching && results.length > 0;
 
   return (
     <div className="flex flex-col h-full">
@@ -119,6 +117,12 @@ export function CustomerStep() {
         <Input
           ref={inputRef}
           type="text"
+          role="combobox"
+          aria-label="Nutzer:in suchen"
+          aria-autocomplete="list"
+          aria-expanded={showResults}
+          aria-controls={showResults ? listboxId : undefined}
+          aria-activedescendant={showResults ? optionId(selectedIndex) : undefined}
           placeholder="Name oder Nummer eingeben..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -148,11 +152,14 @@ export function CustomerStep() {
           </div>
         )}
 
-        {!isSearching && results.length > 0 && (
-          <div className="space-y-2">
+        {showResults && (
+          <div id={listboxId} role="listbox" aria-label="Nutzer:innen" className="space-y-2">
             {results.map((customer, index) => (
               <div
                 key={customer.id}
+                id={optionId(index)}
+                role="option"
+                aria-selected={selectedIndex === index}
                 ref={selectedIndex === index ? selectedRef : null}
                 onClick={() => handleSelectCustomer(customer)}
                 className={cn(

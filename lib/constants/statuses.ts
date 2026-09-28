@@ -102,13 +102,6 @@ export const BOOKING_STATUS_TEXT_COLORS: Record<BookingStatus, string> = {
 };
 
 /**
- * Get booking status label
- */
-export function getBookingStatusLabel(status: BookingStatus): string {
-  return BOOKING_STATUS_LABELS[status] || status;
-}
-
-/**
  * Get item status label
  */
 export function getItemStatusLabel(status: ItemStatus): string {

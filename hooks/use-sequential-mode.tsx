@@ -7,6 +7,7 @@
 'use client';
 
 import { createContext, useContext, useMemo, useState, useCallback, type ReactNode } from 'react';
+import { addDays } from 'date-fns';
 import type { Customer, Item } from '@/types';
 
 export type SequentialModeStep = 1 | 2 | 3 | 4;
@@ -49,6 +50,11 @@ interface SequentialModeContextValue {
 
 const SequentialModeContext = createContext<SequentialModeContextValue | null>(null);
 
+/** Default return date: one week from today */
+function defaultExpectedDate(): Date {
+  return addDays(new Date(), 7);
+}
+
 export function SequentialModeProvider({ children }: { children: ReactNode }) {
   const [open, setOpenState] = useState(false);
   const [step, setStep] = useState<SequentialModeStep>(1);
@@ -56,9 +62,7 @@ export function SequentialModeProvider({ children }: { children: ReactNode }) {
   // Data state
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
-  const [expectedDate, setExpectedDate] = useState<Date>(
-    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // Default: 1 week from now
-  );
+  const [expectedDate, setExpectedDate] = useState<Date>(defaultExpectedDate);
   const [employee, setEmployee] = useState('');
 
   // Reset all state when modal closes
@@ -66,17 +70,21 @@ export function SequentialModeProvider({ children }: { children: ReactNode }) {
     setStep(1);
     setSelectedCustomer(null);
     setSelectedItems([]);
-    setExpectedDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+    setExpectedDate(defaultExpectedDate());
     setEmployee('');
   }, []);
 
-  // Controlled setOpen that resets on close
+  // Controlled setOpen that resets on close. Opening refreshes the default
+  // return date, which would otherwise date from page load (or the last
+  // close) in a tab left open overnight.
   const setOpen = useCallback((newOpen: boolean) => {
     if (!newOpen) {
       reset();
+    } else if (!open) {
+      setExpectedDate(defaultExpectedDate());
     }
     setOpenState(newOpen);
-  }, [reset]);
+  }, [reset, open]);
 
   // Step navigation
   const goBack = useCallback(() => {

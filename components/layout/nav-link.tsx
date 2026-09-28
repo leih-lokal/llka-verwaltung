@@ -44,6 +44,8 @@ export const NavLink = React.forwardRef<HTMLAnchorElement, NavLinkProps>(
       <Link
         ref={ref}
         href={href}
+        // "page" on the page itself, "true" on a sub-page of this section
+        aria-current={pathname === href ? 'page' : isActive ? 'true' : undefined}
         className={cn(
           'flex items-center gap-2 px-4 py-2 font-medium transition-colors border',
           isActive

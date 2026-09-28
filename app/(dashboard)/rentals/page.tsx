@@ -6,12 +6,13 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { PlusIcon, BadgeCheckIcon, CoinsIcon, WalletIcon, SmileIcon, ChevronLeft, ChevronRight, CircleCheckBig, CheckLine, Check } from 'lucide-react';
+import { PlusIcon, BadgeCheckIcon, CoinsIcon, WalletIcon, SmileIcon, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { SearchBar } from '@/components/search/search-bar';
 import { FilterPopover } from '@/components/search/filter-popover';
-import { SortableHeader, type SortDirection } from '@/components/table/sortable-header';
+import { SortableHeader, ariaSort, type SortDirection } from '@/components/table/sortable-header';
 import { ColumnSelector } from '@/components/table/column-selector';
 import { EmptyState } from '@/components/table/empty-state';
+import { RowOpenButton } from '@/components/table/row-open-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { RentalDetailSheet } from '@/components/detail-sheets/rental-detail-sheet';
@@ -20,6 +21,7 @@ import { useFilters } from '@/hooks/use-filters';
 import { useColumnVisibility } from '@/hooks/use-column-visibility';
 import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
 import { rentalsFilterConfig } from '@/lib/filters/filter-configs';
+import { buildRecordInListFilter } from '@/lib/filters/filter-utils';
 import { rentalsColumnConfig } from '@/lib/tables/column-configs';
 import type { Rental, RentalExpanded } from '@/types';
 import { formatDate, calculateRentalStatus } from '@/lib/utils/formatting';
@@ -30,6 +32,9 @@ import { cn } from '@/lib/utils';
 import { createRentalTemplate } from '@/lib/utils/rental-template';
 import { toast } from 'sonner';
 import { FormattedId } from '@/components/ui/formatted-id';
+
+/** Columns that can carry the row's open button, by preference */
+const OPEN_BUTTON_COLUMNS = ['customer', 'rented_on'];
 
 export default function RentalsPage() {
   const searchParams = useSearchParams();
@@ -47,6 +52,8 @@ export default function RentalsPage() {
   const [sourceReservationId, setSourceReservationId] = useState<string | undefined>(undefined);
 
   const observerTarget = useRef<HTMLDivElement>(null);
+  // Bumped by every list request so responses of superseded ones are dropped
+  const requestIdRef = useRef(0);
   const perPage = 50;
 
   // Filter management
@@ -65,15 +72,23 @@ export default function RentalsPage() {
     config: rentalsColumnConfig,
   });
 
+  // Fetch a rental (expanded) only if it matches the current search and
+  // filters; null otherwise
+  const fetchIfListed = async (id: string) => {
+    const result = await collections.rentals().getList<RentalExpanded>(1, 1, {
+      filter: buildRecordInListFilter(id, filters.buildFilter(debouncedSearch)),
+      expand: 'customer,items',
+      skipTotal: true,
+    });
+    return result.items[0] ?? null;
+  };
+
   // Real-time subscription for live updates
   useRealtimeSubscription<Rental>('rental', {
     onCreated: async (rental) => {
-      // Fetch the rental with expanded data
       try {
-        const expandedRental = await collections.rentals().getOne<RentalExpanded>(
-          rental.id,
-          { expand: 'customer,items' }
-        );
+        const expandedRental = await fetchIfListed(rental.id);
+        if (!expandedRental) return;
         setRentals((prev) => {
           // Check if rental already exists (avoid duplicates)
           if (prev.some((r) => r.id === rental.id)) {
@@ -87,14 +102,13 @@ export default function RentalsPage() {
       }
     },
     onUpdated: async (rental) => {
-      // Fetch the rental with expanded data
       try {
-        const expandedRental = await collections.rentals().getOne<RentalExpanded>(
-          rental.id,
-          { expand: 'customer,items' }
-        );
+        const expandedRental = await fetchIfListed(rental.id);
+        // Drop it if it no longer matches the filters
         setRentals((prev) =>
-          prev.map((r) => (r.id === rental.id ? expandedRental : r))
+          expandedRental
+            ? prev.map((r) => (r.id === rental.id ? expandedRental : r))
+            : prev.filter((r) => r.id !== rental.id)
         );
       } catch (err) {
         console.error('Error fetching expanded rental:', err);
@@ -104,6 +118,8 @@ export default function RentalsPage() {
       // Remove from list
       setRentals((prev) => prev.filter((r) => r.id !== rental.id));
     },
+    // Changes missed while paused or disconnected
+    onResubscribe: () => reloadFirstPage(),
   });
 
   // Handle URL query parameters (action=new or view=id)
@@ -116,6 +132,7 @@ export default function RentalsPage() {
       const customerIidParam = searchParams.get('customer_iid');
       const itemIdsParam = searchParams.get('item_ids');
       const fromReservationId = searchParams.get('from_reservation');
+      const pickup = searchParams.get('pickup');
 
       // If we have pre-fill data, create a template rental
       if (customerIidParam || itemIdsParam) {
@@ -128,6 +145,7 @@ export default function RentalsPage() {
           customerIid,
           itemIids,
           reservationId: fromReservationId || undefined,
+          pickup: pickup || undefined,
         }).then((template) => {
           if (template) {
             setSelectedRental(template);
@@ -156,6 +174,7 @@ export default function RentalsPage() {
         expand: 'customer,items',
       }).then((rental) => {
         setSelectedRental(rental);
+        setSourceReservationId(undefined);
         setIsSheetOpen(true);
         // Clear the URL parameter
         router.replace('/rentals');
@@ -176,6 +195,11 @@ export default function RentalsPage() {
   }, [searchQuery]);
 
   const fetchRentals = useCallback(async (page: number) => {
+    // A request started after this one (new filter, sort or page) wins, even
+    // if this response arrives later
+    const requestId = ++requestIdRef.current;
+    const isStale = () => requestId !== requestIdRef.current;
+
     try {
       const isInitialLoad = page === 1;
       if (isInitialLoad) {
@@ -197,6 +221,7 @@ export default function RentalsPage() {
           skipTotal: true,
         }
       );
+      if (isStale()) return;
 
       if (isInitialLoad) {
         setRentals(result.items);
@@ -208,13 +233,16 @@ export default function RentalsPage() {
       setCurrentPage(page + 1);
       setError(null);
     } catch (err) {
+      if (isStale()) return;
       console.error('Error fetching rentals:', err);
       setError(
         err instanceof Error ? err.message : 'Fehler beim Laden der Leihvorgänge'
       );
     } finally {
-      setIsLoading(false);
-      setIsLoadingMore(false);
+      if (!isStale()) {
+        setIsLoading(false);
+        setIsLoadingMore(false);
+      }
     }
   }, [debouncedSearch, filters.buildFilter, sortField, perPage]);
 
@@ -224,16 +252,21 @@ export default function RentalsPage() {
   const fetchRef = useRef(fetchRentals);
   fetchRef.current = fetchRentals;
 
+  // Start over at page 1. Also how the realtime subscription catches up.
+  const reloadFirstPage = useCallback(() => {
+    setRentals([]);
+    setCurrentPage(1);
+    setHasMore(true);
+    fetchRef.current(1);
+  }, []);
+
   // Reset + fetch in a single effect keyed on the actual inputs.
   // Previously this was two effects (reset pagination, then fetch via
   // fetchRentals-identity), which meant every filter-string mutation
   // tore down and rebuilt the infinite-scroll observer below.
   useEffect(() => {
-    setRentals([]);
-    setCurrentPage(1);
-    setHasMore(true);
-    fetchRef.current(1);
-  }, [debouncedSearch, filters.activeFilters, sortField]);
+    reloadFirstPage();
+  }, [debouncedSearch, filters.activeFilters, sortField, reloadFirstPage]);
 
   // Intersection Observer for infinite scroll. Depends only on pagination
   // state — not fetchRentals identity — so it isn't recreated on every
@@ -284,13 +317,24 @@ export default function RentalsPage() {
   // Handle row click to open detail sheet
   const handleRowClick = (rental: RentalExpanded) => {
     setSelectedRental(rental);
+    setSourceReservationId(undefined);
     setIsSheetOpen(true);
   };
 
   // Handle new rental button
   const handleNewRental = () => {
     setSelectedRental(null);
+    setSourceReservationId(undefined);
     setIsSheetOpen(true);
+  };
+
+  // Forget the reservation being converted whenever the sheet closes, so a
+  // later, unrelated rental can't mark it done
+  const handleSheetOpenChange = (open: boolean) => {
+    setIsSheetOpen(open);
+    if (!open) {
+      setSourceReservationId(undefined);
+    }
   };
 
   // Handle rental save
@@ -309,7 +353,7 @@ export default function RentalsPage() {
     switch (columnId) {
       case 'customer':
         return (
-          <th key="customer" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="customer" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('customer'))}>
             <SortableHeader
               label="Nutzer"
               sortDirection={getSortDirection('customer')}
@@ -320,7 +364,7 @@ export default function RentalsPage() {
         );
       case 'items':
         return (
-          <th key="items" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="items" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('items'))}>
             <SortableHeader
               label="Gegenstände"
               sortDirection={getSortDirection('items')}
@@ -331,7 +375,7 @@ export default function RentalsPage() {
         );
       case 'rented_on':
         return (
-          <th key="rented_on" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="rented_on" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('rented_on'))}>
             <SortableHeader
               label="Ausgeliehen"
               sortDirection={getSortDirection('rented_on')}
@@ -342,7 +386,7 @@ export default function RentalsPage() {
         );
       case 'expected_on':
         return (
-          <th key="expected_on" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="expected_on" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('expected_on'))}>
             <SortableHeader
               label="Erwartet"
               sortDirection={getSortDirection('expected_on')}
@@ -353,7 +397,7 @@ export default function RentalsPage() {
         );
       case 'returned_on':
         return (
-          <th key="returned_on" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="returned_on" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('returned_on'))}>
             <SortableHeader
               label="Zurück"
               sortDirection={getSortDirection('returned_on')}
@@ -370,7 +414,7 @@ export default function RentalsPage() {
         );
       case 'extended_on':
         return (
-          <th key="extended_on" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="extended_on" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('extended_on'))}>
             <SortableHeader
               label="Verlängert"
               sortDirection={getSortDirection('extended_on')}
@@ -381,7 +425,7 @@ export default function RentalsPage() {
         );
       case 'deposit':
         return (
-          <th key="deposit" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="deposit" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('deposit'))}>
             <button
               onClick={() => handleSort('deposit')}
               disabled={isLoading}
@@ -394,7 +438,7 @@ export default function RentalsPage() {
         );
       case 'deposit_back':
         return (
-          <th key="deposit_back" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="deposit_back" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('deposit_back'))}>
             <button
               onClick={() => handleSort('deposit_back')}
               disabled={isLoading}
@@ -407,7 +451,7 @@ export default function RentalsPage() {
         );
       case 'remark':
         return (
-          <th key="remark" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="remark" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('remark'))}>
             <SortableHeader
               label="Bemerkung"
               sortDirection={getSortDirection('remark')}
@@ -418,7 +462,7 @@ export default function RentalsPage() {
         );
       case 'employee':
         return (
-          <th key="employee" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="employee" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('employee'))}>
             <SortableHeader
             label={
               <div className="flex items-center gap-1">
@@ -426,6 +470,7 @@ export default function RentalsPage() {
                 <ChevronRight className="size-4" />
               </div>
             }
+              ariaLabel="Mitarbeiter Ausgabe"
               sortDirection={getSortDirection('employee')}
               onSort={() => handleSort('employee')}
               disabled={isLoading}
@@ -434,7 +479,7 @@ export default function RentalsPage() {
         );
       case 'employee_back':
         return (
-          <th key="employee_back" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="employee_back" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('employee_back'))}>
             <SortableHeader
             label={
               <div className="flex items-center gap-1">
@@ -442,6 +487,7 @@ export default function RentalsPage() {
                 <ChevronLeft className="size-4" />
               </div>
             }
+              ariaLabel="Mitarbeiter Rücknahme"
               sortDirection={getSortDirection('employee_back')}
               onSort={() => handleSort('employee_back')}
               disabled={isLoading}
@@ -453,25 +499,45 @@ export default function RentalsPage() {
     }
   };
 
+  // The row's open button goes into the first of these columns that is shown
+  const openColumnId = OPEN_BUTTON_COLUMNS.find((id) =>
+    columnVisibility.visibleColumns.includes(id)
+  );
+
   // Render table body cell for a given column and rental
   const renderBodyCell = (columnId: string, rental: RentalExpanded) => {
     const status = calculateRentalStatus(rental);
     const dividerClass = columnVisibility.verticalDividers ? 'border-l first:border-l-0 border-border/30' : '';
+    // Keyboard/screen-reader access to the row's click action
+    const openable = (content: React.ReactNode) => {
+      if (columnId !== openColumnId) return content;
+      const customer = rental.expand?.customer;
+      const label = customer
+        ? `Ausleihe von ${String(customer.iid).padStart(4, '0')} ${customer.firstname} ${customer.lastname} vom ${formatDate(rental.rented_on)} öffnen`
+        : `Ausleihe vom ${formatDate(rental.rented_on)} öffnen`;
+      return (
+        <RowOpenButton label={label} onOpen={() => handleRowClick(rental)}>
+          {content}
+        </RowOpenButton>
+      );
+    };
 
     switch (columnId) {
       case 'customer':
         return (
           <td key="customer" className={cn("px-4 py-3", dividerClass)}>
-            {rental.expand?.customer ? (
-              <span className="font-medium">
-                <span className="font-mono text-primary font-semibold mr-2">
-                  {String(rental.expand.customer.iid).padStart(4, '0')}
+            {openable(
+              rental.expand?.customer ? (
+                <span className="font-medium">
+                  <span className="font-mono text-primary font-semibold mr-2">
+                    {String(rental.expand.customer.iid).padStart(4, '0')}
+                  </span>
+                  {rental.expand.customer.firstname}{' '}
+                  {rental.expand.customer.lastname}
                 </span>
-                {rental.expand.customer.firstname}{' '}
-                {rental.expand.customer.lastname}
-              </span>
-            ) : (
-              <span className="text-muted-foreground">—</span>
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              )
             )}
           </td>
         );
@@ -493,17 +559,20 @@ export default function RentalsPage() {
                       <FormattedId id={item.iid} size="md" className="mr-2" />
                       {item.name}
                       {copyCount > 1 && (
-                        <span className="ml-1 text-xs text-muted-foreground font-medium">
+                        <span className="ml-1 text-xs text-neutral-600 font-medium">
                           (×{copyCount})
                         </span>
                       )}
                       {hasPartialReturn && (
-                        <span className="ml-1 text-xs font-semibold text-green-600">
+                        <span className="ml-1 text-xs font-semibold text-green-800">
                           {returnedCount}/{copyCount} zurück
                         </span>
                       )}
                       {(isFullyReturned || isRentalReturned) && (
-                        <Check strokeWidth={4} className="inline-block ml-1 size-3.5 text-green-600" />
+                        <>
+                          <Check strokeWidth={4} className="inline-block ml-1 size-3.5 text-green-700" />
+                          <span className="sr-only">zurückgegeben</span>
+                        </>
                       )}
                     </span>
                   );
@@ -516,13 +585,13 @@ export default function RentalsPage() {
         );
       case 'rented_on':
         return (
-          <td key="rented_on" className={cn("px-4 py-3 text-sm text-muted-foreground", dividerClass)}>
-            {formatDate(rental.rented_on)}
+          <td key="rented_on" className={cn("px-4 py-3 text-sm text-neutral-600", dividerClass)}>
+            {openable(formatDate(rental.rented_on))}
           </td>
         );
       case 'expected_on':
         return (
-          <td key="expected_on" className={cn("px-4 py-3 text-sm text-muted-foreground", dividerClass)}>
+          <td key="expected_on" className={cn("px-4 py-3 text-sm text-neutral-600", dividerClass)}>
             {formatDate(rental.expected_on)}
           </td>
         );
@@ -538,7 +607,7 @@ export default function RentalsPage() {
             <Badge
               variant="outline"
               className={cn(
-                status === 'active' && 'bg-red-500 text-white border-red-500'
+                status === 'active' && 'bg-red-600 text-white border-red-600'
               )}
             >
               {getRentalStatusLabel(status)}
@@ -547,7 +616,7 @@ export default function RentalsPage() {
         );
       case 'extended_on':
         return (
-          <td key="extended_on" className={cn("px-4 py-3 text-sm text-muted-foreground", dividerClass)}>
+          <td key="extended_on" className={cn("px-4 py-3 text-sm text-neutral-600", dividerClass)}>
             {rental.extended_on ? formatDate(rental.extended_on) : '—'}
           </td>
         );
@@ -638,8 +707,9 @@ export default function RentalsPage() {
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="h-8 w-8 animate-spin border-4 border-primary border-t-transparent" />
+          <div role="status" className="flex items-center justify-center py-8">
+            <div aria-hidden="true" className="h-8 w-8 animate-spin border-4 border-primary border-t-transparent" />
+            <span className="sr-only">Lädt…</span>
           </div>
         ) : error ? (
           <div className="text-center py-8">
@@ -680,15 +750,17 @@ export default function RentalsPage() {
             {/* Infinite scroll trigger */}
             <div ref={observerTarget} className="h-4" />
 
-            {/* Loading more indicator */}
-            {isLoadingMore && (
-              <div className="flex items-center justify-center py-4">
-                <div className="h-6 w-6 animate-spin border-4 border-primary border-t-transparent" />
-                <span className="ml-2 text-sm text-muted-foreground">
-                  Lädt mehr...
-                </span>
-              </div>
-            )}
+            {/* Loading more indicator (polite live region, kept mounted) */}
+            <div role="status">
+              {isLoadingMore && (
+                <div className="flex items-center justify-center py-4">
+                  <div aria-hidden="true" className="h-6 w-6 animate-spin border-4 border-primary border-t-transparent" />
+                  <span className="ml-2 text-sm text-muted-foreground">
+                    Lädt mehr...
+                  </span>
+                </div>
+              )}
+            </div>
 
             {/* End of results */}
             {!hasMore && rentals.length > 0 && (
@@ -706,7 +778,7 @@ export default function RentalsPage() {
       <RentalDetailSheet
         rental={selectedRental}
         open={isSheetOpen}
-        onOpenChange={setIsSheetOpen}
+        onOpenChange={handleSheetOpenChange}
         onSave={handleRentalSave}
         sourceReservationId={sourceReservationId}
       />

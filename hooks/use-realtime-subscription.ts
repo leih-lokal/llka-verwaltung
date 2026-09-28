@@ -5,20 +5,41 @@
 
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { pb } from '@/lib/pocketbase/client';
 import type {
   RealtimeEvent,
   RealtimeSubscriptionOptions,
   BaseRecord
 } from '@/types';
-import { logRealtimeEvent, isCreateEvent, isUpdateEvent, isDeleteEvent } from '@/lib/pocketbase/realtime';
+import {
+  logRealtimeEvent,
+  getRealtimeReconnectGeneration,
+  refreshRealtimeConnectionState,
+  reportRealtimeSubscribeError,
+  subscribeRealtimeReconnect,
+  trackRealtimeSubscription,
+} from '@/lib/pocketbase/realtime';
+
+export interface UseRealtimeSubscriptionOptions<T extends BaseRecord>
+  extends RealtimeSubscriptionOptions<T> {
+  /**
+   * Called when events may have been missed and the subscription is live
+   * again: after re-subscribing once the tab is visible again, `enabled`
+   * turned back on or a manual reconnect, and after the SDK re-established
+   * a dropped connection. Not called for the first subscription. Use it to
+   * refetch the data the page shows.
+   */
+  onResubscribe?: () => void | Promise<void>;
+}
 
 /**
  * Subscribe to real-time updates for a PocketBase collection
  *
  * Automatically pauses subscriptions when the page is hidden (tab not visible)
- * to conserve resources and improve performance.
+ * to conserve resources and improve performance. Changes made while paused
+ * (or while the connection was down) are not replayed; pass `onResubscribe`
+ * to refetch.
  *
  * @param collection - Collection name to subscribe to
  * @param options - Subscription options and callbacks
@@ -35,21 +56,30 @@ import { logRealtimeEvent, isCreateEvent, isUpdateEvent, isDeleteEvent } from '@
  *   onDeleted: (record) => {
  *     setCustomers(prev => prev.filter(c => c.id !== record.id));
  *   },
+ *   onResubscribe: () => loadCustomers(), // Optional: catch up after a pause
  *   enabled: true // Optional: conditionally enable subscription
  * });
  * ```
  */
 export function useRealtimeSubscription<T extends BaseRecord>(
   collection: string,
-  options: RealtimeSubscriptionOptions<T> = {}
+  options: UseRealtimeSubscriptionOptions<T> = {}
 ): void {
   const {
     onCreated,
     onUpdated,
     onDeleted,
+    onResubscribe,
     filter,
     enabled = true
   } = options;
+
+  // Bumped by a manual reconnect (useRealtimeConnection().reconnect)
+  const reconnectGeneration = useSyncExternalStore(
+    subscribeRealtimeReconnect,
+    getRealtimeReconnectGeneration,
+    () => 0
+  );
 
   // Track page visibility to pause subscriptions when hidden
   const [isPageVisible, setIsPageVisible] = useState(() => {
@@ -63,13 +93,19 @@ export function useRealtimeSubscription<T extends BaseRecord>(
   const onCreatedRef = useRef(onCreated);
   const onUpdatedRef = useRef(onUpdated);
   const onDeletedRef = useRef(onDeleted);
+  const onResubscribeRef = useRef(onResubscribe);
+
+  // collection+filter of the last subscription attempt that settled, to tell
+  // a re-subscription (events may have been missed) from a first/new one
+  const lastSubscribedKeyRef = useRef<string | null>(null);
 
   // Update refs when callbacks change
   useEffect(() => {
     onCreatedRef.current = onCreated;
     onUpdatedRef.current = onUpdated;
     onDeletedRef.current = onDeleted;
-  }, [onCreated, onUpdated, onDeleted]);
+    onResubscribeRef.current = onResubscribe;
+  }, [onCreated, onUpdated, onDeleted, onResubscribe]);
 
   // Listen for page visibility changes
   useEffect(() => {
@@ -122,6 +158,21 @@ export function useRealtimeSubscription<T extends BaseRecord>(
     // dropped; the unsubscribe resolves independently and gets called either
     // way in the cleanup below.
     let cancelled = false;
+    // True once this run's subscribe() resolved (the subscription is live)
+    let live = false;
+    const key = `${collection}\u0000${filter ?? ''}`;
+
+    const runOnResubscribe = () => {
+      const handleError = (err: unknown) =>
+        console.error(`[Realtime] onResubscribe for ${collection} failed:`, err);
+      try {
+        Promise.resolve(onResubscribeRef.current?.()).catch(handleError);
+      } catch (err) {
+        handleError(err);
+      }
+    };
+
+    const releaseTracking = trackRealtimeSubscription();
 
     const unsubscribe = pb.collection(collection).subscribe(
       topic || '*',
@@ -150,14 +201,48 @@ export function useRealtimeSubscription<T extends BaseRecord>(
       }
     );
 
-    // Handle subscription errors
-    unsubscribe.catch((err) => {
-      console.error(`[Realtime] Failed to subscribe to ${collection}:`, err);
+    // PB_CONNECT fires after every (re)connect, once the SDK has re-sent the
+    // subscriptions. The initial connect fires it before `subscribe` above
+    // resolves, so with `live` set this is a reconnect after a drop, during
+    // which events were lost.
+    const unsubscribeConnect = pb.realtime.subscribe('PB_CONNECT', () => {
+      if (cancelled) return;
+      refreshRealtimeConnectionState();
+      if (live) {
+        runOnResubscribe();
+      }
     });
+    // Fails together with the main subscription, which reports it
+    unsubscribeConnect.catch(() => {});
+
+    unsubscribe.then(
+      () => {
+        if (cancelled) return;
+        live = true;
+        refreshRealtimeConnectionState();
+        // Same collection/filter as before: this is a resume after a pause
+        // (tab hidden, disabled, manual reconnect), not a new subscription
+        const isResubscribe = lastSubscribedKeyRef.current === key;
+        lastSubscribedKeyRef.current = key;
+        if (isResubscribe) {
+          runOnResubscribe();
+        }
+      },
+      (err) => {
+        // Handle subscription errors
+        console.error(`[Realtime] Failed to subscribe to ${collection}:`, err);
+        if (!cancelled) {
+          // A later successful attempt (e.g. manual reconnect) must catch up
+          lastSubscribedKeyRef.current = key;
+          reportRealtimeSubscribeError();
+        }
+      }
+    );
 
     // Cleanup: unsubscribe when component unmounts or dependencies change
     return () => {
       cancelled = true;
+      releaseTracking();
       unsubscribe.then(unsub => {
         if (typeof unsub === 'function') {
           unsub();
@@ -165,88 +250,7 @@ export function useRealtimeSubscription<T extends BaseRecord>(
       }).catch(err => {
         console.error(`[Realtime] Error unsubscribing from ${collection}:`, err);
       });
+      unsubscribeConnect.then(unsub => unsub()).catch(() => {});
     };
-  }, [collection, filter, enabled, isPageVisible]);
-}
-
-/**
- * Subscribe to real-time updates for a specific record
- *
- * @param collection - Collection name
- * @param recordId - Specific record ID to subscribe to
- * @param options - Subscription options and callbacks
- *
- * @example
- * ```tsx
- * useRealtimeRecord<Customer>('customers', customerId, {
- *   onUpdated: (record) => {
- *     setCustomer(record);
- *   },
- *   onDeleted: () => {
- *     router.push('/customers');
- *   }
- * });
- * ```
- */
-export function useRealtimeRecord<T extends BaseRecord>(
-  collection: string,
-  recordId: string | undefined,
-  options: RealtimeSubscriptionOptions<T> = {}
-): void {
-  const {
-    onCreated,
-    onUpdated,
-    onDeleted,
-    enabled = true
-  } = options;
-
-  const onCreatedRef = useRef(onCreated);
-  const onUpdatedRef = useRef(onUpdated);
-  const onDeletedRef = useRef(onDeleted);
-
-  useEffect(() => {
-    onCreatedRef.current = onCreated;
-    onUpdatedRef.current = onUpdated;
-    onDeletedRef.current = onDeleted;
-  }, [onCreated, onUpdated, onDeleted]);
-
-  useEffect(() => {
-    // Don't subscribe if disabled, not authenticated, or no recordId
-    if (!enabled || !pb.authStore.isValid || !recordId) {
-      return;
-    }
-
-    // Same StrictMode race guard as useRealtimeSubscription above.
-    let cancelled = false;
-
-    // Subscribe to specific record
-    const unsubscribe = pb.collection(collection).subscribe(
-      recordId,
-      async (event) => {
-        if (cancelled) return;
-        logRealtimeEvent(event as RealtimeEvent<T>, collection);
-
-        const action = event.action;
-
-        if (action === 'create' && onCreatedRef.current) {
-          await onCreatedRef.current(event.record as T);
-        } else if (action === 'update' && onUpdatedRef.current) {
-          await onUpdatedRef.current(event.record as T);
-        } else if (action === 'delete' && onDeletedRef.current) {
-          await onDeletedRef.current(event.record as T);
-        }
-      }
-    );
-
-    return () => {
-      cancelled = true;
-      unsubscribe.then(unsub => {
-        if (typeof unsub === 'function') {
-          unsub();
-        }
-      }).catch(err => {
-        console.error(`[Realtime] Error unsubscribing from ${collection}/${recordId}:`, err);
-      });
-    };
-  }, [collection, recordId, enabled]);
+  }, [collection, filter, enabled, isPageVisible, reconnectGeneration]);
 }

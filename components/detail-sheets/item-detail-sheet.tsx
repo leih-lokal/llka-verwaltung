@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -39,8 +39,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { collections, pb } from '@/lib/pocketbase/client';
-import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate } from '@/lib/utils/formatting';
-import type { Item, ItemFormData, RentalExpanded, ItemCategory, ItemStatus, HighlightColor } from '@/types';
+import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, toBusinessDay } from '@/lib/utils/formatting';
+import type { Item, RentalExpanded, ItemStatus, HighlightColor } from '@/types';
+import { fetchNextIid } from '@/lib/utils/next-iid';
 import { compressImage } from '@/lib/image/compress';
 import { useSettings } from '@/hooks/use-settings';
 
@@ -55,16 +56,19 @@ async function compressInBatches(files: File[], cfg: Parameters<typeof compressI
   }
   return out;
 }
-import { CATEGORY_OPTIONS, GERMAN_CATEGORY_VALUES } from '@/lib/constants/categories';
+import { CATEGORY_OPTIONS } from '@/lib/constants/categories';
+import { ITEM_STATUS_OPTIONS, getItemStatusLabel, getRentalStatusLabel } from '@/lib/constants/statuses';
 import { RentalDetailSheet } from './rental-detail-sheet';
 import { FormHelpPanel } from './form-help-panel';
+import { HighlightColorPicker } from './highlight-color-picker';
+import { getHighlightColorClasses } from '@/lib/constants/colors';
 import { DOCUMENTATION } from '@/lib/constants/documentation';
 import { useHelpCollapsed } from '@/hooks/use-help-collapsed';
 import { FormattedId } from '@/components/ui/formatted-id';
 
 // Validation schema (using German category names as they are stored in PocketBase)
 const itemSchema = z.object({
-  iid: z.number().int().min(1, 'ID muss mindestens 1 sein'),
+  iid: z.number({ error: 'ID ist erforderlich' }).int().min(1, 'ID muss mindestens 1 sein'),
   name: z.string().min(1, 'Name ist erforderlich'),
   brand: z.string().optional(),
   model: z.string().optional(),
@@ -98,6 +102,31 @@ interface ItemDetailSheetProps {
 // an empty string does.
 const EMPTY_NUMBER = '' as unknown as number | undefined;
 
+/**
+ * Preview of an image that hasn't been uploaded yet. Creates the object URL
+ * when the <img> mounts (once per file, not on every render) and revokes it
+ * when the file changes or the preview unmounts.
+ */
+function NewImagePreview({ file }: { file: File }) {
+  const showFile = useCallback(
+    (img: HTMLImageElement | null) => {
+      if (!img) return;
+      const url = URL.createObjectURL(file);
+      img.src = url;
+      return () => URL.revokeObjectURL(url);
+    },
+    [file]
+  );
+
+  return (
+    <img
+      ref={showFile}
+      alt="Neues Bild"
+      className="w-full h-full object-cover"
+    />
+  );
+}
+
 export function ItemDetailSheet({
   item,
   open,
@@ -107,7 +136,13 @@ export function ItemDetailSheet({
   const { settings } = useSettings();
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  // Synchronous double-submit guard for handleSave (Enter in a field submits
+  // the form even while the save button is disabled).
+  const isSavingRef = useRef(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  // Whether confirming "Verwerfen" also closes the sheet (the dialog was
+  // opened by closing the sheet rather than by "Abbrechen")
+  const [closeOnDiscard, setCloseOnDiscard] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [rentals, setRentals] = useState<RentalExpanded[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -132,7 +167,7 @@ export function ItemDetailSheet({
   const form = useForm<ItemFormValues>({
     resolver: zodResolver(itemSchema),
     defaultValues: {
-      iid: 1,
+      iid: EMPTY_NUMBER,
       name: '',
       brand: '',
       model: '',
@@ -177,8 +212,8 @@ export function ItemDetailSheet({
         status: item.status,
         highlight_color: (item.highlight_color || '') as '' | 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'purple' | 'pink',
         internal_note: item.internal_note || '',
-        // Extract just the date part (YYYY-MM-DD) from PocketBase format (YYYY-MM-DD HH:MM:SS.000Z)
-        added_on: item.added_on.split(' ')[0],
+        // Calendar day (YYYY-MM-DD) of the stored date; see toBusinessDay
+        added_on: toBusinessDay(item.added_on),
         msrp: typeof item.msrp === 'number' ? item.msrp : EMPTY_NUMBER,
         is_protected: item.is_protected || false,
       });
@@ -188,62 +223,51 @@ export function ItemDetailSheet({
       setImagesToDelete([]);
       setIsEditMode(false);
     } else if (isNewItem) {
-      // Fetch next available IID for new items
-      const fetchNextIid = async () => {
-        try {
-          const lastItem = await collections.items().getFirstListItem<Item>('', { sort: '-iid' });
-          const nextIid = (lastItem?.iid || 0) + 1;
-          form.reset({
-            iid: nextIid,
-            name: '',
-            brand: '',
-            model: '',
-            description: '',
-            category: [],
-            deposit: 0,
-            synonyms: '',
-            packaging: '',
-            manual: '',
-            parts: EMPTY_NUMBER,
-            copies: 1,
-            status: 'instock',
-            highlight_color: '',
-            internal_note: '',
-            added_on: dateToLocalString(new Date()),
-            msrp: EMPTY_NUMBER,
-            is_protected: false,
-          });
-        } catch (err) {
-          // If no items exist yet, start with 1
-          form.reset({
-            iid: 1,
-            name: '',
-            brand: '',
-            model: '',
-            description: '',
-            category: [],
-            deposit: 0,
-            synonyms: '',
-            packaging: '',
-            manual: '',
-            parts: EMPTY_NUMBER,
-            copies: 1,
-            status: 'instock',
-            highlight_color: '',
-            internal_note: '',
-            added_on: dateToLocalString(new Date()),
-            msrp: EMPTY_NUMBER,
-            is_protected: false,
-          });
-        }
+      // Reset right away so no previous draft lingers; the iid stays empty
+      // until the next free one has loaded.
+      const newItemValues: ItemFormValues = {
+        iid: EMPTY_NUMBER as number,
+        name: '',
+        brand: '',
+        model: '',
+        description: '',
+        category: [],
+        deposit: 0,
+        synonyms: '',
+        packaging: '',
+        manual: '',
+        parts: EMPTY_NUMBER,
+        copies: 1,
+        status: 'instock',
+        highlight_color: '',
+        internal_note: '',
+        added_on: dateToLocalString(new Date()),
+        msrp: EMPTY_NUMBER,
+        is_protected: false,
       };
-      fetchNextIid();
+      form.reset(newItemValues);
       setExistingImages([]);
       setNewImages([]);
       setImagesToDelete([]);
       setIsEditMode(true);
+
+      let cancelled = false;
+      fetchNextIid(collections.items())
+        .then((nextIid) => {
+          if (!cancelled) form.reset({ ...newItemValues, iid: nextIid });
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          // Don't propose a fallback iid: on a network/auth error 1 (or any
+          // guess) is almost certainly taken.
+          console.error('Error fetching next IID:', err);
+          toast.error('Nächste freie ID konnte nicht geladen werden. Bitte ID manuell eintragen.');
+        });
+      return () => {
+        cancelled = true;
+      };
     }
-  }, [item, isNewItem, open]);
+  }, [item, isNewItem, open, form]);
 
   // Load rental history
   useEffect(() => {
@@ -298,21 +322,40 @@ export function ItemDetailSheet({
     setExistingImages((prev) => prev.filter((img) => img !== imageName));
   };
 
+  // Id of a field's validation message, and the aria props linking the
+  // field to it while it is shown
+  const errorId = (field: keyof ItemFormValues) => `item-${field}-error`;
+  const errorProps = (field: keyof ItemFormValues) => {
+    const invalid = !!form.formState.errors[field];
+    return {
+      'aria-invalid': invalid || undefined,
+      'aria-describedby': invalid ? errorId(field) : undefined,
+    };
+  };
+
   const handleSave = async (data: ItemFormValues) => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
     setIsLoading(true);
     try {
       // Build FormData for file upload support
       const formData = new FormData();
 
-      // Add all text fields
+      // Add all text fields. Optional ones are always appended (even empty)
+      // so PATCH can clear a previously-set value.
       formData.append('iid', data.iid.toString());
       formData.append('name', data.name);
-      if (data.brand) formData.append('brand', data.brand);
-      if (data.model) formData.append('model', data.model);
-      if (data.description) formData.append('description', data.description);
+      formData.append('brand', data.brand ?? '');
+      formData.append('model', data.model ?? '');
+      formData.append('description', data.description ?? '');
 
-      // Add category array
-      data.category.forEach(cat => formData.append('category', cat));
+      // Add category array. With no category, append a single '' so PATCH
+      // clears the field (PocketBase drops empty values from multi-selects).
+      if (data.category.length > 0) {
+        data.category.forEach(cat => formData.append('category', cat));
+      } else {
+        formData.append('category', '');
+      }
 
       formData.append('deposit', data.deposit.toString());
 
@@ -325,14 +368,15 @@ export function ItemDetailSheet({
         .join(', ');
       formData.append('synonyms', synonymsStr);
 
-      if (data.packaging) formData.append('packaging', data.packaging);
-      if (data.manual) formData.append('manual', data.manual);
+      formData.append('packaging', data.packaging ?? '');
+      formData.append('manual', data.manual ?? '');
       // Always append parts/msrp (even empty) so PATCH can clear a previously-set value.
       formData.append('parts', data.parts !== undefined ? data.parts.toString() : '');
       formData.append('copies', data.copies.toString());
       formData.append('status', data.status);
-      if (data.highlight_color) formData.append('highlight_color', data.highlight_color);
-      if (data.internal_note) formData.append('internal_note', data.internal_note);
+      // Always append (even empty) so PATCH can clear a previously-set colour.
+      formData.append('highlight_color', data.highlight_color ?? '');
+      formData.append('internal_note', data.internal_note ?? '');
       formData.append('added_on', data.added_on);
       formData.append('msrp', data.msrp !== undefined ? data.msrp.toString() : '');
       formData.append('is_protected', data.is_protected ? 'true' : 'false');
@@ -372,12 +416,14 @@ export function ItemDetailSheet({
       console.error('Error saving item:', err);
       toast.error('Fehler beim Speichern des Artikels');
     } finally {
+      isSavingRef.current = false;
       setIsLoading(false);
     }
   };
 
   const handleCancel = () => {
     if (isDirty) {
+      setCloseOnDiscard(false);
       setShowCancelDialog(true);
     } else {
       if (isNewItem) {
@@ -395,6 +441,7 @@ export function ItemDetailSheet({
     } else {
       form.reset();
       setIsEditMode(false);
+      if (closeOnDiscard) onOpenChange(false);
     }
   };
 
@@ -416,42 +463,32 @@ export function ItemDetailSheet({
     }
   };
 
-  const getHighlightColorBadge = (color?: HighlightColor) => {
+  const getHighlightColorBadge = (color?: HighlightColor | '') => {
     if (!color) return null;
-    const colorMap = {
-      red: 'bg-red-500',
-      orange: 'bg-orange-500',
-      yellow: 'bg-yellow-500',
-      green: 'bg-green-500',
-      teal: 'bg-teal-500',
-      blue: 'bg-blue-500',
-      purple: 'bg-purple-500',
-      pink: 'bg-pink-500',
-    };
     return (
-      <span className={`inline-block w-4 h-4 rounded ${colorMap[color]}`} />
+      <span className={`inline-block w-4 h-4 rounded ${getHighlightColorClasses(color)?.solid ?? ''}`} />
     );
   };
 
   const getStatusBadge = (status: ItemStatus) => {
-    const statusMap = {
-      instock: { label: 'Auf Lager', variant: 'default' as const },
-      outofstock: { label: 'Ausgeliehen', variant: 'secondary' as const },
-      reserved: { label: 'Reserviert', variant: 'secondary' as const },
-      onbackorder: { label: 'Nachbestellt', variant: 'secondary' as const },
-      lost: { label: 'Verloren', variant: 'destructive' as const },
-      repairing: { label: 'Reparatur', variant: 'secondary' as const },
-      forsale: { label: 'Zu verkaufen', variant: 'secondary' as const },
-      deleted: { label: 'Gelöscht', variant: 'destructive' as const },
+    const variants = {
+      instock: 'default' as const,
+      outofstock: 'secondary' as const,
+      reserved: 'secondary' as const,
+      onbackorder: 'secondary' as const,
+      lost: 'destructive' as const,
+      repairing: 'secondary' as const,
+      forsale: 'secondary' as const,
+      deleted: 'destructive' as const,
     };
-    const { label, variant } = statusMap[status];
-    return <Badge variant={variant}>{label}</Badge>;
+    return <Badge variant={variants[status] ?? 'secondary'}>{getItemStatusLabel(status)}</Badge>;
   };
 
   return (
     <>
       <Sheet open={open} onOpenChange={(open) => {
         if (!open && isDirty) {
+          setCloseOnDiscard(true);
           setShowCancelDialog(true);
         } else {
           onOpenChange(open);
@@ -551,10 +588,11 @@ export function ItemDetailSheet({
                       id="iid"
                       type="number"
                       {...form.register('iid', { valueAsNumber: true })}
+                      {...errorProps('iid')}
                       className="mt-1"
                     />
                     {form.formState.errors.iid && (
-                      <p className="text-sm text-destructive mt-1">
+                      <p id={errorId('iid')} className="text-sm text-destructive mt-1">
                         {form.formState.errors.iid.message}
                       </p>
                     )}
@@ -566,10 +604,11 @@ export function ItemDetailSheet({
                     <Input
                       id="name"
                       {...form.register('name')}
+                      {...errorProps('name')}
                       className="mt-1"
                     />
                     {form.formState.errors.name && (
-                      <p className="text-sm text-destructive mt-1">
+                      <p id={errorId('name')} className="text-sm text-destructive mt-1">
                         {form.formState.errors.name.message}
                       </p>
                     )}
@@ -608,10 +647,15 @@ export function ItemDetailSheet({
                   </div>
 
                   <div>
-                    <Label>Kategorien *</Label>
-                    <div className="mt-2 grid grid-cols-2 gap-2">
+                    <Label id="item-category-label">Kategorien *</Label>
+                    <div
+                      role="group"
+                      aria-labelledby="item-category-label"
+                      aria-describedby={form.formState.errors.category ? errorId('category') : undefined}
+                      className="mt-2 grid grid-cols-2 gap-2"
+                    >
                       {CATEGORY_OPTIONS.map(({ value, label }) => {
-                        const isChecked = form.watch('category').includes(value as any);
+                        const isChecked = form.watch('category').includes(value);
                         return (
                           <label
                             key={value}
@@ -623,7 +667,7 @@ export function ItemDetailSheet({
                               onChange={(e) => {
                                 const currentCategories = form.getValues('category');
                                 if (e.target.checked) {
-                                  form.setValue('category', [...currentCategories, value as any], { shouldDirty: true });
+                                  form.setValue('category', [...currentCategories, value], { shouldDirty: true });
                                 } else {
                                   form.setValue('category', currentCategories.filter(c => c !== value), { shouldDirty: true });
                                 }
@@ -636,7 +680,7 @@ export function ItemDetailSheet({
                       })}
                     </div>
                     {form.formState.errors.category && (
-                      <p className="text-sm text-destructive mt-1">
+                      <p id={errorId('category')} className="text-sm text-destructive mt-1">
                         {form.formState.errors.category.message}
                       </p>
                     )}
@@ -650,10 +694,11 @@ export function ItemDetailSheet({
                         type="number"
                         step="0.01"
                         {...form.register('deposit', { valueAsNumber: true })}
+                        {...errorProps('deposit')}
                         className="mt-1"
                       />
                       {form.formState.errors.deposit && (
-                        <p className="text-sm text-destructive mt-1">
+                        <p id={errorId('deposit')} className="text-sm text-destructive mt-1">
                           {form.formState.errors.deposit.message}
                         </p>
                       )}
@@ -672,10 +717,11 @@ export function ItemDetailSheet({
                             return Number.isNaN(n) ? undefined : n;
                           },
                         })}
+                        {...errorProps('msrp')}
                         className="mt-1"
                       />
                       {form.formState.errors.msrp && (
-                        <p className="text-sm text-destructive mt-1">
+                        <p id={errorId('msrp')} className="text-sm text-destructive mt-1">
                           {form.formState.errors.msrp.message}
                         </p>
                       )}
@@ -689,10 +735,11 @@ export function ItemDetailSheet({
                         id="copies"
                         type="number"
                         {...form.register('copies', { valueAsNumber: true })}
+                        {...errorProps('copies')}
                         className="mt-1"
                       />
                       {form.formState.errors.copies && (
-                        <p className="text-sm text-destructive mt-1">
+                        <p id={errorId('copies')} className="text-sm text-destructive mt-1">
                           {form.formState.errors.copies.message}
                         </p>
                       )}
@@ -710,10 +757,11 @@ export function ItemDetailSheet({
                             return Number.isNaN(n) ? undefined : n;
                           },
                         })}
+                        {...errorProps('parts')}
                         className="mt-1"
                       />
                       {form.formState.errors.parts && (
-                        <p className="text-sm text-destructive mt-1">
+                        <p id={errorId('parts')} className="text-sm text-destructive mt-1">
                           {form.formState.errors.parts.message}
                         </p>
                       )}
@@ -727,14 +775,9 @@ export function ItemDetailSheet({
                       {...form.register('status')}
                       className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     >
-                      <option value="instock">Auf Lager</option>
-                      <option value="outofstock">Ausgeliehen</option>
-                      <option value="reserved">Reserviert</option>
-                      <option value="onbackorder">Nachbestellt</option>
-                      <option value="lost">Verloren</option>
-                      <option value="repairing">Reparatur</option>
-                      <option value="forsale">Zu verkaufen</option>
-                      <option value="deleted">Gelöscht</option>
+                      {ITEM_STATUS_OPTIONS.map(({ value, label }) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -768,7 +811,7 @@ export function ItemDetailSheet({
                           <button
                             type="button"
                             onClick={() => handleRemoveExistingImage(imageName)}
-                            className="absolute top-2 right-2 p-1.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="absolute top-2 right-2 p-1.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity"
                             aria-label="Bild entfernen"
                           >
                             <Trash2Icon className="size-4" />
@@ -781,17 +824,13 @@ export function ItemDetailSheet({
                     {newImages.map((file, index) => (
                       <div key={`new-${index}`} className="relative group">
                         <div className="aspect-square rounded-lg border border-border overflow-hidden bg-muted">
-                          <img
-                            src={URL.createObjectURL(file)}
-                            alt="New upload"
-                            className="w-full h-full object-cover"
-                          />
+                          <NewImagePreview file={file} />
                         </div>
                         {isEditMode && (
                           <button
                             type="button"
                             onClick={() => handleRemoveNewImage(index)}
-                            className="absolute top-2 right-2 p-1.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="absolute top-2 right-2 p-1.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity"
                             aria-label="Bild entfernen"
                           >
                             <Trash2Icon className="size-4" />
@@ -973,102 +1012,15 @@ export function ItemDetailSheet({
                 </div>
 
                 <div className="col-span-2">
-                  <Label className="mb-2 block">Markierungsfarbe</Label>
+                  <Label id="item-highlight-color-label" className="mb-2 block">Markierungsfarbe</Label>
                   {isEditMode ? (
-                    <div className="flex gap-2 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => form.setValue('highlight_color', '')}
-                        className={`w-10 h-10 rounded-md border-2 transition-all bg-muted hover:bg-muted/80 flex items-center justify-center ${
-                          !form.watch('highlight_color')
-                            ? 'border-primary ring-2 ring-primary/20 scale-105'
-                            : 'border-border hover:border-primary/50'
-                        }`}
-                        title="Keine Markierung"
-                      >
-                        <span className="text-xs text-muted-foreground font-medium">—</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => form.setValue('highlight_color', 'red')}
-                        className={`w-10 h-10 rounded-md border-2 transition-all bg-red-100 dark:bg-red-950/30 ${
-                          form.watch('highlight_color') === 'red'
-                            ? 'border-red-500 ring-2 ring-red-500/20 scale-105'
-                            : 'border-red-300 dark:border-red-800 hover:border-red-500'
-                        }`}
-                        title="Rot"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => form.setValue('highlight_color', 'orange')}
-                        className={`w-10 h-10 rounded-md border-2 transition-all bg-orange-100 dark:bg-orange-950/30 ${
-                          form.watch('highlight_color') === 'orange'
-                            ? 'border-orange-500 ring-2 ring-orange-500/20 scale-105'
-                            : 'border-orange-300 dark:border-orange-800 hover:border-orange-500'
-                        }`}
-                        title="Orange"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => form.setValue('highlight_color', 'yellow')}
-                        className={`w-10 h-10 rounded-md border-2 transition-all bg-yellow-100 dark:bg-yellow-950/30 ${
-                          form.watch('highlight_color') === 'yellow'
-                            ? 'border-yellow-500 ring-2 ring-yellow-500/20 scale-105'
-                            : 'border-yellow-300 dark:border-yellow-800 hover:border-yellow-500'
-                        }`}
-                        title="Gelb"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => form.setValue('highlight_color', 'green')}
-                        className={`w-10 h-10 rounded-md border-2 transition-all bg-green-100 dark:bg-green-950/30 ${
-                          form.watch('highlight_color') === 'green'
-                            ? 'border-green-500 ring-2 ring-green-500/20 scale-105'
-                            : 'border-green-300 dark:border-green-800 hover:border-green-500'
-                        }`}
-                        title="Grün"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => form.setValue('highlight_color', 'teal')}
-                        className={`w-10 h-10 rounded-md border-2 transition-all bg-teal-100 dark:bg-teal-950/30 ${
-                          form.watch('highlight_color') === 'teal'
-                            ? 'border-teal-500 ring-2 ring-teal-500/20 scale-105'
-                            : 'border-teal-300 dark:border-teal-800 hover:border-teal-500'
-                        }`}
-                        title="Türkis"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => form.setValue('highlight_color', 'blue')}
-                        className={`w-10 h-10 rounded-md border-2 transition-all bg-blue-100 dark:bg-blue-950/30 ${
-                          form.watch('highlight_color') === 'blue'
-                            ? 'border-blue-500 ring-2 ring-blue-500/20 scale-105'
-                            : 'border-blue-300 dark:border-blue-800 hover:border-blue-500'
-                        }`}
-                        title="Blau"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => form.setValue('highlight_color', 'purple')}
-                        className={`w-10 h-10 rounded-md border-2 transition-all bg-purple-100 dark:bg-purple-950/30 ${
-                          form.watch('highlight_color') === 'purple'
-                            ? 'border-purple-500 ring-2 ring-purple-500/20 scale-105'
-                            : 'border-purple-300 dark:border-purple-800 hover:border-purple-500'
-                        }`}
-                        title="Lila"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => form.setValue('highlight_color', 'pink')}
-                        className={`w-10 h-10 rounded-md border-2 transition-all bg-pink-100 dark:bg-pink-950/30 ${
-                          form.watch('highlight_color') === 'pink'
-                            ? 'border-pink-500 ring-2 ring-pink-500/20 scale-105'
-                            : 'border-pink-300 dark:border-pink-800 hover:border-pink-500'
-                        }`}
-                        title="Rosa"
-                      />
-                    </div>
+                    <HighlightColorPicker
+                      value={form.watch('highlight_color')}
+                      onChange={(color) => form.setValue('highlight_color', color, { shouldDirty: true })}
+                      labelledBy="item-highlight-color-label"
+                      swatchClassName="w-10 h-10"
+                      className="flex-wrap"
+                    />
                   ) : (
                     <div className="mt-1">
                       {getHighlightColorBadge(item?.highlight_color) || <span className="text-sm">—</span>}
@@ -1122,12 +1074,7 @@ export function ItemDetailSheet({
                       </thead>
                       <tbody className="bg-background">
                         {rentals.map((rental) => {
-                          const status = calculateRentalStatus(
-                            rental.rented_on,
-                            rental.returned_on,
-                            rental.expected_on,
-                            rental.extended_on
-                          );
+                          const status = calculateRentalStatus(rental);
                           return (
                             <tr key={rental.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                               <td className="px-4 py-3 font-medium">
@@ -1142,7 +1089,7 @@ export function ItemDetailSheet({
                               </td>
                               <td className="px-4 py-3">
                                 <Badge variant={status === 'overdue' ? 'destructive' : 'secondary'}>
-                                  {status}
+                                  {getRentalStatusLabel(status)}
                                 </Badge>
                               </td>
                             </tr>
@@ -1324,12 +1271,7 @@ export function ItemDetailSheet({
                       </thead>
                       <tbody className="divide-y">
                         {rentals.slice(0, 5).map((rental) => {
-                          const status = calculateRentalStatus(
-                            rental.rented_on,
-                            rental.returned_on,
-                            rental.expected_on,
-                            rental.extended_on
-                          );
+                          const status = calculateRentalStatus(rental);
                           return (
                             <tr key={rental.id} className="hover:bg-muted/30">
                               <td className="px-4 py-3 text-sm">
@@ -1350,11 +1292,7 @@ export function ItemDetailSheet({
                                       : 'default'
                                   }
                                 >
-                                  {status === 'active' && 'Aktiv'}
-                                  {status === 'returned' && 'Zurückgegeben'}
-                                  {status === 'overdue' && 'Überfällig'}
-                                  {status === 'due_today' && 'Heute fällig'}
-                                  {status === 'returned_today' && 'Heute zurück'}
+                                  {getRentalStatusLabel(status)}
                                 </Badge>
                               </td>
                             </tr>
@@ -1494,7 +1432,7 @@ export function ItemDetailSheet({
           open={isRentalSheetOpen}
           onOpenChange={setIsRentalSheetOpen}
           preloadedItems={[item]}
-          onSave={(newRental) => {
+          onSave={() => {
             setIsRentalSheetOpen(false);
             // Optionally refresh rental history
             toast.success('Ausleihe erfolgreich erstellt');

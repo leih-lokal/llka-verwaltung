@@ -22,6 +22,9 @@ import { toast } from 'sonner';
 export type LabelType = 'default' | 'compact' | 'cord';
 type SelectionMode = 'single' | 'multi';
 
+/** Largest IID range fetched (and rendered as labels) at once */
+const MAX_RANGE_SIZE = 500;
+
 export default function LabelDesignerPage() {
   const searchParams = useSearchParams();
   const [mode, setMode] = useState<SelectionMode>('single');
@@ -69,21 +72,22 @@ export default function LabelDesignerPage() {
       return;
     }
 
+    // Every label is rendered (and exported) at once, so keep batches sane
+    if (end - start + 1 > MAX_RANGE_SIZE) {
+      toast.error(`Bitte höchstens ${MAX_RANGE_SIZE} IDs auf einmal auswählen`);
+      return;
+    }
+
     setIsLoadingRange(true);
     try {
-      // Fetch all items in the range
-      const items: Item[] = [];
-      for (let iid = start; iid <= end; iid++) {
-        try {
-          const item = await pb.collection('item').getFirstListItem<Item>(
-            `iid = ${iid} && status != "deleted"`
-          );
-          items.push(item);
-        } catch (error) {
-          // Item doesn't exist, skip it
-          console.log(`Item with iid ${iid} not found, skipping`);
-        }
-      }
+      // One query for the whole range; IIDs without an item are simply absent
+      const items = await pb.collection('item').getFullList<Item>({
+        filter: pb.filter('iid >= {:start} && iid <= {:end} && status != "deleted"', {
+          start,
+          end,
+        }),
+        sort: 'iid',
+      });
 
       if (items.length === 0) {
         toast.error('Keine Artikel im angegebenen Bereich gefunden');

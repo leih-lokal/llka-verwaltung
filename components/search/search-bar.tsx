@@ -9,7 +9,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { FilterChip } from './filter-chip';
 import type { ActiveFilter } from '@/lib/filters/filter-utils';
-import { formatFilterLabel } from '@/lib/filters/filter-utils';
 import { useState, useRef, useEffect } from 'react';
 
 export interface SearchBarProps {
@@ -88,7 +87,7 @@ export function SearchBar({
             {filters.map((filter) => (
               <FilterChip
                 key={filter.id}
-                label={formatFilterLabel(filter)}
+                label={filter.label}
                 type={filter.type}
                 onRemove={() => onRemoveFilter?.(filter.id)}
               />
@@ -111,6 +110,8 @@ export function SearchBar({
             wasFocusedRef.current = false;
           }}
           placeholder={placeholder}
+          // A placeholder is no label: it disappears on input and isn't reliably announced
+          aria-label={placeholder.replace(/[.…]+$/, '')}
           disabled={disabled}
           className={`
             flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0

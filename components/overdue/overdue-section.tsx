@@ -11,19 +11,18 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
 import type { RentalExpanded } from '@/types';
+import type { OverdueSeverity } from '@/lib/utils/overdue';
 import { OverdueRentalCard } from './overdue-rental-card';
-
-type SeverityVariant = 'severely_critical' | 'critical' | 'overdue' | 'due_today' | 'due_soon';
 
 interface OverdueSectionProps {
   title: string;
   description: string;
   rentals: RentalExpanded[];
-  variant: SeverityVariant;
+  variant: OverdueSeverity;
   onRentalUpdated: () => void;
 }
 
-const variantStyles: Record<SeverityVariant, { bg: string; border: string; badge: string }> = {
+const variantStyles: Record<OverdueSeverity, { bg: string; border: string; badge: string }> = {
   severely_critical: {
     bg: 'bg-red-50 dark:bg-red-950/20',
     border: 'border-red-300 dark:border-red-800',

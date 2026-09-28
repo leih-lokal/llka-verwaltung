@@ -6,9 +6,12 @@
 
 'use client';
 
-import { CircleCheckBig, PackageCheck } from 'lucide-react';
+import type { CSSProperties } from 'react';
+import { CircleCheckBig, PackageCheck, TriangleAlert } from 'lucide-react';
 import { BookingStatus } from '@/types';
 import { BOOKING_STATUS_LABELS } from '@/lib/constants/statuses';
+import { formatDate } from '@/lib/utils/formatting';
+import { cn } from '@/lib/utils';
 import type { BookingSlot } from '@/lib/utils/booking-grid';
 
 /** Soft pastel palette — bg, text, border */
@@ -43,6 +46,9 @@ const OVERDUE_COLORS = {
 
 /** Active bookings: green left accent color */
 const ACTIVE_ACCENT = 'hsl(142 60% 40%)';
+
+/** Over-capacity bookings: red outline + warning icon on top of their colors */
+const CONFLICT_COLOR = 'hsl(0 75% 45%)';
 
 /** Returned bookings: muted grey treatment */
 const RETURNED_COLORS = {
@@ -85,12 +91,31 @@ export function BookingBlock({
 
   const accentStatus = isActive || isReturned;
   const accentColor = isActive ? ACTIVE_ACCENT : isReturned ? RETURNED_ACCENT : undefined;
+  const conflictLabel = slot.conflict ? 'Überbucht' : null;
+
+  // Screen readers get what sighted users read from the column and rows
+  const itemName = slot.booking.expand?.item?.name;
+  const ariaLabel = [
+    `Buchung: ${slot.booking.customer_name}`,
+    itemName,
+    `${formatDate(slot.startDate)} bis ${formatDate(slot.endDate)}`,
+    statusLabel,
+    copyCount > 1 ? `${copyCount} Exemplare` : null,
+    conflictLabel,
+  ]
+    .filter(Boolean)
+    .join(', ');
 
   return (
     <button
       data-booking-block
       onClick={onClick}
-      className="relative rounded-md shadow-sm border cursor-pointer hover:shadow-md transition-shadow text-left overflow-hidden px-1.5 py-0.5 mx-1"
+      className={cn(
+        'relative rounded-md shadow-sm border cursor-pointer hover:shadow-md transition-shadow text-left overflow-hidden px-1.5 py-0.5 mx-1',
+        // A class, not an inline style: inline outlines would override the
+        // global :focus-visible outline and hide keyboard focus
+        slot.conflict && 'outline-2 outline-dashed -outline-offset-2 outline-(--conflict-color)'
+      )}
       style={{
         gridRow: `${gridRowStart} / ${gridRowEnd}`,
         gridColumn: `${gridColumnStart} / ${gridColumnEnd}`,
@@ -100,10 +125,18 @@ export function BookingBlock({
         borderLeftWidth: accentStatus ? 3 : undefined,
         borderLeftColor: accentColor,
         opacity: isReturned ? 0.8 : undefined,
-      }}
-      title={`${slot.booking.customer_name} — ${statusLabel}${copyCount > 1 ? ` (${copyCount}×)` : ''}`}
-      aria-label={`Buchung: ${slot.booking.customer_name}, ${statusLabel}${copyCount > 1 ? `, ${copyCount} Exemplare` : ''}`}
+        ...(slot.conflict && { '--conflict-color': CONFLICT_COLOR }),
+      } as CSSProperties}
+      title={`${slot.booking.customer_name} — ${statusLabel}${copyCount > 1 ? ` (${copyCount}×)` : ''}${conflictLabel ? ` — ${conflictLabel}` : ''}`}
+      aria-label={ariaLabel}
     >
+      {slot.conflict && (
+        <TriangleAlert
+          aria-hidden="true"
+          className="absolute top-0.5 right-0.5 h-3.5 w-3.5"
+          style={{ color: CONFLICT_COLOR }}
+        />
+      )}
       <div className="text-[10px] opacity-75 truncate leading-tight">
         {slot.booking.expand?.customer
           ? `#${slot.booking.expand.customer.iid}`

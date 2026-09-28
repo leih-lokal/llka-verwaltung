@@ -1,5 +1,6 @@
 # Multi-stage Dockerfile for LLKA-V (Next.js 16 + standalone output)
 # Build: docker build -t llka-verwaltung .
+#        (optional: --build-arg BASE_PATH=/verwaltung --build-arg NEXT_PUBLIC_POCKETBASE_URL=https://…)
 # Run:   docker run -p 3000:3000 llka-verwaltung
 
 # ============================================
@@ -28,6 +29,14 @@ WORKDIR /app
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
+# Build-time settings, inlined into the client bundle by next.config.ts:
+#   BASE_PATH                   serve under a subpath, e.g. /verwaltung
+#   NEXT_PUBLIC_POCKETBASE_URL  server URL prefilled on the login page
+#   BUILD_COMMIT                commit shown in the menu footer (.git isn't copied)
+ARG BASE_PATH
+ARG NEXT_PUBLIC_POCKETBASE_URL
+ARG BUILD_COMMIT
 
 # Set environment variables for standalone build
 ENV DOCKER_BUILD=true

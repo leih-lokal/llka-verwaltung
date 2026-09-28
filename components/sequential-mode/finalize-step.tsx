@@ -6,6 +6,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { addDays, isSameDay } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,6 +20,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { dateToLocalString } from '@/lib/utils/formatting';
 import type { InstanceData } from '@/lib/utils/instance-data';
+import { getMultipleItemAvailability, type ItemAvailability } from '@/lib/utils/item-availability';
 import type { Rental } from '@/types';
 
 export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
@@ -55,6 +57,12 @@ export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
     }
   }, [currentIdentity, employee]);
 
+  // Quick picks are highlighted by calendar day: the default and the
+  // picked dates carry a time of day, so comparing timestamps fails
+  const [today] = useState(() => new Date());
+  const isWeeksFromNow = (weeks: number) =>
+    isSameDay(expectedDate, addDays(today, weeks * 7));
+
   // Quick date setters
   const setWeeksFromNow = (weeks: number) => {
     const date = new Date();
@@ -85,6 +93,30 @@ export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
     setIsCreating(true);
 
     try {
+      // Re-check availability immediately before create: the items step
+      // only saw availability when each item was added, and another
+      // operator may have rented the same copies since. Fail closed if the
+      // check itself fails.
+      let availability: Map<string, ItemAvailability>;
+      try {
+        availability = await getMultipleItemAvailability(
+          selectedItems.map(({ item }) => item.id)
+        );
+      } catch {
+        toast.error('Verfügbarkeit konnte nicht geprüft werden — bitte erneut versuchen');
+        return;
+      }
+
+      for (const { item, quantity } of selectedItems) {
+        const itemAvailability = availability.get(item.id);
+        if (!itemAvailability || quantity > itemAvailability.availableCopies) {
+          toast.error(
+            `${item.name} (#${String(item.iid).padStart(4, '0')}): Nur ${itemAvailability?.availableCopies ?? 0} von ${itemAvailability?.totalCopies ?? 0} Exemplaren verfügbar`
+          );
+          return;
+        }
+      }
+
       // Build instance data from selected items
       const instanceData: InstanceData = {};
       selectedItems.forEach(({ item, quantity }) => {
@@ -150,11 +182,7 @@ export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
                 type="button"
                 onClick={() => setWeeksFromNow(1)}
                 size="lg"
-                variant={
-                  Math.abs(expectedDate.getTime() - new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).getTime()) < 1000
-                    ? 'default'
-                    : 'outline'
-                }
+                variant={isWeeksFromNow(1) ? 'default' : 'outline'}
                 className="h-20 text-xl font-semibold"
               >
                 +1 Woche
@@ -163,11 +191,7 @@ export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
                 type="button"
                 onClick={() => setWeeksFromNow(2)}
                 size="lg"
-                variant={
-                  Math.abs(expectedDate.getTime() - new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).getTime()) < 1000
-                    ? 'default'
-                    : 'outline'
-                }
+                variant={isWeeksFromNow(2) ? 'default' : 'outline'}
                 className="h-20 text-xl font-semibold"
               >
                 +2 Wochen
@@ -176,11 +200,7 @@ export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
                 type="button"
                 onClick={() => setWeeksFromNow(3)}
                 size="lg"
-                variant={
-                  Math.abs(expectedDate.getTime() - new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).getTime()) < 1000
-                    ? 'default'
-                    : 'outline'
-                }
+                variant={isWeeksFromNow(3) ? 'default' : 'outline'}
                 className="h-20 text-xl font-semibold"
               >
                 +3 Wochen

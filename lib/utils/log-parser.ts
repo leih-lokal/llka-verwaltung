@@ -74,10 +74,7 @@ export function extractStatusCode(
   // Check data object first
   if (data && typeof data === 'object') {
     // Try common field names
-    const statusFromData =
-      (data as any).status ||
-      (data as any).statusCode ||
-      (data as any).code;
+    const statusFromData = data.status || data.statusCode || data.code;
 
     if (typeof statusFromData === 'number') {
       return {
@@ -121,17 +118,6 @@ function getStatusText(code: number): string {
   };
 
   return statusTexts[code] || '';
-}
-
-/**
- * Get variant for status code badge
- */
-export function getStatusCodeVariant(code: number): 'default' | 'secondary' | 'destructive' | 'outline' {
-  if (code >= 200 && code < 300) return 'default';
-  if (code >= 300 && code < 400) return 'secondary';
-  if (code >= 400 && code < 500) return 'destructive';
-  if (code >= 500) return 'destructive';
-  return 'outline';
 }
 
 /**

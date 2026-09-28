@@ -4,7 +4,7 @@
  * Follows print standards: no fills, borders/outlines only, proper margins
  */
 
-import { formatDate, formatDateTime } from '@/lib/utils/formatting';
+import { formatDate } from '@/lib/utils/formatting';
 import { escapeHtml } from '@/lib/utils/html-escape';
 import type { ReservationExpanded } from '@/types';
 

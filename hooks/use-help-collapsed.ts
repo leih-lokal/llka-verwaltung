@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 
 const STORAGE_KEY = 'help_panel_collapsed';
 const TTL_MS = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
@@ -51,14 +51,9 @@ function setStoredState(isCollapsed: boolean): void {
 }
 
 export function useHelpCollapsed() {
-  const [isCollapsed, setIsCollapsedState] = useState(true);
-  const [isHydrated, setIsHydrated] = useState(false);
-
-  // Load from localStorage on mount
-  useEffect(() => {
-    setIsCollapsedState(getStoredState());
-    setIsHydrated(true);
-  }, []);
+  // Read from localStorage on mount. Only the sheets use this, and they
+  // render client-side after the auth check, never during hydration.
+  const [isCollapsed, setIsCollapsedState] = useState(getStoredState);
 
   const setIsCollapsed = useCallback((collapsed: boolean) => {
     setIsCollapsedState(collapsed);
@@ -73,6 +68,5 @@ export function useHelpCollapsed() {
     isCollapsed,
     setIsCollapsed,
     toggle,
-    isHydrated,
   };
 }

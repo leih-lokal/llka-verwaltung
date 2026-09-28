@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -56,6 +56,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { collections, pb } from "@/lib/pocketbase/client";
+import { buildCustomerSearchFilter } from "@/lib/filters/filter-utils";
 import { formatDate, formatCurrency, formatPhoneNumber, isValidPhoneNumber } from "@/lib/utils/formatting";
 import { cn } from "@/lib/utils";
 import type { Reservation, ReservationExpanded, Customer, Item } from "@/types";
@@ -112,6 +113,9 @@ export function ReservationDetailSheet({
   onConvertToRental,
 }: ReservationDetailSheetProps) {
   const [isLoading, setIsLoading] = useState(false);
+  // Synchronous double-submit guard for handleSave (Enter in a field submits
+  // the form even while the save button is disabled).
+  const isSavingRef = useRef(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCustomerSheet, setShowCustomerSheet] = useState(false);
@@ -163,7 +167,6 @@ export function ReservationDetailSheet({
     setValue,
   } = form;
   const isNewCustomer = watch("is_new_customer");
-  const selectedItemIds = watch("item_ids");
 
   // Search customers
   useEffect(() => {
@@ -175,38 +178,10 @@ export function ReservationDetailSheet({
     const searchCustomers = async () => {
       setIsSearchingCustomers(true);
       try {
-        const filters = [];
-        let sortBy = "lastname,firstname";
-
-        // If search is numeric, search by iid
-        if (/^\d+$/.test(customerSearch)) {
-          filters.push(`iid=${parseInt(customerSearch, 10)}`);
-          sortBy = "iid"; // Sort by iid when searching numerically
-        } else {
-          // Check if search contains a space (possible full name search)
-          const trimmedSearch = customerSearch.trim();
-          if (trimmedSearch.includes(" ")) {
-            // Split into parts for full name search
-            const parts = trimmedSearch.split(/\s+/);
-            const firstName = parts[0];
-            const lastName = parts.slice(1).join(" ");
-
-            // Search for firstname AND lastname match
-            filters.push(
-              `(firstname~'${firstName}' && lastname~'${lastName}')`,
-            );
-            // Also try reversed (lastname firstname)
-            filters.push(
-              `(firstname~'${lastName}' && lastname~'${firstName}')`,
-            );
-          }
-
-          // Always search individual fields
-          filters.push(`firstname~'${trimmedSearch}'`);
-          filters.push(`lastname~'${trimmedSearch}'`);
-        }
-
-        const filter = filters.join(" || ");
+        // iid match for numeric input, otherwise (full) name match
+        const filter = buildCustomerSearchFilter(customerSearch);
+        // Sort by iid when searching numerically
+        const sortBy = /^\d+$/.test(customerSearch) ? "iid" : "lastname,firstname";
 
         const result = await collections.customers().getList<Customer>(1, 20, {
           filter,
@@ -278,6 +253,11 @@ export function ReservationDetailSheet({
 
   // Load reservation data when reservation changes
   useEffect(() => {
+    // Set when another reservation is opened (or the sheet closes) before the
+    // customer lookup below resolves. Applying that late response would load
+    // the previous reservation's customer (and, via auto-fill, its
+    // name/phone/email) and form data into this one.
+    let cancelled = false;
     const loadReservationData = async () => {
       if (reservation && open) {
         // Fetch customer by iid if it exists
@@ -286,8 +266,10 @@ export function ReservationDetailSheet({
             const customer = await collections
               .customers()
               .getFirstListItem<Customer>(`iid=${reservation.customer_iid}`);
+            if (cancelled) return;
             setSelectedCustomer(customer);
           } catch (err) {
+            if (cancelled) return;
             console.error("Error loading customer:", err);
             setSelectedCustomer(null);
           }
@@ -335,9 +317,25 @@ export function ReservationDetailSheet({
     };
 
     loadReservationData();
+    return () => {
+      cancelled = true;
+    };
   }, [reservation, isNewReservation, form, open]);
 
+  // Id of a field's validation message, and the aria props linking the
+  // field to it while it is shown
+  const errorId = (field: keyof ReservationFormValues) => `reservation-${field}-error`;
+  const errorProps = (field: keyof ReservationFormValues) => {
+    const invalid = !!form.formState.errors[field];
+    return {
+      "aria-invalid": invalid || undefined,
+      "aria-describedby": invalid ? errorId(field) : undefined,
+    };
+  };
+
   const handleSave = async (data: ReservationFormValues) => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
     setIsLoading(true);
     try {
       // Validate that no selected items are protected
@@ -369,15 +367,18 @@ export function ReservationDetailSheet({
       const pickupDate = fromLocalInput(data.pickup);
       const pickupISO = pickupDate.toISOString();
 
+      // Cleared optional fields are sent as empty values rather than
+      // undefined: PATCH only updates fields present in the body, and JSON
+      // drops undefined. customer_iid is a number field, so 0 means "none".
       const formData: Partial<Reservation> = {
-        customer_iid: data.is_new_customer ? undefined : data.customer_iid,
+        customer_iid: data.is_new_customer ? 0 : (data.customer_iid ?? 0),
         customer_name: data.customer_name,
-        customer_phone: formatPhoneNumber(data.customer_phone || "") || undefined,
-        customer_email: data.customer_email || undefined,
+        customer_phone: formatPhoneNumber(data.customer_phone || ""),
+        customer_email: data.customer_email ?? "",
         is_new_customer: data.is_new_customer,
         items: data.item_ids,
         pickup: pickupISO,
-        comments: data.comments || undefined,
+        comments: data.comments ?? "",
         done: data.done,
         on_premises: data.on_premises,
       };
@@ -403,6 +404,7 @@ export function ReservationDetailSheet({
       console.error("Error saving reservation:", err);
       toast.error("Fehler beim Speichern der Reservierung");
     } finally {
+      isSavingRef.current = false;
       setIsLoading(false);
     }
   };
@@ -615,13 +617,14 @@ export function ReservationDetailSheet({
                   <div className="space-y-4">
                     {!isNewCustomer && (
                       <div>
-                        <Label>Bestehenden Nutzer auswählen</Label>
+                        <Label htmlFor="reservation-customer">Bestehenden Nutzer auswählen</Label>
                         <Popover
                           open={customerSearchOpen}
                           onOpenChange={setCustomerSearchOpen}
                         >
                           <PopoverTrigger asChild>
                             <Button
+                              id="reservation-customer"
                               variant="outline"
                               role="combobox"
                               aria-expanded={customerSearchOpen}
@@ -746,11 +749,12 @@ export function ReservationDetailSheet({
                       <Input
                         id="customer_name"
                         {...form.register("customer_name")}
+                        {...errorProps("customer_name")}
                         className="mt-1"
                         readOnly={!isNewCustomer && !!selectedCustomer}
                       />
                       {form.formState.errors.customer_name && (
-                        <p className="text-sm text-destructive mt-1">
+                        <p id={errorId("customer_name")} className="text-sm text-destructive mt-1">
                           {form.formState.errors.customer_name.message}
                         </p>
                       )}
@@ -762,11 +766,12 @@ export function ReservationDetailSheet({
                         <Input
                           id="customer_phone"
                           {...form.register("customer_phone")}
+                          {...errorProps("customer_phone")}
                           className="mt-1"
                           readOnly={!isNewCustomer && !!selectedCustomer}
                         />
                         {form.formState.errors.customer_phone && (
-                          <p className="text-sm text-destructive mt-1">
+                          <p id={errorId("customer_phone")} className="text-sm text-destructive mt-1">
                             {form.formState.errors.customer_phone.message}
                           </p>
                         )}
@@ -778,11 +783,12 @@ export function ReservationDetailSheet({
                           id="customer_email"
                           type="email"
                           {...form.register("customer_email")}
+                          {...errorProps("customer_email")}
                           className="mt-1"
                           readOnly={!isNewCustomer && !!selectedCustomer}
                         />
                         {form.formState.errors.customer_email && (
-                          <p className="text-sm text-destructive mt-1">
+                          <p id={errorId("customer_email")} className="text-sm text-destructive mt-1">
                             {form.formState.errors.customer_email.message}
                           </p>
                         )}
@@ -811,16 +817,18 @@ export function ReservationDetailSheet({
                   {/* Items Selection */}
                   <div className="space-y-4">
                     <div>
-                      <Label>Artikel hinzufügen *</Label>
+                      <Label htmlFor="reservation-items">Artikel hinzufügen *</Label>
                       <Popover
                         open={itemSearchOpen}
                         onOpenChange={setItemSearchOpen}
                       >
                         <PopoverTrigger asChild>
                           <Button
+                            id="reservation-items"
                             variant="outline"
                             role="combobox"
                             aria-expanded={itemSearchOpen}
+                            {...errorProps("item_ids")}
                             className="w-full justify-between mt-1"
                           >
                             <span className="flex items-center gap-2">
@@ -889,7 +897,7 @@ export function ReservationDetailSheet({
                         </PopoverContent>
                       </Popover>
                       {form.formState.errors.item_ids && (
-                        <p className="text-sm text-destructive mt-1">
+                        <p id={errorId("item_ids")} className="text-sm text-destructive mt-1">
                           {form.formState.errors.item_ids.message}
                         </p>
                       )}
@@ -947,11 +955,12 @@ export function ReservationDetailSheet({
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="pickup">Abholung (Datum & Zeit) *</Label>
+                    <Label htmlFor="pickup_date">Abholung (Datum & Zeit) *</Label>
                     <div className="flex gap-2 mt-1">
                       <div className="relative flex-1">
                         <Input
                           id="pickup_date"
+                          {...errorProps("pickup")}
                           value={
                             form.watch("pickup")
                               ? new Date(
@@ -1018,6 +1027,7 @@ export function ReservationDetailSheet({
                       <Input
                         id="pickup_time"
                         type="time"
+                        aria-label="Abholzeit"
                         value={
                           form.watch("pickup")
                             ? form.watch("pickup").slice(11, 16)
@@ -1035,7 +1045,7 @@ export function ReservationDetailSheet({
                       />
                     </div>
                     {form.formState.errors.pickup && (
-                      <p className="text-sm text-destructive mt-1">
+                      <p id={errorId("pickup")} className="text-sm text-destructive mt-1">
                         {form.formState.errors.pickup.message}
                       </p>
                     )}

@@ -2,9 +2,14 @@
  * Pure utility functions for the booking grid
  */
 
-import type { BookingExpanded, Item } from '@/types';
+import { parseISO, startOfDay } from 'date-fns';
+import { DEFAULT_SETTINGS, type BookingExpanded, type Item } from '@/types';
+import { occupiesItem, peakBookedCopies } from './booking-capacity';
 
 export const OVERFLOW_DAYS = 5;
+
+/** opening_hours day keys, indexed like Date.getDay() */
+const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
 export interface GridDate {
   date: Date;
@@ -20,7 +25,10 @@ export interface ItemColumn {
   key: string;
   /** The item record */
   item: Item;
-  /** 1-based lane index for data/single columns, 0 for plus columns */
+  /**
+   * 1-based lane index for data/single columns, 0 for plus columns.
+   * Single-copy items get lanes > 1 only for overlapping (conflicting) bookings.
+   */
   laneIndex: number;
   /** Total copies for this item */
   totalCopies: number;
@@ -39,6 +47,38 @@ export interface BookingSlot {
   startDate: Date;
   /** End date (inclusive) */
   endDate: Date;
+  /** More occupying bookings than copies on some day of this booking */
+  conflict?: boolean;
+}
+
+/**
+ * Parse a PocketBase datetime ("YYYY-MM-DD HH:MM:SS.sssZ"). `new Date()`
+ * rejects the space separator in older Safari (iPad); parseISO accepts it and
+ * yields the same instant.
+ */
+export function parseBookingDate(value: string): Date {
+  return parseISO(value);
+}
+
+/**
+ * Greedy lane assignment: each entry goes into the leftmost lane whose last
+ * entry ended on an earlier calendar day. Entries must be sorted by start.
+ * Returns the 0-based lane per entry.
+ */
+function assignLanes<T>(
+  entries: T[],
+  getStart: (entry: T) => Date,
+  getEnd: (entry: T) => Date
+): { lanes: number[]; laneCount: number } {
+  const laneEnds: number[] = [];
+  const lanes = entries.map((entry) => {
+    const start = startOfDay(getStart(entry)).getTime();
+    let lane = laneEnds.findIndex((end) => end < start);
+    if (lane === -1) lane = laneEnds.length;
+    laneEnds[lane] = startOfDay(getEnd(entry)).getTime();
+    return lane;
+  });
+  return { lanes, laneCount: laneEnds.length };
 }
 
 /**
@@ -82,13 +122,34 @@ export function generateMonthDates(
 }
 
 /**
+ * Weekdays (0 = Sunday, like Date.getDay()) that have no opening hours.
+ * Uses the default opening hours when `openingHours` isn't a list (e.g.
+ * records created before the field existed).
+ */
+export function getClosedWeekdays(openingHours: unknown): Set<number> {
+  const hours = Array.isArray(openingHours)
+    ? openingHours
+    : DEFAULT_SETTINGS.opening_hours;
+  const openDays = new Set(
+    hours
+      .filter((entry): entry is unknown[] => Array.isArray(entry))
+      .map(([day]) => WEEKDAY_KEYS.indexOf(String(day)))
+  );
+  return new Set(WEEKDAY_KEYS.map((_, i) => i).filter((i) => !openDays.has(i)));
+}
+
+/**
  * Build columns and assign bookings to lanes in a single pass.
  *
- * - Single-copy items (copies=1): one column, bookings assigned directly.
+ * - Single-copy items (copies=1): one column. Overlapping bookings (a double
+ *   booking) spill into extra columns so none is drawn over another.
  * - Multi-copy items (copies>1): dynamic data columns based on max concurrent
  *   booking groups, plus a narrow "+" column for creating bookings.
  *   Bookings sharing (customer_name, start_date, end_date) form one visual
  *   group per lane. Lane count = max(1, max concurrent groups).
+ *
+ * Bookings are flagged as `conflict` when, on some day of their range, more
+ * occupying bookings exist than the item has copies.
  */
 export function buildBookingGrid(
   items: Item[],
@@ -101,28 +162,43 @@ export function buildBookingGrid(
     const copies = Math.max(1, item.copies);
     const itemBookings = bookings
       .filter((b) => b.item === item.id)
-      .sort(
-        (a, b) =>
-          new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
-      );
+      .map((booking) => ({
+        booking,
+        startDate: parseBookingDate(booking.start_date),
+        endDate: parseBookingDate(booking.end_date),
+      }))
+      .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+
+    const records = itemBookings.map((e) => e.booking);
+    const isConflict = (booking: BookingExpanded) =>
+      occupiesItem(booking) &&
+      peakBookedCopies(records, booking.start_date, booking.end_date) > copies;
 
     if (copies <= 1) {
-      // Single-copy item: one column
-      columns.push({
-        key: `${item.id}-1`,
-        item,
-        laneIndex: 1,
-        totalCopies: 1,
-        isPlusColumn: false,
-      });
-      for (const booking of itemBookings) {
-        bookingSlots.push({
-          booking,
-          columnKey: `${item.id}-1`,
-          startDate: new Date(booking.start_date),
-          endDate: new Date(booking.end_date),
+      // Single-copy item: one column, plus one per extra overlapping booking
+      const { lanes, laneCount } = assignLanes(
+        itemBookings,
+        (e) => e.startDate,
+        (e) => e.endDate
+      );
+      for (let lane = 1; lane <= Math.max(1, laneCount); lane++) {
+        columns.push({
+          key: `${item.id}-${lane}`,
+          item,
+          laneIndex: lane,
+          totalCopies: 1,
+          isPlusColumn: false,
         });
       }
+      itemBookings.forEach(({ booking, startDate, endDate }, i) => {
+        bookingSlots.push({
+          booking,
+          columnKey: `${item.id}-${lanes[i] + 1}`,
+          startDate,
+          endDate,
+          conflict: isConflict(booking),
+        });
+      });
     } else {
       // Multi-copy: group bookings by identity, assign groups to visual lanes
       const groupKeyFn = (b: BookingExpanded) =>
@@ -135,15 +211,11 @@ export function buildBookingGrid(
       }
 
       const groupMap = new Map<string, BookingGroup>();
-      for (const booking of itemBookings) {
+      for (const { booking, startDate, endDate } of itemBookings) {
         const k = groupKeyFn(booking);
         let group = groupMap.get(k);
         if (!group) {
-          group = {
-            bookings: [],
-            startDate: new Date(booking.start_date),
-            endDate: new Date(booking.end_date),
-          };
+          group = { bookings: [], startDate, endDate };
           groupMap.set(k, group);
         }
         group.bookings.push(booking);
@@ -154,25 +226,13 @@ export function buildBookingGrid(
       );
 
       // Greedy lane assignment on groups (leftmost first)
-      const laneEnds: (Date | null)[] = [];
-      const groupLanes: number[] = [];
-      for (const group of groups) {
-        let assignedLane = -1;
-        for (let lane = 0; lane < laneEnds.length; lane++) {
-          if (laneEnds[lane] === null || laneEnds[lane]! < group.startDate) {
-            assignedLane = lane;
-            break;
-          }
-        }
-        if (assignedLane === -1) {
-          assignedLane = laneEnds.length;
-          laneEnds.push(null);
-        }
-        laneEnds[assignedLane] = group.endDate;
-        groupLanes.push(assignedLane);
-      }
-
-      const laneCount = Math.max(1, laneEnds.length);
+      const assigned = assignLanes(
+        groups,
+        (g) => g.startDate,
+        (g) => g.endDate
+      );
+      const groupLanes = assigned.lanes;
+      const laneCount = Math.max(1, assigned.laneCount);
 
       // Data columns (one per visual lane)
       for (let lane = 1; lane <= laneCount; lane++) {
@@ -201,8 +261,9 @@ export function buildBookingGrid(
           bookingSlots.push({
             booking,
             columnKey: `${item.id}-lane-${lane}`,
-            startDate: new Date(booking.start_date),
-            endDate: new Date(booking.end_date),
+            startDate: groups[gi].startDate,
+            endDate: groups[gi].endDate,
+            conflict: isConflict(booking),
           });
         }
       }
@@ -210,46 +271,6 @@ export function buildBookingGrid(
   }
 
   return { columns, bookingSlots };
-}
-
-/**
- * Get the booking slot for a given date and column, if any
- */
-export function getBookingForCell(
-  date: Date,
-  columnKey: string,
-  slots: BookingSlot[]
-): BookingSlot | undefined {
-  return slots.find((slot) => {
-    if (slot.columnKey !== columnKey) return false;
-    const start = new Date(
-      slot.startDate.getFullYear(),
-      slot.startDate.getMonth(),
-      slot.startDate.getDate()
-    ).getTime();
-    const end = new Date(
-      slot.endDate.getFullYear(),
-      slot.endDate.getMonth(),
-      slot.endDate.getDate()
-    ).getTime();
-    const target = new Date(
-      date.getFullYear(),
-      date.getMonth(),
-      date.getDate()
-    ).getTime();
-    return target >= start && target <= end;
-  });
-}
-
-/**
- * Check if a date is the start date of a booking slot
- */
-export function isBookingStart(date: Date, slot: BookingSlot): boolean {
-  return (
-    date.getFullYear() === slot.startDate.getFullYear() &&
-    date.getMonth() === slot.startDate.getMonth() &&
-    date.getDate() === slot.startDate.getDate()
-  );
 }
 
 /**
@@ -286,17 +307,4 @@ export function getBookingSpan(
 
   // +2 because grid row 1 is the header, and CSS grid rows are 1-indexed
   return { startRow: startRow + 2, endRow: endRow + 3 };
-}
-
-/**
- * Format a column header label
- */
-export function getColumnLabel(column: ItemColumn): string {
-  if (column.isPlusColumn) {
-    return '+';
-  }
-  if (column.totalCopies <= 1) {
-    return column.item.name;
-  }
-  return `${column.item.name} (${column.totalCopies}×)`;
 }

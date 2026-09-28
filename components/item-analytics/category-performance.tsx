@@ -8,12 +8,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart3Icon, PieChartIcon } from 'lucide-react';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import type { AggregateAnalytics, ItemAnalytics } from '@/lib/utils/item-stats';
+import type { AggregateAnalytics } from '@/lib/utils/item-stats';
 import { getCategoryLabel } from '@/lib/constants/categories';
 
 interface CategoryPerformanceProps {
   analytics: AggregateAnalytics;
-  items: ItemAnalytics[];
 }
 
 // Colors for chart segments
@@ -28,11 +27,11 @@ const COLORS = [
   '#84cc16', // lime
 ];
 
-export function CategoryPerformance({ analytics, items }: CategoryPerformanceProps) {
+export function CategoryPerformance({ analytics }: CategoryPerformanceProps) {
   // Prepare data for bar chart (rentals by category)
   const rentalData = Object.entries(analytics.category_rentals)
     .map(([category, count]) => ({
-      category: getCategoryLabel(category as any),
+      category: getCategoryLabel(category),
       rentals: count,
       items: analytics.category_items[category] || 0,
     }))
@@ -41,7 +40,7 @@ export function CategoryPerformance({ analytics, items }: CategoryPerformancePro
   // Prepare data for pie chart (inventory distribution vs rental share)
   const pieData = Object.entries(analytics.category_items)
     .map(([category, count]) => ({
-      name: getCategoryLabel(category as any),
+      name: getCategoryLabel(category),
       value: count,
       rentals: analytics.category_rentals[category] || 0,
     }))

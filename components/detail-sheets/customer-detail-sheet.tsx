@@ -5,8 +5,8 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useState, useEffect, useRef } from 'react';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
@@ -39,17 +39,20 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { collections } from '@/lib/pocketbase/client';
-import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate, formatPhoneNumber, formatPhoneNumberForTel, isValidPhoneNumber } from '@/lib/utils/formatting';
+import { formatDate, calculateRentalStatus, dateToLocalString, formatPhoneNumber, formatPhoneNumberForTel, isValidPhoneNumber, toBusinessDay } from '@/lib/utils/formatting';
+import { fetchNextIid } from '@/lib/utils/next-iid';
 import { getRentalStatusLabel } from '@/lib/constants/statuses';
 import { generateCustomerPrintContent } from '@/components/print/customer-print-content';
-import type { Customer, CustomerFormData, Rental, RentalExpanded, Reservation, ReservationExpanded, HighlightColor } from '@/types';
+import { HighlightColor, type Customer, type RentalExpanded, type ReservationExpanded } from '@/types';
+import { HIGHLIGHT_COLOR_CLASSES, getHighlightColorClasses } from '@/lib/constants/colors';
 import { FormHelpPanel } from './form-help-panel';
+import { HighlightColorPicker } from './highlight-color-picker';
 import { DOCUMENTATION } from '@/lib/constants/documentation';
 import { useHelpCollapsed } from '@/hooks/use-help-collapsed';
 
 // Validation schema
 const customerSchema = z.object({
-  iid: z.number().int().min(1, 'ID muss mindestens 1 sein'),
+  iid: z.number({ error: 'ID ist erforderlich' }).int().min(1, 'ID muss mindestens 1 sein'),
   firstname: z.string().min(1, 'Vorname ist erforderlich'),
   lastname: z.string().min(1, 'Nachname ist erforderlich'),
   // Optional at the schema level so legacy customers without email/phone
@@ -76,6 +79,11 @@ const customerSchema = z.object({
 
 type CustomerFormValues = z.infer<typeof customerSchema>;
 
+// Empty value for the iid number input (until the next free iid has loaded,
+// or when it couldn't be). form.reset({ iid: undefined }) does NOT clear an
+// uncontrolled number input; an empty string does.
+const EMPTY_IID = '' as unknown as number;
+
 interface CustomerDetailSheetProps {
   customer: Customer | null;
   open: boolean;
@@ -91,7 +99,13 @@ export function CustomerDetailSheet({
 }: CustomerDetailSheetProps) {
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  // Synchronous double-submit guard for handleSave (Enter in a field submits
+  // the form even while the save button is disabled).
+  const isSavingRef = useRef(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  // Whether confirming "Verwerfen" also closes the sheet (the dialog was
+  // opened by closing the sheet rather than by "Abbrechen")
+  const [closeOnDiscard, setCloseOnDiscard] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { isCollapsed: isHelpCollapsed, toggle: toggleHelp } = useHelpCollapsed();
   const [rentals, setRentals] = useState<RentalExpanded[]>([]);
@@ -109,7 +123,7 @@ export function CustomerDetailSheet({
   const form = useForm<CustomerFormValues>({
     resolver: zodResolver(customerSchema),
     defaultValues: {
-      iid: 1,
+      iid: EMPTY_IID,
       firstname: '',
       lastname: '',
       email: '',
@@ -127,8 +141,11 @@ export function CustomerDetailSheet({
 
   const { formState: { isDirty } } = form;
 
-  // Load customer data when customer changes
+  // Load customer data when the sheet opens or the customer changes. Gated on
+  // (and re-run by) `open`: after creating a customer the parent passes null
+  // again, so without it clicking "Neu" a second time would keep the old form.
   useEffect(() => {
+    if (!open) return;
     if (customer && customer.id) {
       // Existing customer - load all data
       const formData = {
@@ -140,89 +157,55 @@ export function CustomerDetailSheet({
         street: customer.street || '',
         postal_code: customer.postal_code || '',
         city: customer.city || '',
-        // Extract just the date part (YYYY-MM-DD) from PocketBase format (YYYY-MM-DD HH:MM:SS.000Z)
-        registered_on: customer.registered_on.split(' ')[0],
-        renewed_on: customer.renewed_on ? customer.renewed_on.split(' ')[0] : '',
+        // Calendar day (YYYY-MM-DD) of the stored date; see toBusinessDay
+        registered_on: toBusinessDay(customer.registered_on),
+        renewed_on: toBusinessDay(customer.renewed_on),
         newsletter: customer.newsletter,
         remark: customer.remark || '',
         highlight_color: (customer.highlight_color || '') as '' | 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'purple' | 'pink',
       };
       form.reset(formData);
       setIsEditMode(false);
-    } else if (customer && !customer.id) {
-      // Partial customer data (e.g., from reservation) - pre-fill what we have
-      const fetchNextIid = async () => {
-        try {
-          const result = await collections.customers().getList<Customer>(1, 1, {
-            sort: '-iid',
-          });
-          const nextIid = result.items.length > 0 ? result.items[0].iid + 1 : 1;
-
-          form.reset({
-            iid: nextIid,
-            firstname: customer.firstname || '',
-            lastname: customer.lastname || '',
-            email: customer.email || '',
-            phone: formatPhoneNumber(customer.phone || ''),
-            street: customer.street || '',
-            postal_code: customer.postal_code || '',
-            city: customer.city || '',
-            registered_on: dateToLocalString(new Date()),
-            renewed_on: '',
-            newsletter: false,
-            remark: '',
-            highlight_color: '',
-          });
-          setIsEditMode(true);
-        } catch (err) {
-          console.error('Error fetching next IID:', err);
-        }
-      };
-      fetchNextIid();
-    } else if (isNewCustomer) {
-      // Fetch next available IID for new customers
-      const fetchNextIid = async () => {
-        try {
-          const lastCustomer = await collections.customers().getFirstListItem<Customer>('', { sort: '-iid' });
-          const nextIid = (lastCustomer?.iid || 0) + 1;
-          form.reset({
-            iid: nextIid,
-            firstname: '',
-            lastname: '',
-            email: '',
-            phone: '',
-            street: '',
-            postal_code: '',
-            city: '',
-            registered_on: dateToLocalString(new Date()),
-            renewed_on: '',
-            newsletter: false,
-            remark: '',
-            highlight_color: '',
-          });
-        } catch (err) {
-          // If no customers exist yet, start with 1
-          form.reset({
-            iid: 1,
-            firstname: '',
-            lastname: '',
-            email: '',
-            phone: '',
-            street: '',
-            postal_code: '',
-            city: '',
-            registered_on: dateToLocalString(new Date()),
-            renewed_on: '',
-            newsletter: false,
-            remark: '',
-            highlight_color: '',
-          });
-        }
-      };
-      fetchNextIid();
-      setIsEditMode(true);
+      return;
     }
-  }, [customer, isNewCustomer, form]);
+
+    // New customer, possibly with partial data to pre-fill (e.g. from a
+    // reservation). Reset right away so no previous draft lingers; the iid
+    // stays empty until the next free one has loaded.
+    const newCustomerValues: CustomerFormValues = {
+      iid: EMPTY_IID,
+      firstname: customer?.firstname || '',
+      lastname: customer?.lastname || '',
+      email: customer?.email || '',
+      phone: formatPhoneNumber(customer?.phone || ''),
+      street: customer?.street || '',
+      postal_code: customer?.postal_code || '',
+      city: customer?.city || '',
+      registered_on: dateToLocalString(new Date()),
+      renewed_on: '',
+      newsletter: false,
+      remark: '',
+      highlight_color: '',
+    };
+    form.reset(newCustomerValues);
+    setIsEditMode(true);
+
+    let cancelled = false;
+    fetchNextIid(collections.customers())
+      .then((nextIid) => {
+        if (!cancelled) form.reset({ ...newCustomerValues, iid: nextIid });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        // Don't propose a fallback iid: on a network/auth error 1 (or any
+        // guess) is almost certainly taken.
+        console.error('Error fetching next IID:', err);
+        toast.error('Nächste freie ID konnte nicht geladen werden. Bitte ID manuell eintragen.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [customer, form, open]);
 
   // Load rental and reservation history
   useEffect(() => {
@@ -258,45 +241,47 @@ export function CustomerDetailSheet({
     }
   };
 
+  // Id of a field's validation message, and the aria props linking the
+  // field to it while it is shown
+  const errorId = (field: keyof CustomerFormValues) => `customer-${field}-error`;
+  const errorProps = (field: keyof CustomerFormValues) => {
+    const invalid = !!form.formState.errors[field];
+    return {
+      'aria-invalid': invalid || undefined,
+      'aria-describedby': invalid ? errorId(field) : undefined,
+    };
+  };
+
   const handleSave = async (data: CustomerFormValues) => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
     setIsLoading(true);
     try {
+      // Cleared optional fields are sent as '' rather than undefined: PATCH
+      // only updates fields present in the body, and JSON drops undefined.
       const formData: Partial<Customer> = {
         iid: data.iid,
         firstname: data.firstname,
         lastname: data.lastname,
-        email: data.email,
+        email: data.email ?? '',
         phone: formatPhoneNumber(data.phone || ''),
-        street: data.street || undefined,
-        postal_code: data.postal_code || undefined,
-        city: data.city || undefined,
+        street: data.street ?? '',
+        postal_code: data.postal_code ?? '',
+        city: data.city ?? '',
         registered_on: data.registered_on,
-        renewed_on: data.renewed_on || undefined,
+        renewed_on: data.renewed_on ?? '',
         newsletter: data.newsletter,
-        remark: data.remark || undefined,
-        highlight_color: data.highlight_color ? (data.highlight_color as HighlightColor) : ('' as any),
+        remark: data.remark ?? '',
+        highlight_color: data.highlight_color ? (data.highlight_color as HighlightColor) : '',
       };
 
       let savedCustomer: Customer;
       if (isNewCustomer) {
         savedCustomer = await collections.customers().create<Customer>(formData);
         toast.success('Nutzer:in erfolgreich erstellt');
-        // Reset form to defaults before closing to prevent stale data on next open
-        form.reset({
-          iid: 1,
-          firstname: '',
-          lastname: '',
-          email: '',
-          phone: '',
-          street: '',
-          postal_code: '',
-          city: '',
-          registered_on: dateToLocalString(new Date()),
-          renewed_on: '',
-          newsletter: false,
-          remark: '',
-          highlight_color: '',
-        });
+        // No inline reset needed: reopening the sheet re-runs the load
+        // effect (gated on `open`), which resets the form and fetches a
+        // fresh iid.
         onSave?.(savedCustomer);
         onOpenChange(false);
       } else if (customer) {
@@ -312,12 +297,14 @@ export function CustomerDetailSheet({
       console.error('Error saving customer:', err);
       toast.error('Fehler beim Speichern des Nutzers');
     } finally {
+      isSavingRef.current = false;
       setIsLoading(false);
     }
   };
 
   const handleCancel = () => {
     if (isDirty) {
+      setCloseOnDiscard(false);
       setShowCancelDialog(true);
     } else {
       if (isNewCustomer) {
@@ -335,6 +322,7 @@ export function CustomerDetailSheet({
     } else {
       form.reset();
       setIsEditMode(false);
+      if (closeOnDiscard) onOpenChange(false);
     }
   };
 
@@ -358,18 +346,8 @@ export function CustomerDetailSheet({
 
   const getHighlightColorBadge = (color?: HighlightColor) => {
     if (!color) return null;
-    const colorMap = {
-      red: 'bg-red-500',
-      orange: 'bg-orange-500',
-      yellow: 'bg-yellow-500',
-      green: 'bg-green-500',
-      teal: 'bg-teal-500',
-      blue: 'bg-blue-500',
-      purple: 'bg-purple-500',
-      pink: 'bg-pink-500',
-    };
     return (
-      <span className={`inline-block w-4 h-4 rounded ${colorMap[color]}`} />
+      <span className={`inline-block w-4 h-4 rounded ${getHighlightColorClasses(color)?.solid ?? ''}`} />
     );
   };
 
@@ -406,6 +384,7 @@ export function CustomerDetailSheet({
     <>
       <Sheet open={open} onOpenChange={(open) => {
         if (!open && isDirty) {
+          setCloseOnDiscard(true);
           setShowCancelDialog(true);
         } else {
           onOpenChange(open);
@@ -480,14 +459,7 @@ export function CustomerDetailSheet({
             <div className="px-6 mb-6">
               {customer?.highlight_color && (
                 <div className={`rounded-lg p-4 mb-3 border-l-4 ${
-                  customer.highlight_color === 'red' ? 'bg-red-50 dark:bg-red-950/20 border-red-500' :
-                  customer.highlight_color === 'yellow' ? 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-500' :
-                  customer.highlight_color === 'blue' ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-500' :
-                  customer.highlight_color === 'green' ? 'bg-green-50 dark:bg-green-950/20 border-green-500' :
-                  customer.highlight_color === 'purple' ? 'bg-purple-50 dark:bg-purple-950/20 border-purple-500' :
-                  customer.highlight_color === 'orange' ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-500' :
-                  customer.highlight_color === 'pink' ? 'bg-pink-50 dark:bg-pink-950/20 border-pink-500' :
-                  'bg-teal-50 dark:bg-teal-950/20 border-teal-500'
+                  getHighlightColorClasses(customer.highlight_color)?.callout ?? ''
                 }`}>
                   <div className="flex items-center gap-2">
                     {getHighlightColorBadge(customer.highlight_color)}
@@ -497,15 +469,9 @@ export function CustomerDetailSheet({
               )}
               {customer?.remark && (
                 <div className={`rounded-lg p-4 border-l-4 ${
-                  customer.highlight_color === 'red' ? 'bg-red-50 dark:bg-red-950/20 border-red-500' :
-                  customer.highlight_color === 'yellow' ? 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-500' :
-                  customer.highlight_color === 'blue' ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-500' :
-                  customer.highlight_color === 'green' ? 'bg-green-50 dark:bg-green-950/20 border-green-500' :
-                  customer.highlight_color === 'purple' ? 'bg-purple-50 dark:bg-purple-950/20 border-purple-500' :
-                  customer.highlight_color === 'orange' ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-500' :
-                  customer.highlight_color === 'pink' ? 'bg-pink-50 dark:bg-pink-950/20 border-pink-500' :
-                  customer.highlight_color === 'teal' ? 'bg-teal-50 dark:bg-teal-950/20 border-teal-500' :
-                  'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-500'
+                  // Remark without a colour: yellow
+                  (getHighlightColorClasses(customer.highlight_color) ??
+                    HIGHLIGHT_COLOR_CLASSES[HighlightColor.Yellow]).callout
                 }`}>
                   <div className="text-base font-semibold mb-1">Wichtige Notiz:</div>
                   <p className="text-base whitespace-pre-wrap">{customer.remark}</p>
@@ -532,10 +498,11 @@ export function CustomerDetailSheet({
                         id="iid"
                         type="number"
                         {...form.register('iid', { valueAsNumber: true })}
+                        {...errorProps('iid')}
                         className="mt-1.5"
                       />
                       {form.formState.errors.iid && (
-                        <p className="text-sm text-destructive mt-1">
+                        <p id={errorId('iid')} className="text-sm text-destructive mt-1">
                           {form.formState.errors.iid.message}
                         </p>
                       )}
@@ -548,10 +515,11 @@ export function CustomerDetailSheet({
                         <Input
                           id="firstname"
                           {...form.register('firstname')}
+                          {...errorProps('firstname')}
                           className="mt-1.5"
                         />
                         {form.formState.errors.firstname && (
-                          <p className="text-sm text-destructive mt-1">
+                          <p id={errorId('firstname')} className="text-sm text-destructive mt-1">
                             {form.formState.errors.firstname.message}
                           </p>
                         )}
@@ -562,10 +530,11 @@ export function CustomerDetailSheet({
                         <Input
                           id="lastname"
                           {...form.register('lastname')}
+                          {...errorProps('lastname')}
                           className="mt-1.5"
                         />
                         {form.formState.errors.lastname && (
-                          <p className="text-sm text-destructive mt-1">
+                          <p id={errorId('lastname')} className="text-sm text-destructive mt-1">
                             {form.formState.errors.lastname.message}
                           </p>
                         )}
@@ -580,10 +549,11 @@ export function CustomerDetailSheet({
                           id="email"
                           type="email"
                           {...form.register('email')}
+                          {...errorProps('email')}
                           className="mt-1.5"
                         />
                         {form.formState.errors.email && (
-                          <p className="text-sm text-destructive mt-1">
+                          <p id={errorId('email')} className="text-sm text-destructive mt-1">
                             {form.formState.errors.email.message}
                           </p>
                         )}
@@ -594,10 +564,11 @@ export function CustomerDetailSheet({
                         <Input
                           id="phone"
                           {...form.register('phone')}
+                          {...errorProps('phone')}
                           className="mt-1.5"
                         />
                         {form.formState.errors.phone && (
-                          <p className="text-sm text-destructive mt-1">
+                          <p id={errorId('phone')} className="text-sm text-destructive mt-1">
                             {form.formState.errors.phone.message}
                           </p>
                         )}
@@ -777,103 +748,17 @@ export function CustomerDetailSheet({
                   </div>
                   <div className="space-y-3">
                     <div>
-                      <Label className="text-sm font-medium mb-2 block">Markierungsfarbe</Label>
-                      <div className="flex gap-2 mt-2">
-                        <button
-                          type="button"
-                          onClick={() => form.setValue('highlight_color', '')}
-                          className={`w-12 h-12 rounded-md border-2 transition-all bg-muted hover:bg-muted/80 flex items-center justify-center ${
-                            !form.watch('highlight_color')
-                              ? 'border-primary ring-2 ring-primary/20 scale-105'
-                              : 'border-border hover:border-primary/50'
-                          }`}
-                          title="Keine Markierung"
-                        >
-                          <span className="text-xs text-muted-foreground font-medium">—</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => form.setValue('highlight_color', 'red')}
-                          className={`w-12 h-12 rounded-md border-2 transition-all bg-red-100 dark:bg-red-950/30 ${
-                            form.watch('highlight_color') === 'red'
-                              ? 'border-red-500 ring-2 ring-red-500/20 scale-105'
-                              : 'border-red-300 dark:border-red-800 hover:border-red-500'
-                          }`}
-                          title="Rot"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => form.setValue('highlight_color', 'orange')}
-                          className={`w-12 h-12 rounded-md border-2 transition-all bg-orange-100 dark:bg-orange-950/30 ${
-                            form.watch('highlight_color') === 'orange'
-                              ? 'border-orange-500 ring-2 ring-orange-500/20 scale-105'
-                              : 'border-orange-300 dark:border-orange-800 hover:border-orange-500'
-                          }`}
-                          title="Orange"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => form.setValue('highlight_color', 'yellow')}
-                          className={`w-12 h-12 rounded-md border-2 transition-all bg-yellow-100 dark:bg-yellow-950/30 ${
-                            form.watch('highlight_color') === 'yellow'
-                              ? 'border-yellow-500 ring-2 ring-yellow-500/20 scale-105'
-                              : 'border-yellow-300 dark:border-yellow-800 hover:border-yellow-500'
-                          }`}
-                          title="Gelb"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => form.setValue('highlight_color', 'green')}
-                          className={`w-12 h-12 rounded-md border-2 transition-all bg-green-100 dark:bg-green-950/30 flex items-center justify-center ${
-                            form.watch('highlight_color') === 'green'
-                              ? 'border-green-500 ring-2 ring-green-500/20 scale-105'
-                              : 'border-green-300 dark:border-green-800 hover:border-green-500'
-                          }`}
-                          title="Grün"
-                        >
-                          <Heart className="h-5 w-5 text-green-600 dark:text-green-400 fill-green-600 dark:fill-green-400" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => form.setValue('highlight_color', 'teal')}
-                          className={`w-12 h-12 rounded-md border-2 transition-all bg-teal-100 dark:bg-teal-950/30 ${
-                            form.watch('highlight_color') === 'teal'
-                              ? 'border-teal-500 ring-2 ring-teal-500/20 scale-105'
-                              : 'border-teal-300 dark:border-teal-800 hover:border-teal-500'
-                          }`}
-                          title="Türkis"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => form.setValue('highlight_color', 'blue')}
-                          className={`w-12 h-12 rounded-md border-2 transition-all bg-blue-100 dark:bg-blue-950/30 ${
-                            form.watch('highlight_color') === 'blue'
-                              ? 'border-blue-500 ring-2 ring-blue-500/20 scale-105'
-                              : 'border-blue-300 dark:border-blue-800 hover:border-blue-500'
-                          }`}
-                          title="Blau"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => form.setValue('highlight_color', 'purple')}
-                          className={`w-12 h-12 rounded-md border-2 transition-all bg-purple-100 dark:bg-purple-950/30 ${
-                            form.watch('highlight_color') === 'purple'
-                              ? 'border-purple-500 ring-2 ring-purple-500/20 scale-105'
-                              : 'border-purple-300 dark:border-purple-800 hover:border-purple-500'
-                          }`}
-                          title="Lila"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => form.setValue('highlight_color', 'pink')}
-                          className={`w-12 h-12 rounded-md border-2 transition-all bg-pink-100 dark:bg-pink-950/30 ${
-                            form.watch('highlight_color') === 'pink'
-                              ? 'border-pink-500 ring-2 ring-pink-500/20 scale-105'
-                              : 'border-pink-300 dark:border-pink-800 hover:border-pink-500'
-                          }`}
-                          title="Rosa"
-                        />
-                      </div>
+                      <Label id="customer-highlight-color-label" className="text-sm font-medium mb-2 block">Markierungsfarbe</Label>
+                      <HighlightColorPicker
+                        value={form.watch('highlight_color')}
+                        onChange={(color) => form.setValue('highlight_color', color, { shouldDirty: true })}
+                        labelledBy="customer-highlight-color-label"
+                        swatchClassName="w-12 h-12"
+                        className="mt-2"
+                        icons={{
+                          green: <Heart aria-hidden="true" className="h-5 w-5 text-green-600 dark:text-green-400 fill-green-600 dark:fill-green-400" />,
+                        }}
+                      />
                     </div>
 
                     <div>
@@ -1087,12 +972,7 @@ export function CustomerDetailSheet({
                       </thead>
                       <tbody className="bg-background">
                         {(showAllRentals ? rentals : rentals.slice(0, 5)).map((rental) => {
-                          const status = calculateRentalStatus(
-                            rental.rented_on,
-                            rental.returned_on,
-                            rental.expected_on,
-                            rental.extended_on
-                          );
+                          const status = calculateRentalStatus(rental);
                           const items = rental.expand?.items || [];
                           const firstItem = items[0];
                           const additionalCount = items.length - 1;

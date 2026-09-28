@@ -17,59 +17,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import type { FilterConfig } from '@/lib/filters/filter-configs';
-import type { ActiveFilter } from '@/lib/filters/filter-utils';
+import type { ActiveFilter, DatePreset } from '@/lib/filters/filter-utils';
+import { DATE_PRESET_LABELS } from '@/lib/filters/filter-utils';
 import { Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { dateToLocalString } from '@/lib/utils/formatting';
-
-/**
- * Get date range for quick filters
- */
-function getQuickDateRange(range: 'today' | 'yesterday' | 'this_week' | 'last_week'): { start: string; end: string } {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-  switch (range) {
-    case 'today': {
-      return {
-        start: dateToLocalString(today),
-        end: dateToLocalString(today),
-      };
-    }
-    case 'yesterday': {
-      const day = new Date(today);
-      day.setDate(day.getDate() - 1);
-      return {
-        start: dateToLocalString(day),
-        end: dateToLocalString(day),
-      };
-    }
-    case 'this_week': {
-      const start = new Date(today);
-      const dow = start.getDay();
-      const diff = start.getDate() - dow + (dow === 0 ? -6 : 1); // Monday
-      start.setDate(diff);
-      const end = new Date(start);
-      end.setDate(end.getDate() + 6); // Sunday
-      return {
-        start: dateToLocalString(start),
-        end: dateToLocalString(end),
-      };
-    }
-    case 'last_week': {
-      const start = new Date(today);
-      const dow = start.getDay();
-      const diff = start.getDate() - dow + (dow === 0 ? -6 : 1) - 7; // Last Monday
-      start.setDate(diff);
-      const end = new Date(start);
-      end.setDate(end.getDate() + 6); // Last Sunday
-      return {
-        start: dateToLocalString(start),
-        end: dateToLocalString(end),
-      };
-    }
-  }
-}
+import { getHighlightColorClasses } from '@/lib/constants/colors';
 
 export interface FilterPopoverProps {
   /** The trigger element (usually a button) */
@@ -131,12 +83,15 @@ export function FilterPopover({
   >({});
   const [textValues, setTextValues] = useState<Record<string, string>>({});
 
-  // Count filters by type
-  const statusCount = activeFilters.filter((f) => f.type === 'status').length;
-  const dateCount = activeFilters.filter((f) => f.type === 'date').length;
-  const categoryCount = activeFilters.filter((f) => f.type === 'category').length;
-  const numericCount = activeFilters.filter((f) => f.type === 'numeric').length;
-  const textCount = activeFilters.filter((f) => f.type === 'text').length;
+  // Count filters per tab by the fields it offers (a tab can mix filter
+  // types, e.g. boolean filters under "Status" or "Kategorie")
+  const countActive = (configs: FilterConfig[]) =>
+    activeFilters.filter((f) => configs.some((c) => c.field === f.field)).length;
+  const statusCount = countActive(statusFilters);
+  const dateCount = countActive(dateFilters);
+  const categoryCount = countActive(categoryFilters);
+  const numericCount = countActive(numericFilters);
+  const textCount = countActive(textFilters);
 
   // Determine which tabs to show
   const hasStatus = statusFilters.length > 0;
@@ -154,13 +109,6 @@ export function FilterPopover({
     : hasNumeric
     ? 'numeric'
     : 'text';
-
-  // Check if a filter is active
-  const isFilterActive = (field: string, value: string) => {
-    return activeFilters.some(
-      (f) => f.field === field && String(f.value) === value
-    );
-  };
 
   // Get tri-state for a filter option
   const getFilterState = (field: string, value: string): 'unchecked' | 'checked' | 'excluded' => {
@@ -194,7 +142,7 @@ export function FilterPopover({
     // Add new filter if not going to unchecked
     if (nextState !== 'unchecked') {
       onAddFilter({
-        type: config.type as 'status' | 'category',
+        type: config.type,
         field: config.field,
         operator: nextState === 'excluded' ? '!=' : '=',
         value: optionValue,
@@ -220,15 +168,15 @@ export function FilterPopover({
     }
   };
 
-  // Handle quick date filter
-  const handleQuickDateFilter = (config: FilterConfig, rangeType: 'today' | 'yesterday' | 'this_week' | 'last_week', label: string) => {
-    const range = getQuickDateRange(rangeType);
+  // Handle quick date filter. The preset itself is stored (not today's dates)
+  // so a persisted "Heute" chip still means today tomorrow.
+  const handleQuickDateFilter = (config: FilterConfig, preset: DatePreset) => {
     onAddFilter({
       type: 'date',
       field: config.field,
       operator: '>=',
-      value: [range.start, range.end],
-      label: `${config.label}: ${label}`,
+      value: preset,
+      label: `${config.label}: ${DATE_PRESET_LABELS[preset]}`,
     });
   };
 
@@ -391,38 +339,17 @@ export function FilterPopover({
 
                     {/* Quick filter buttons */}
                     <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs"
-                        onClick={() => handleQuickDateFilter(config, 'today', 'Heute')}
-                      >
-                        Heute
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs"
-                        onClick={() => handleQuickDateFilter(config, 'yesterday', 'Gestern')}
-                      >
-                        Gestern
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs"
-                        onClick={() => handleQuickDateFilter(config, 'this_week', 'Diese Woche')}
-                      >
-                        Diese Woche
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs"
-                        onClick={() => handleQuickDateFilter(config, 'last_week', 'Letzte Woche')}
-                      >
-                        Letzte Woche
-                      </Button>
+                      {(Object.entries(DATE_PRESET_LABELS) as [DatePreset, string][]).map(([preset, label]) => (
+                        <Button
+                          key={preset}
+                          size="sm"
+                          variant="outline"
+                          className="text-xs"
+                          onClick={() => handleQuickDateFilter(config, preset)}
+                        >
+                          {label}
+                        </Button>
+                      ))}
                     </div>
 
                     <Separator className="my-2" />
@@ -475,16 +402,6 @@ export function FilterPopover({
               <TabsContent value="category" className="space-y-3 max-h-64 overflow-y-auto">
                 {categoryFilters.map((config) => {
                   const isColorFilter = config.id === 'highlight_color';
-                  const colorMap: Record<string, string> = {
-                    red: 'bg-red-500',
-                    orange: 'bg-orange-500',
-                    yellow: 'bg-yellow-500',
-                    green: 'bg-green-500',
-                    teal: 'bg-teal-500',
-                    blue: 'bg-blue-500',
-                    purple: 'bg-purple-500',
-                    pink: 'bg-pink-500',
-                  };
 
                   return (
                     <div key={config.id} className="space-y-2">
@@ -508,8 +425,8 @@ export function FilterPopover({
                                   state === 'excluded' && "line-through text-muted-foreground"
                                 )}
                               >
-                                {isColorFilter && colorMap[option.value] && (
-                                  <span className={cn("size-3 rounded-full shrink-0", colorMap[option.value])} />
+                                {isColorFilter && getHighlightColorClasses(option.value) && (
+                                  <span className={cn("size-3 rounded-full shrink-0", getHighlightColorClasses(option.value)?.solid)} />
                                 )}
                                 <span>
                                   {option.label}

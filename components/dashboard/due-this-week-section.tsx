@@ -4,90 +4,17 @@
  */
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from 'lucide-react';
-import { collections } from '@/lib/pocketbase/client';
-import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
-import type { Rental, RentalExpanded, DueThisWeekItem } from '@/types';
+import { useUnreturnedRentals } from '@/hooks/use-unreturned-rentals';
 import { getRentalsDueInDays } from '@/lib/utils/dashboard-metrics';
 import { formatDate } from '@/lib/utils/formatting';
-import { toast } from 'sonner';
 import Link from 'next/link';
 
 export function DueThisWeekSection() {
-  const [rentals, setRentals] = useState<RentalExpanded[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [dueItems, setDueItems] = useState<DueThisWeekItem[]>([]);
-
-  useEffect(() => {
-    loadRentals();
-  }, []);
-
-  // Real-time subscription for live updates
-  useRealtimeSubscription<Rental>('rental', {
-    onCreated: async (rental) => {
-      // Only fetch if not returned
-      if (!rental.returned_on) {
-        try {
-          const expandedRental = await collections
-            .rentals()
-            .getOne<RentalExpanded>(rental.id, { expand: 'customer,items' });
-          setRentals((prev) => {
-            if (prev.some((r) => r.id === rental.id)) return prev;
-            return [...prev, expandedRental];
-          });
-        } catch (err) {
-          console.error('Error fetching expanded rental:', err);
-        }
-      }
-    },
-    onUpdated: async (rental) => {
-      if (!rental.returned_on) {
-        try {
-          const expandedRental = await collections
-            .rentals()
-            .getOne<RentalExpanded>(rental.id, { expand: 'customer,items' });
-          setRentals((prev) =>
-            prev.map((r) => (r.id === rental.id ? expandedRental : r))
-          );
-        } catch (err) {
-          console.error('Error fetching expanded rental:', err);
-        }
-      } else {
-        // Remove from list if returned
-        setRentals((prev) => prev.filter((r) => r.id !== rental.id));
-      }
-    },
-    onDeleted: (rental) => {
-      setRentals((prev) => prev.filter((r) => r.id !== rental.id));
-    },
-  });
-
-  // Recalculate due items whenever rentals change
-  useEffect(() => {
-    const items = getRentalsDueInDays(rentals, 7);
-    setDueItems(items);
-  }, [rentals]);
-
-  async function loadRentals() {
-    try {
-      setLoading(true);
-
-      // Get all active rentals (not returned)
-      const result = await collections.rentals().getFullList<RentalExpanded>({
-        expand: 'customer,items',
-        filter: 'returned_on = ""',
-      });
-
-      setRentals(result);
-    } catch (error) {
-      console.error('Failed to load rentals:', error);
-      toast.error('Fehler beim Laden der Ausleihen');
-    } finally {
-      setLoading(false);
-    }
-  }
+  const { rentals, loading } = useUnreturnedRentals();
+  const dueItems = useMemo(() => getRentalsDueInDays(rentals, 7), [rentals]);
 
   /**
    * Get badge variant based on days until due

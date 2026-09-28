@@ -21,10 +21,12 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  type Announcements,
   type DragEndEvent,
+  type ScreenReaderInstructions,
+  type UniqueIdentifier,
 } from '@dnd-kit/core';
 import {
-  arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   useSortable,
@@ -88,7 +90,7 @@ function SortableColumnItem({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: column.id });
+  } = useSortable({ id: column.id, attributes: { roleDescription: 'verschiebbar' } });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -105,6 +107,7 @@ function SortableColumnItem({
       <div
         {...attributes}
         {...listeners}
+        aria-label={`Spalte ${column.label} verschieben`}
         className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded"
       >
         <GripVertical className="h-4 w-4 text-muted-foreground" />
@@ -155,6 +158,25 @@ export function ColumnSelector({
   // Create a map of columns by ID for quick lookup
   const columnMap = new Map(columns.map((col) => [col.id, col]));
 
+  // German screen-reader texts for keyboard dragging (dnd-kit's defaults are
+  // English and name columns by their ids)
+  const labelOf = (id: UniqueIdentifier) => columnMap.get(String(id))?.label ?? String(id);
+  const screenReaderInstructions: ScreenReaderInstructions = {
+    draggable:
+      'Zum Verschieben der Spalte Leertaste oder Enter drücken, mit den Pfeiltasten ' +
+      'verschieben und mit Leertaste oder Enter ablegen. Escape bricht ab.',
+  };
+  const announcements: Announcements = {
+    onDragStart: ({ active }) => `Spalte ${labelOf(active.id)} aufgenommen.`,
+    onDragOver: ({ active, over }) =>
+      over ? `Spalte ${labelOf(active.id)} ist jetzt bei ${labelOf(over.id)}.` : undefined,
+    onDragEnd: ({ active, over }) =>
+      over
+        ? `Spalte ${labelOf(active.id)} bei ${labelOf(over.id)} abgelegt.`
+        : `Spalte ${labelOf(active.id)} abgelegt.`,
+    onDragCancel: ({ active }) => `Verschieben abgebrochen. Spalte ${labelOf(active.id)} bleibt an ihrem Platz.`,
+  };
+
   // Get ordered columns based on columnOrder
   const orderedColumns = columnOrder
     .map((id) => columnMap.get(id))
@@ -180,6 +202,7 @@ export function ColumnSelector({
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
+          accessibility={{ screenReaderInstructions, announcements }}
         >
           <SortableContext
             items={columnOrder}

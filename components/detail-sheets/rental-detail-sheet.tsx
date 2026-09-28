@@ -11,7 +11,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { SaveIcon, XIcon, Grid2x2Check, CornerDownLeft, Blocks,  CheckIcon, ChevronsUpDownIcon, CalendarIcon, TrashIcon, MinusIcon, PlusIcon, PrinterIcon } from 'lucide-react';
+import { SaveIcon, XIcon, Grid2x2Check, Blocks,  CheckIcon, ChevronsUpDownIcon, CalendarIcon, TrashIcon, MinusIcon, PlusIcon, PrinterIcon } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -48,13 +48,21 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { collections, pb } from '@/lib/pocketbase/client';
-import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate, formatPhoneNumber, formatPhoneNumberForTel } from '@/lib/utils/formatting';
+import { buildCustomerSearchFilter } from '@/lib/filters/filter-utils';
+import { formatDate, formatCurrency, calculateRentalStatus, dateToLocalString, localStringToDate, formatPhoneNumber, formatPhoneNumberForTel, toBusinessDay } from '@/lib/utils/formatting';
 import { cn } from '@/lib/utils';
 import { useIdentity } from '@/hooks/use-identity';
-import type { Rental, RentalExpanded, Customer, Item } from '@/types';
+import { RentalStatus, type Rental, type RentalExpanded, type Customer, type Item } from '@/types';
+import { getItemStatusLabel, getRentalStatusLabel } from '@/lib/constants/statuses';
+import {
+  CUSTOMER_HIGHLIGHT_MEANINGS,
+  ITEM_HIGHLIGHT_MEANINGS,
+  describeHighlightColor,
+} from '@/lib/constants/colors';
 import { getCopyCount, setCopyCount, removeCopyCount, type InstanceData } from '@/lib/utils/instance-data';
 import { getMultipleItemAvailability, type ItemAvailability } from '@/lib/utils/item-availability';
-import { getReturnedCopyCount, mergeReturnedItems } from '@/lib/utils/partial-returns';
+import { getReturnedCopyCount } from '@/lib/utils/partial-returns';
+import { buildPartialReturnUpdate } from '@/lib/utils/partial-return-update';
 import { generateRentalPrintContent } from '@/components/print/rental-print-content';
 import { FormHelpPanel } from './form-help-panel';
 import { DOCUMENTATION } from '@/lib/constants/documentation';
@@ -141,6 +149,9 @@ export function RentalDetailSheet({
 }: RentalDetailSheetProps) {
   const { currentIdentity } = useIdentity();
   const [isLoading, setIsLoading] = useState(false);
+  // Synchronous double-submit guard for handleSave (Enter in a field submits
+  // the form even while the save button is disabled).
+  const isSavingRef = useRef(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { isCollapsed: isHelpCollapsed, toggle: toggleHelp } = useHelpCollapsed();
@@ -149,6 +160,14 @@ export function RentalDetailSheet({
   const [showPartialReturnDialog, setShowPartialReturnDialog] = useState(false);
   const [itemsToReturn, setItemsToReturn] = useState<Record<string, number>>({});
   const [partialReturnDeposit, setPartialReturnDeposit] = useState(0);
+  // Stored rental after a partial return in this session. The parent doesn't
+  // re-fetch the `rental` prop while the sheet stays open, so its
+  // returned_items / deposit_back go stale after the first partial return.
+  const [latestRental, setLatestRental] = useState<Rental | null>(null);
+  const currentRental: RentalExpanded | null =
+    rental && latestRental?.id === rental.id
+      ? { ...rental, ...latestRental, expand: rental.expand }
+      : rental;
 
   // Track if preloaded items have been applied to prevent re-applying on every render
   const preloadedItemsAppliedRef = useRef(false);
@@ -196,18 +215,23 @@ export function RentalDetailSheet({
     },
   });
 
-  const { formState: { isDirty }, watch, setValue, getValues } = form;
+  const { formState: { isDirty }, watch, setValue } = form;
   const watchedValues = watch(['rented_on', 'expected_on', 'extended_on', 'returned_on']);
   const [rentedOn, expectedOn, extendedOn, returnedOn] = watchedValues;
 
   // Load rental data when rental changes
   useEffect(() => {
     if (rental && open) {
+      setLatestRental(null);
 
-      // Set customer if expanded
+      // Set customer if expanded. Otherwise (e.g. a template converted from
+      // a reservation without customer) clear it, so the previously opened
+      // rental's customer/items don't linger in the sheet.
       if (rental.expand?.customer) {
         setSelectedCustomer(rental.expand.customer);
         setValue('customer_iid', rental.expand.customer.iid);
+      } else {
+        setSelectedCustomer(null);
       }
 
       // Set items if expanded (support multiple items)
@@ -217,14 +241,16 @@ export function RentalDetailSheet({
 
         // Load instance data from requested_copies field
         setInstanceData(rental.requested_copies || {});
+      } else {
+        setSelectedItems([]);
+        setInstanceData({});
       }
 
-      // Set form values - handle both 'T' and space separators in date strings
-      const parseDate = (dateStr: string | undefined) => {
-        if (!dateStr) return '';
-        // Handle both ISO format (2022-11-10T00:00:00) and space format (2022-11-10 00:00:00)
-        return dateStr.split(/[T\s]/)[0];
-      };
+      // Date-only fields as the calendar day they stand for. Cutting at the
+      // 'T'/space would take the UTC date, which for older records stored as
+      // local midnight ("2026-04-14 22:00:00.000Z") is the day before; saving
+      // the form would then move the date back a day.
+      const parseDate = (dateStr: string | undefined) => toBusinessDay(dateStr);
 
       const rentedOnValue = parseDate(rental.rented_on) || dateToLocalString(new Date());
       const returnedOnValue = parseDate(rental.returned_on);
@@ -320,11 +346,17 @@ export function RentalDetailSheet({
 
     const fetchAvailability = async () => {
       const itemIds = selectedItems.map(item => item.id);
-      const availabilityMap = await getMultipleItemAvailability(
-        itemIds,
-        rental?.id // Exclude current rental when editing
-      );
-      setItemAvailability(availabilityMap);
+      try {
+        const availabilityMap = await getMultipleItemAvailability(
+          itemIds,
+          rental?.id // Exclude current rental when editing
+        );
+        setItemAvailability(availabilityMap);
+      } catch {
+        // Unknown availability: fall back to showing total copies rather
+        // than a misleading "0 von 0". handleSave re-checks before saving.
+        setItemAvailability(new Map());
+      }
     };
 
     fetchAvailability();
@@ -340,34 +372,10 @@ export function RentalDetailSheet({
     const searchCustomers = async () => {
       setIsSearchingCustomers(true);
       try {
-        const filters = [];
-        let sortBy = 'lastname,firstname';
-
-        // If search is numeric, search by iid
-        if (/^\d+$/.test(customerSearch)) {
-          filters.push(`iid=${parseInt(customerSearch, 10)}`);
-          sortBy = 'iid'; // Sort by iid when searching numerically
-        } else {
-          // Check if search contains a space (possible full name search)
-          const trimmedSearch = customerSearch.trim();
-          if (trimmedSearch.includes(' ')) {
-            // Split into parts for full name search
-            const parts = trimmedSearch.split(/\s+/);
-            const firstName = parts[0];
-            const lastName = parts.slice(1).join(' ');
-
-            // Search for firstname AND lastname match
-            filters.push(`(firstname~'${firstName}' && lastname~'${lastName}')`);
-            // Also try reversed (lastname firstname)
-            filters.push(`(firstname~'${lastName}' && lastname~'${firstName}')`);
-          }
-
-          // Always search individual fields
-          filters.push(`firstname~'${trimmedSearch}'`);
-          filters.push(`lastname~'${trimmedSearch}'`);
-        }
-
-        const filter = filters.join(' || ');
+        // iid match for numeric input, otherwise (full) name match
+        const filter = buildCustomerSearchFilter(customerSearch);
+        // Sort by iid when searching numerically
+        const sortBy = /^\d+$/.test(customerSearch) ? 'iid' : 'lastname,firstname';
 
         const result = await collections.customers().getList<Customer>(1, 20, {
           filter,
@@ -458,13 +466,7 @@ export function RentalDetailSheet({
 
       // Check for highlight color
       if (customer.highlight_color) {
-        const colorDescriptions: Record<string, string> = {
-          green: 'Grün - Positiv markiert',
-          blue: 'Blau - Information',
-          yellow: 'Gelb - Warnung',
-          red: 'Rot - Wichtig/Problem',
-        };
-        const description = colorDescriptions[customer.highlight_color] || customer.highlight_color;
+        const description = describeHighlightColor(customer.highlight_color, CUSTOMER_HIGHLIGHT_MEANINGS);
         toast.info(`Diese/r Nutzer:in wurde farblich markiert: ${description}`, {
           duration: Infinity,
         });
@@ -476,33 +478,17 @@ export function RentalDetailSheet({
 
   // Show notifications for selected item
   const showItemNotifications = (item: Item) => {
-    // Check item status
-    const statusMapping: Record<string, string> = {
-      instock: 'verfügbar',
-      outofstock: 'verliehen',
-      reserved: 'reserviert',
-      lost: 'verschollen',
-      repairing: 'in Reparatur',
-      forsale: 'zu verkaufen',
-    };
-
-    const status = statusMapping[item.status] || item.status;
-
-    if (['outofstock', 'reserved', 'lost', 'repairing', 'forsale'].includes(item.status)) {
-      toast.error(`${item.name} (#${String(item.iid).padStart(4, '0')}) ist nicht verfügbar, hat Status: ${status}`, {
+    // Check item status: warn about what handleSave won't accept
+    // (it takes instock and reserved items)
+    if (item.status !== 'instock' && item.status !== 'reserved') {
+      toast.error(`${item.name} (#${String(item.iid).padStart(4, '0')}) ist nicht verfügbar, hat Status: ${getItemStatusLabel(item.status)}`, {
         duration: 10000,
       });
     }
 
     // Check for highlight color
     if (item.highlight_color) {
-      const colorDescriptions: Record<string, string> = {
-        green: 'Grün - Positiv markiert',
-        blue: 'Blau - Information',
-        yellow: 'Gelb - Warnung',
-        red: 'Rot - Wichtig/Problem',
-      };
-      const description = colorDescriptions[item.highlight_color] || item.highlight_color;
+      const description = describeHighlightColor(item.highlight_color, ITEM_HIGHLIGHT_MEANINGS);
       toast.info(`${item.name} (#${String(item.iid).padStart(4, '0')}) wurde farblich markiert: ${description}`, {
         duration: Infinity,
       });
@@ -590,7 +576,20 @@ export function RentalDetailSheet({
     setValue('deposit', totalDeposit, { shouldDirty: true });
   };
 
+  // Id of a field's validation message, and the aria props linking the
+  // field to it while it is shown
+  const errorId = (field: keyof RentalFormValues) => `rental-${field}-error`;
+  const errorProps = (field: keyof RentalFormValues) => {
+    const invalid = !!form.formState.errors[field];
+    return {
+      'aria-invalid': invalid || undefined,
+      'aria-describedby': invalid ? errorId(field) : undefined,
+    };
+  };
+
   const handleSave = async (data: RentalFormValues) => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
     setIsLoading(true);
     try {
       // Get customer by iid to get its PocketBase ID
@@ -604,13 +603,22 @@ export function RentalDetailSheet({
         })
       );
 
-      // Validate that all items are available (instock or reserved)
-      // Skip this check if we're returning a rental (returned_on is set)
-      // Also skip this check when editing an existing rental (the copy availability check below handles it)
+      // Validate availability of whatever this save puts out. Skipped when
+      // returning (returned_on is set). A new rental puts out every item;
+      // an edit only what it adds on top of the stored rental (new items,
+      // raised copy counts), so e.g. editing the remark of a rental whose
+      // item has since gone out of stock still saves. Re-opening a returned
+      // rental puts all of its items back out.
       const isReturning = !!data.returned_on;
 
-      if (!isReturning && isNewRental) {
+      if (!isReturning) {
+        const heldItemIds = isNewRental || rental?.returned_on ? [] : rental?.items ?? [];
+        const heldCopies = (itemId: string) =>
+          heldItemIds.includes(itemId) ? getCopyCount(rental?.requested_copies, itemId) : 0;
+
+        // Status check (instock or reserved) for items not already held
         const unavailableItems = items.filter(item =>
+          !heldItemIds.includes(item.id) &&
           item.status !== 'instock' && item.status !== 'reserved'
         );
 
@@ -623,31 +631,48 @@ export function RentalDetailSheet({
           return;
         }
 
-        // Re-fetch availability immediately before create. The cached
+        // Re-fetch availability immediately before saving. The cached
         // map was loaded when the user opened the sheet; another operator
         // may have rented the same copy since. This narrows (but can't
         // eliminate) the TOCTOU window — true atomicity would need a
         // PocketBase server hook.
-        const freshAvailability = await getMultipleItemAvailability(
-          items.map(item => item.id)
+        const increasedItems = items.filter(item =>
+          getCopyCount(instanceData, item.id) > heldCopies(item.id)
         );
 
-        for (const item of items) {
-          const requestedCopies = getCopyCount(instanceData, item.id);
-          const availability = freshAvailability.get(item.id);
-
-          if (!availability || requestedCopies > availability.availableCopies) {
-            toast.error(
-              `${item.name} (#${String(item.iid).padStart(4, '0')}): Nur ${availability?.availableCopies ?? 0} von ${availability?.totalCopies ?? 0} Exemplaren verfügbar`
+        if (increasedItems.length > 0) {
+          let freshAvailability: Map<string, ItemAvailability>;
+          try {
+            freshAvailability = await getMultipleItemAvailability(
+              increasedItems.map(item => item.id),
+              rental?.id // Exclude this rental's own copies when editing
             );
+          } catch {
+            // Fail closed, but don't show a misleading "0 von 0" count
+            toast.error('Verfügbarkeit konnte nicht geprüft werden — bitte erneut versuchen');
             setIsLoading(false);
             return;
+          }
+
+          for (const item of increasedItems) {
+            const requestedCopies = getCopyCount(instanceData, item.id);
+            const availability = freshAvailability.get(item.id);
+
+            if (!availability || requestedCopies > availability.availableCopies) {
+              toast.error(
+                `${item.name} (#${String(item.iid).padStart(4, '0')}): Nur ${availability?.availableCopies ?? 0} von ${availability?.totalCopies ?? 0} Exemplaren verfügbar`
+              );
+              setIsLoading(false);
+              return;
+            }
           }
         }
       }
 
       const itemIds = items.map(item => item.id);
 
+      // Cleared optional fields are sent as '' rather than undefined: PATCH
+      // only updates fields present in the body, and JSON drops undefined.
       const formData: Partial<Rental> = {
         customer: customer.id,
         items: itemIds, // Multiple items per rental
@@ -655,12 +680,12 @@ export function RentalDetailSheet({
         deposit: data.deposit,
         deposit_back: data.deposit_back,
         rented_on: data.rented_on,
-        returned_on: data.returned_on || undefined,
+        returned_on: data.returned_on ?? '',
         expected_on: data.expected_on,
-        extended_on: data.extended_on || undefined,
-        remark: data.remark || undefined, // User notes, no instance data
+        extended_on: data.extended_on ?? '',
+        remark: data.remark ?? '', // User notes, no instance data
         employee: data.employee,
-        employee_back: data.employee_back || undefined,
+        employee_back: data.employee_back ?? '',
       };
 
       let savedRental: Rental;
@@ -738,15 +763,16 @@ export function RentalDetailSheet({
         }
         // Response body with message (for 400 errors)
         else if ('response' in err && err.response && typeof err.response === 'object') {
-          const response = err.response as any;
+          const response = err.response as { data?: { message?: unknown } };
           if (response.data && response.data.message) {
-            errorMessage = response.data.message;
+            errorMessage = String(response.data.message);
           }
         }
       }
 
       toast.error(errorMessage);
     } finally {
+      isSavingRef.current = false;
       setIsLoading(false);
     }
   };
@@ -794,7 +820,8 @@ export function RentalDetailSheet({
     }
 
     // If there are partial returns, mark all remaining items as returned
-    if (rental.returned_items && Object.keys(rental.returned_items).length > 0) {
+    const returnedItems = currentRental?.returned_items;
+    if (returnedItems && Object.keys(returnedItems).length > 0) {
       try {
         setIsLoading(true);
 
@@ -842,24 +869,29 @@ export function RentalDetailSheet({
     try {
       setIsLoading(true);
 
-      // Merge new returns with existing returns
-      const mergedReturnedItems = mergeReturnedItems(
-        rental.returned_items,
-        itemsToReturn
-      );
-
-      // Check if this partial return completes the rental
-      const isNowFullyReturned = rental.items.every((itemId) => {
-        const requested = getCopyCount(rental.requested_copies, itemId);
-        const returned = mergedReturnedItems[itemId] || 0;
-        return requested === returned;
-      });
+      // Merge into the stored rental, re-fetched right before merging: the
+      // `rental` prop predates any partial return made since the sheet opened.
+      const latest = await collections.rentals().getOne<Rental>(rental.id);
+      if (latest.returned_on) {
+        // Returned in full meanwhile (e.g. by another operator): a partial
+        // return on top would add deposit back twice and overwrite who took it
+        toast.error('Dieser Leihvorgang wurde inzwischen vollständig zurückgegeben');
+        setShowPartialReturnDialog(false);
+        onSave?.(latest);
+        onOpenChange(false);
+        return;
+      }
+      const {
+        returned_items: mergedReturnedItems,
+        deposit_back: mergedDepositBack,
+        isFullyReturned: isNowFullyReturned,
+      } = buildPartialReturnUpdate(latest, itemsToReturn, partialReturnDeposit);
 
       // Prepare update data
       const updateData: Partial<Rental> = {
         returned_items: mergedReturnedItems,
-        deposit_back: rental.deposit_back + partialReturnDeposit,
-        employee_back: currentIdentity || rental.employee_back,
+        deposit_back: mergedDepositBack,
+        employee_back: currentIdentity || latest.employee_back,
       };
 
       // If fully returned now, set returned_on
@@ -885,6 +917,16 @@ export function RentalDetailSheet({
 
       // Refresh
       onSave?.(updatedRental);
+      if (isNowFullyReturned) {
+        // Rental is closed now, like after "Alles zurückgeben"
+        onOpenChange(false);
+      } else {
+        // The sheet stays open: show the stored state from here on, so the
+        // next partial return (and a later save) builds on it
+        setLatestRental(updatedRental);
+        form.resetField('deposit_back', { defaultValue: updatedRental.deposit_back ?? 0 });
+        form.resetField('employee_back', { defaultValue: updatedRental.employee_back || '' });
+      }
     } catch (err) {
       console.error('Error processing partial return:', err);
       toast.error('Fehler bei der Teilrückgabe');
@@ -932,25 +974,19 @@ export function RentalDetailSheet({
     onOpenChange(false);
   };
 
-  const rentalStatus = rental
-    ? calculateRentalStatus(
-        rental.rented_on,
-        rental.returned_on,
-        rental.expected_on,
-        rental.extended_on
-      )
-    : null;
+  // Full rental object so partial returns count, as in the rentals list
+  const rentalStatus = currentRental ? calculateRentalStatus(currentRental) : null;
 
-  const getStatusBadge = (status: string) => {
-    const statusMap = {
-      active: { label: 'Aktiv', variant: 'default' as const },
-      returned: { label: 'Zurückgegeben', variant: 'secondary' as const },
-      overdue: { label: 'Überfällig', variant: 'destructive' as const },
-      due_today: { label: 'Heute fällig', variant: 'secondary' as const },
-      returned_today: { label: 'Heute zurückgegeben', variant: 'secondary' as const },
+  const getStatusBadge = (status: RentalStatus) => {
+    const variants: Record<RentalStatus, 'default' | 'secondary' | 'destructive'> = {
+      [RentalStatus.Active]: 'default',
+      [RentalStatus.Returned]: 'secondary',
+      [RentalStatus.PartiallyReturned]: 'default',
+      [RentalStatus.Overdue]: 'destructive',
+      [RentalStatus.DueToday]: 'secondary',
+      [RentalStatus.ReturnedToday]: 'secondary',
     };
-    const { label, variant } = statusMap[status as keyof typeof statusMap] || statusMap.active;
-    return <Badge variant={variant}>{label}</Badge>;
+    return <Badge variant={variants[status] ?? 'default'}>{getRentalStatusLabel(status)}</Badge>;
   };
 
   // Date quick-action helpers
@@ -1030,9 +1066,11 @@ export function RentalDetailSheet({
                     <Popover open={customerSearchOpen} onOpenChange={setCustomerSearchOpen}>
                       <PopoverTrigger asChild>
                         <Button
+                          id="customer"
                           variant="outline"
                           role="combobox"
                           aria-expanded={customerSearchOpen}
+                          {...errorProps('customer_iid')}
                           className="w-full justify-between mt-1"
                         >
                           {selectedCustomer
@@ -1090,7 +1128,7 @@ export function RentalDetailSheet({
                       </PopoverContent>
                     </Popover>
                     {form.formState.errors.customer_iid && (
-                      <p className="text-sm text-destructive mt-1">
+                      <p id={errorId('customer_iid')} className="text-sm text-destructive mt-1">
                         {form.formState.errors.customer_iid.message}
                       </p>
                     )}
@@ -1139,9 +1177,11 @@ export function RentalDetailSheet({
                     <Popover open={itemSearchOpen} onOpenChange={setItemSearchOpen}>
                       <PopoverTrigger asChild>
                         <Button
+                          id="item"
                           variant="outline"
                           role="combobox"
                           aria-expanded={itemSearchOpen}
+                          {...errorProps('item_iids')}
                           className="w-full justify-between mt-1"
                         >
                           {selectedItems.length > 0
@@ -1197,7 +1237,7 @@ export function RentalDetailSheet({
                       </PopoverContent>
                     </Popover>
                     {form.formState.errors.item_iids && (
-                      <p className="text-sm text-destructive mt-1">
+                      <p id={errorId('item_iids')} className="text-sm text-destructive mt-1">
                         {form.formState.errors.item_iids.message}
                       </p>
                     )}
@@ -1208,7 +1248,7 @@ export function RentalDetailSheet({
                     <div className="space-y-2">
                       {selectedItems.map((item) => {
                         const copyCount = getCopyCount(instanceData, item.id);
-                        const returnedCount = !isNewRental ? getReturnedCopyCount(rental?.returned_items, item.id) : 0;
+                        const returnedCount = !isNewRental ? getReturnedCopyCount(currentRental?.returned_items, item.id) : 0;
                         const remainingCount = copyCount - returnedCount;
                         const hasReturns = returnedCount > 0;
                         const isFullyReturned = returnedCount > 0 && returnedCount === copyCount;
@@ -1311,7 +1351,7 @@ export function RentalDetailSheet({
                             {/* Return status badge */}
                             {hasReturns && (
                               <div className="mt-2 pt-2 border-t">
-                                <Badge variant="outline" className="text-green-600 border-green-600">
+                                <Badge variant="outline" className="text-green-700 border-green-700 dark:text-green-400 dark:border-green-400">
                                   {returnedCount}/{copyCount} zurückgegeben
                                   {remainingCount > 0 && ` • ${remainingCount} noch aus`}
                                 </Badge>
@@ -1332,7 +1372,7 @@ export function RentalDetailSheet({
                               const remainingDeposit = !isNewRental
                                 ? selectedItems.reduce((sum, i) => {
                                     const copies = getCopyCount(instanceData, i.id);
-                                    const returned = getReturnedCopyCount(rental?.returned_items, i.id);
+                                    const returned = getReturnedCopyCount(currentRental?.returned_items, i.id);
                                     const stillOut = copies - returned;
                                     return sum + ((i.deposit || 0) * stillOut);
                                   }, 0)
@@ -1382,6 +1422,7 @@ export function RentalDetailSheet({
                     <div className="relative flex-1">
                       <Input
                         id="rented_on"
+                        {...errorProps('rented_on')}
                         value={rentedOn && stringToDate(rentedOn) ? formatDateDisplay(stringToDate(rentedOn)) : ''}
                         placeholder="Tag auswählen..."
                         className="bg-background pr-10 cursor-pointer"
@@ -1431,7 +1472,7 @@ export function RentalDetailSheet({
                     </Button>
                   </div>
                   {form.formState.errors.rented_on && (
-                    <p className="text-sm text-destructive mt-1">
+                    <p id={errorId('rented_on')} className="text-sm text-destructive mt-1">
                       {form.formState.errors.rented_on.message}
                     </p>
                   )}
@@ -1444,6 +1485,7 @@ export function RentalDetailSheet({
                     <div className="relative flex-1">
                       <Input
                         id="expected_on"
+                        {...errorProps('expected_on')}
                         value={expectedOn && stringToDate(expectedOn) ? formatDateDisplay(stringToDate(expectedOn)) : ''}
                         placeholder="Tag auswählen..."
                         className="bg-background pr-10 cursor-pointer"
@@ -1512,7 +1554,7 @@ export function RentalDetailSheet({
                     </div>
                   </div>
                   {form.formState.errors.expected_on && (
-                    <p className="text-sm text-destructive mt-1">
+                    <p id={errorId('expected_on')} className="text-sm text-destructive mt-1">
                       {form.formState.errors.expected_on.message}
                     </p>
                   )}
@@ -1651,10 +1693,11 @@ export function RentalDetailSheet({
                     type="number"
                     step="0.01"
                     {...form.register('deposit', { valueAsNumber: true })}
+                    {...errorProps('deposit')}
                     className="mt-1"
                   />
                   {form.formState.errors.deposit && (
-                    <p className="text-sm text-destructive mt-1">
+                    <p id={errorId('deposit')} className="text-sm text-destructive mt-1">
                       {form.formState.errors.deposit.message}
                     </p>
                   )}
@@ -1668,10 +1711,11 @@ export function RentalDetailSheet({
                       type="number"
                       step="0.01"
                       {...form.register('deposit_back', { valueAsNumber: true })}
+                      {...errorProps('deposit_back')}
                       className="mt-1"
                     />
                     {form.formState.errors.deposit_back && (
-                      <p className="text-sm text-destructive mt-1">
+                      <p id={errorId('deposit_back')} className="text-sm text-destructive mt-1">
                         {form.formState.errors.deposit_back.message}
                       </p>
                     )}
@@ -1691,10 +1735,11 @@ export function RentalDetailSheet({
                   <Input
                     id="employee"
                     {...form.register('employee')}
+                    {...errorProps('employee')}
                     className="mt-1"
                   />
                   {form.formState.errors.employee && (
-                    <p className="text-sm text-destructive mt-1">
+                    <p id={errorId('employee')} className="text-sm text-destructive mt-1">
                       {form.formState.errors.employee.message}
                     </p>
                   )}
@@ -1735,6 +1780,7 @@ export function RentalDetailSheet({
                   size="lg"
                   className="w-10 h-10 p-0"
                   title="Abbrechen"
+                  aria-label="Abbrechen"
                 >
                   <XIcon className="size-5" />
                 </Button>
@@ -1747,6 +1793,7 @@ export function RentalDetailSheet({
                     size="lg"
                     className="w-10 h-10 p-0"
                     title="Löschen"
+                    aria-label="Löschen"
                   >
                     <TrashIcon className="size-5" />
                   </Button>
@@ -1760,6 +1807,7 @@ export function RentalDetailSheet({
                     size="lg"
                     className="w-10 h-10 p-0"
                     title="Drucken"
+                    aria-label="Drucken"
                   >
                     <PrinterIcon className="size-5" />
                   </Button>
@@ -1771,7 +1819,7 @@ export function RentalDetailSheet({
                     <Button
                       type="button"
                       variant="outline"
-                      className="min-w-[140px] border-green-600 text-green-600 hover:bg-green-50"
+                      className="min-w-[140px] border-green-700 text-green-700 hover:bg-green-50 dark:border-green-400 dark:text-green-400 dark:hover:bg-green-950/30"
                       onClick={() => setShowPartialReturnDialog(true)}
                       disabled={isLoading}
                       size="lg"
@@ -1782,7 +1830,7 @@ export function RentalDetailSheet({
                     <Button
                       type="button"
                       variant="default"
-                      className="bg-green-600 hover:bg-green-700 min-w-[140px]"
+                      className="bg-green-700 hover:bg-green-800 text-white min-w-[140px]"
                       onClick={handleReturn}
                       disabled={isLoading}
                       size="lg"
@@ -1862,7 +1910,7 @@ export function RentalDetailSheet({
             {/* Item selection list */}
             {selectedItems.map((item) => {
               const requestedCopies = getCopyCount(instanceData, item.id);
-              const alreadyReturned = getReturnedCopyCount(rental?.returned_items, item.id);
+              const alreadyReturned = getReturnedCopyCount(currentRental?.returned_items, item.id);
               const remainingCopies = requestedCopies - alreadyReturned;
               const selectedCount = itemsToReturn[item.id] || 0;
               const depositPerCopy = item.deposit || 0;
@@ -1876,23 +1924,28 @@ export function RentalDetailSheet({
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <Checkbox
+                          id={`partial-return-${item.id}`}
+                          aria-describedby={`partial-return-${item.id}-status`}
                           checked={selectedCount > 0}
                           onCheckedChange={(checked) => {
                             if (checked) {
                               setItemsToReturn((prev) => ({ ...prev, [item.id]: remainingCopies }));
                             } else {
                               setItemsToReturn((prev) => {
-                                const { [item.id]: _, ...rest } = prev;
+                                const rest = { ...prev };
+                                delete rest[item.id];
                                 return rest;
                               });
                             }
                           }}
                         />
-                        <FormattedId id={item.iid} size="md" className="mr-2" />
-                        <span className="font-semibold">{item.name}</span>
+                        <label htmlFor={`partial-return-${item.id}`} className="flex items-center gap-2 cursor-pointer">
+                          <FormattedId id={item.iid} size="md" className="mr-2" />
+                          <span className="font-semibold">{item.name}</span>
+                        </label>
                       </div>
 
-                      <div className="text-sm text-muted-foreground ml-6">
+                      <div id={`partial-return-${item.id}-status`} className="text-sm text-muted-foreground ml-6">
                         {remainingCopies} von {requestedCopies} noch ausstehend
                         {alreadyReturned > 0 && ` (${alreadyReturned} bereits zurück)`}
                         {depositPerCopy > 0 && ` • ${formatCurrency(depositPerCopy)} Pfand/Stück`}
@@ -1912,6 +1965,7 @@ export function RentalDetailSheet({
                               }))
                             }
                             disabled={selectedCount <= 1}
+                            aria-label={`Anzahl für ${item.name} verringern`}
                           >
                             <MinusIcon className="h-3 w-3" />
                           </Button>
@@ -1928,6 +1982,7 @@ export function RentalDetailSheet({
                               }))
                             }
                             disabled={selectedCount >= remainingCopies}
+                            aria-label={`Anzahl für ${item.name} erhöhen`}
                           >
                             <PlusIcon className="h-3 w-3" />
                           </Button>

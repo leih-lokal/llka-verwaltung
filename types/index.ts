@@ -111,42 +111,6 @@ export interface AuthUser extends BaseRecord {
   emailVisibility?: boolean;
 }
 
-/**
- * Pagination parameters for list queries
- */
-export interface PaginationParams {
-  page: number;
-  perPage: number;
-}
-
-/**
- * Sort parameters
- */
-export interface SortParams {
-  field: string;
-  direction: 'asc' | 'desc';
-}
-
-/**
- * Filter parameters
- */
-export interface FilterParams {
-  field: string;
-  operator: '=' | '!=' | '>' | '<' | '>=' | '<=' | '~' | '!~';
-  value: string | number | boolean;
-}
-
-/**
- * List response from PocketBase
- */
-export interface ListResult<T> {
-  page: number;
-  perPage: number;
-  totalItems: number;
-  totalPages: number;
-  items: T[];
-}
-
 // ============================================================================
 // CUSTOMER (Nutzer:innen)
 // ============================================================================
@@ -194,8 +158,8 @@ export interface Customer extends BaseRecord {
   /** Additional remarks */
   remark?: string;
 
-  /** Highlight color for special attention */
-  highlight_color?: HighlightColor;
+  /** Highlight color for special attention ('' = none; sending '' clears it) */
+  highlight_color?: HighlightColor | '';
 }
 
 /**
@@ -216,25 +180,6 @@ export interface CustomerRentals {
   id: string;
   num_active_rentals: number;
   num_rentals: number;
-}
-
-/**
- * Form data for creating/editing a customer
- */
-export interface CustomerFormData {
-  firstname: string;
-  lastname: string;
-  email?: string;
-  phone?: string;
-  street?: string;
-  postal_code?: string;
-  city?: string;
-  registered_on: Date;
-  renewed_on?: Date;
-  heard?: string;
-  newsletter: boolean;
-  remark?: string;
-  highlight_color?: HighlightColor;
 }
 
 // ============================================================================
@@ -287,8 +232,8 @@ export interface Item extends BaseRecord {
   /** Image file names */
   images: string[];
 
-  /** Highlight color */
-  highlight_color?: HighlightColor;
+  /** Highlight color ('' = none; sending '' clears it) */
+  highlight_color?: HighlightColor | '';
 
   /** Internal staff note (not visible to customers) */
   internal_note?: string;
@@ -315,29 +260,6 @@ export interface ItemWithStats extends Item {
 
   /** Days since last rental (null if never rented) */
   days_since_last_rental: number | null;
-}
-
-/**
- * Form data for creating/editing an item
- */
-export interface ItemFormData {
-  name: string;
-  brand?: string;
-  model?: string;
-  description?: string;
-  category: ItemCategory[];
-  deposit: number;
-  synonyms: string[];
-  packaging?: string;
-  manual?: string;
-  parts?: number;
-  copies: number;
-  status: ItemStatus;
-  images?: FileList;
-  highlight_color?: HighlightColor;
-  internal_note?: string;
-  msrp?: number;
-  is_protected?: boolean;
 }
 
 // ============================================================================
@@ -397,17 +319,6 @@ export interface RentalExpanded extends Rental {
     customer: Customer;
     items: Item[];
   };
-}
-
-/**
- * Rental with computed status
- */
-export interface RentalWithStatus extends RentalExpanded {
-  /** Computed rental status */
-  status: RentalStatus;
-
-  /** Days overdue (negative if not yet due) */
-  days_overdue: number;
 }
 
 /**
@@ -571,132 +482,9 @@ export interface Note extends BaseRecord {
   order_index: number;
 }
 
-/**
- * Form data for creating/editing a note
- */
-export interface NoteFormData {
-  content: string;
-  background_color: string;
-}
-
-// ============================================================================
-// STATISTICS
-// ============================================================================
-
-/**
- * Dashboard statistics
- */
-export interface Stats {
-  /** Active customers (rented in last 3 months) */
-  active_customers: {
-    month: string;
-    count: number;
-  }[];
-
-  /** Total rentals over time */
-  total_rentals: {
-    month: string;
-    active: number;
-    returned: number;
-  }[];
-
-  /** New customers per month */
-  new_customers: {
-    month: string;
-    count: number;
-  }[];
-
-  /** Inventory by category */
-  inventory: {
-    category: ItemCategory;
-    count: number;
-  }[];
-
-  /** Overall stats */
-  overview: {
-    total_customers: number;
-    total_items: number;
-    active_rentals: number;
-    overdue_rentals: number;
-  };
-}
-
-// ============================================================================
-// AUTOCOMPLETE
-// ============================================================================
-
-/**
- * Autocomplete option
- */
-export interface AutocompleteOption {
-  value: string;
-  label: string;
-  metadata?: Record<string, unknown>;
-}
-
-/**
- * Customer autocomplete option
- */
-export interface CustomerAutocompleteOption extends AutocompleteOption {
-  metadata: {
-    customer: Customer;
-  };
-}
-
-/**
- * Item autocomplete option
- */
-export interface ItemAutocompleteOption extends AutocompleteOption {
-  metadata: {
-    item: Item;
-  };
-}
-
-// ============================================================================
-// API & ERROR HANDLING
-// ============================================================================
-
-/**
- * API error response
- */
-export interface ApiError {
-  code: number;
-  message: string;
-  data?: Record<string, unknown>;
-}
-
-/**
- * API success response wrapper
- */
-export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: ApiError;
-}
-
 // ============================================================================
 // SETTINGS
 // ============================================================================
-
-/**
- * Application settings (legacy, to be removed)
- */
-export interface AppSettings {
-  /** PocketBase API URL */
-  api_url: string;
-
-  /** Admin username */
-  admin_username: string;
-
-  /** Admin password (stored encrypted) */
-  admin_password: string;
-
-  /** Default rental period in days */
-  default_rental_period: number;
-
-  /** Enable notifications */
-  notifications_enabled: boolean;
-}
 
 /**
  * White-label settings stored in PocketBase settings collection
@@ -771,22 +559,6 @@ export const DEFAULT_IMAGE_COMPRESSION: ImageCompressionSettings = {
 };
 
 /**
- * Settings form data for editing
- */
-export interface SettingsFormData {
-  app_name: string;
-  tagline: string;
-  logo?: File;
-  favicon?: File;
-  copyright_holder: string;
-  show_powered_by: boolean;
-  primary_color: string;
-  id_format: string;
-  id_padding: number;
-  reservations_enabled: boolean;
-}
-
-/**
  * Default settings values when no settings exist
  */
 export const DEFAULT_SETTINGS: Omit<Settings, keyof BaseRecord> = {
@@ -813,15 +585,6 @@ export const DEFAULT_SETTINGS: Omit<Settings, keyof BaseRecord> = {
 // ============================================================================
 // LOGS
 // ============================================================================
-
-/**
- * Log level enum matching PocketBase numeric levels
- */
-export enum LogLevel {
-  Info = 0,
-  Warning = 4,
-  Error = 8,
-}
 
 /**
  * Log level type as string
@@ -862,34 +625,6 @@ export interface LogEntry extends BaseRecord {
     method?: string;
     [key: string]: unknown;
   };
-}
-
-// ============================================================================
-// UI STATE
-// ============================================================================
-
-/**
- * Table filter state
- */
-export interface TableFilterState {
-  search: string;
-  filters: FilterParams[];
-  sort: SortParams | null;
-  pagination: PaginationParams;
-}
-
-/**
- * Loading state
- */
-export type LoadingState = 'idle' | 'loading' | 'success' | 'error';
-
-/**
- * Generic async state
- */
-export interface AsyncState<T> {
-  data: T | null;
-  loading: LoadingState;
-  error: ApiError | null;
 }
 
 // ============================================================================
@@ -958,38 +693,6 @@ export interface RealtimeConnectionInfo {
 // ============================================================================
 // DASHBOARD METRICS
 // ============================================================================
-
-/**
- * Today's activity metrics for dashboard
- */
-export interface TodayActivityMetrics {
-  /** Number of checkouts today */
-  checkouts: number;
-  /** Number of returns today */
-  returns: number;
-  /** Number of on-time returns today */
-  onTimeReturns: number;
-  /** Number of late returns today */
-  lateReturns: number;
-  /** Number of new customers registered today */
-  newCustomers: number;
-  /** Number of new reservations created today */
-  newReservations: number;
-}
-
-/**
- * Overdue rental breakdown by severity
- */
-export interface OverdueBreakdown {
-  /** Number of rentals 1-3 days overdue */
-  severity1to3Days: number;
-  /** Number of rentals 4-7 days overdue */
-  severity4to7Days: number;
-  /** Number of rentals 8+ days overdue */
-  severity8PlusDays: number;
-  /** Total number of overdue rentals */
-  total: number;
-}
 
 /**
  * Rental due within a time window

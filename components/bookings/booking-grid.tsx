@@ -15,8 +15,10 @@
 import { Fragment, useRef, useState, useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { BookingBlock } from './booking-block';
+import { useSettings } from '@/hooks/use-settings';
 import {
   getBookingSpan,
+  getClosedWeekdays,
   type BookingSlot,
   type ItemColumn,
   type GridDate,
@@ -61,12 +63,6 @@ function isSameDay(a: Date, b: Date): boolean {
   );
 }
 
-/** Closed days: Sunday (0), Tuesday (2), Wednesday (3) */
-function isClosedDay(date: Date): boolean {
-  const day = date.getDay();
-  return day === 0 || day === 2 || day === 3;
-}
-
 export function BookingGrid({
   dates,
   columns,
@@ -79,6 +75,13 @@ export function BookingGrid({
   const [dragState, setDragState] = useState<DragState | null>(null);
   const mousePositionRef = useRef({ x: 0, y: 0 });
   const today = useMemo(() => new Date(), []);
+
+  // Days without opening hours are shaded
+  const { settings } = useSettings();
+  const closedWeekdays = useMemo(
+    () => getClosedWeekdays(settings.opening_hours),
+    [settings.opening_hours]
+  );
 
   // Map column key → index in the columns array
   const columnKeyToIndex = useMemo(() => {
@@ -290,11 +293,14 @@ export function BookingGrid({
         {/* Column headers — multi-copy items get a spanning header + separate plus header */}
         {itemGroups.map((group) => {
           if (!group.isMultiCopy) {
+            // Spans the extra columns a double booking spills into
             return (
               <div
                 key={group.item.id}
                 className="sticky top-0 z-20 bg-background border-b p-2 text-center text-xs font-semibold truncate flex items-center justify-center gap-1.5"
-                style={{ gridColumn: gridColIndex(group.startIndex) }}
+                style={{
+                  gridColumn: `${gridColIndex(group.startIndex)} / ${gridColIndex(group.endIndex) + 1}`,
+                }}
                 title={group.item.name}
               >
                 <FormattedId id={group.item.iid} size="sm" />
@@ -341,7 +347,7 @@ export function BookingGrid({
           return dates.map((gridDate, dateIndex) => {
             const { date, isOverflow } = gridDate;
             const isToday = isSameDay(date, today);
-            const closed = isClosedDay(date);
+            const closed = closedWeekdays.has(date.getDay());
             const gridRow = dateIndex + 2;
 
             return (

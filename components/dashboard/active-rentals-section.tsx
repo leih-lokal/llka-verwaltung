@@ -3,160 +3,39 @@
  */
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Clock, ExternalLink } from 'lucide-react';
-import { collections } from '@/lib/pocketbase/client';
-import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
+import { useUnreturnedRentals } from '@/hooks/use-unreturned-rentals';
 import { calculateRentalStatus, formatDate, formatFullName } from '@/lib/utils/formatting';
-import type { Rental, RentalExpanded } from '@/types';
+import type { RentalExpanded } from '@/types';
 import { RentalStatus } from '@/types';
-import { toast } from 'sonner';
 import Link from 'next/link';
 
-interface ActiveRentalsSectionProps {
-  onRentalReturned?: () => void;
-}
+export function ActiveRentalsSection() {
+  const { rentals, loading } = useUnreturnedRentals();
 
-export function ActiveRentalsSection({ onRentalReturned }: ActiveRentalsSectionProps) {
-  const [overdueRentals, setOverdueRentals] = useState<RentalExpanded[]>([]);
-  const [dueTodayRentals, setDueTodayRentals] = useState<RentalExpanded[]>([]);
-  const [activeRentals, setActiveRentals] = useState<RentalExpanded[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Categorize rentals by status (the list is ordered by expected_on)
+  const { overdueRentals, dueTodayRentals, activeRentals } = useMemo(() => {
+    const overdue: RentalExpanded[] = [];
+    const dueToday: RentalExpanded[] = [];
+    const active: RentalExpanded[] = [];
 
-  useEffect(() => {
-    loadRentals();
-  }, []);
+    rentals.forEach((rental) => {
+      const status = calculateRentalStatus(rental);
 
-  // Real-time subscription for live updates
-  useRealtimeSubscription<Rental>('rental', {
-    onCreated: async (rental) => {
-      // Only handle active rentals (not returned)
-      if (rental.returned_on) return;
-
-      try {
-        const expandedRental = await collections.rentals().getOne<RentalExpanded>(
-          rental.id,
-          { expand: 'customer,items' }
-        );
-
-        const status = calculateRentalStatus(
-          expandedRental.rented_on,
-          expandedRental.returned_on,
-          expandedRental.expected_on,
-          expandedRental.extended_on
-        );
-
-        if (status === RentalStatus.Overdue) {
-          setOverdueRentals((prev) => {
-            if (prev.some((r) => r.id === rental.id)) return prev;
-            return [expandedRental, ...prev];
-          });
-        } else if (status === RentalStatus.DueToday) {
-          setDueTodayRentals((prev) => {
-            if (prev.some((r) => r.id === rental.id)) return prev;
-            return [expandedRental, ...prev];
-          });
-        } else {
-          setActiveRentals((prev) => {
-            if (prev.some((r) => r.id === rental.id)) return prev;
-            return [expandedRental, ...prev];
-          });
-        }
-      } catch (err) {
-        console.error('Error fetching expanded rental:', err);
+      if (status === RentalStatus.Overdue) {
+        overdue.push(rental);
+      } else if (status === RentalStatus.DueToday) {
+        dueToday.push(rental);
+      } else {
+        active.push(rental);
       }
-    },
-    onUpdated: async (rental) => {
-      try {
-        const expandedRental = await collections.rentals().getOne<RentalExpanded>(
-          rental.id,
-          { expand: 'customer,items' }
-        );
+    });
 
-        // If returned, remove from all lists
-        if (expandedRental.returned_on) {
-          setOverdueRentals((prev) => prev.filter((r) => r.id !== rental.id));
-          setDueTodayRentals((prev) => prev.filter((r) => r.id !== rental.id));
-          setActiveRentals((prev) => prev.filter((r) => r.id !== rental.id));
-          return;
-        }
-
-        // Recalculate status and move to correct category
-        const status = calculateRentalStatus(
-          expandedRental.rented_on,
-          expandedRental.returned_on,
-          expandedRental.expected_on,
-          expandedRental.extended_on
-        );
-
-        // Remove from all lists first
-        setOverdueRentals((prev) => prev.filter((r) => r.id !== rental.id));
-        setDueTodayRentals((prev) => prev.filter((r) => r.id !== rental.id));
-        setActiveRentals((prev) => prev.filter((r) => r.id !== rental.id));
-
-        // Add to correct list
-        if (status === RentalStatus.Overdue) {
-          setOverdueRentals((prev) => [expandedRental, ...prev]);
-        } else if (status === RentalStatus.DueToday) {
-          setDueTodayRentals((prev) => [expandedRental, ...prev]);
-        } else {
-          setActiveRentals((prev) => [expandedRental, ...prev]);
-        }
-      } catch (err) {
-        console.error('Error fetching expanded rental:', err);
-      }
-    },
-    onDeleted: (rental) => {
-      // Remove from all lists
-      setOverdueRentals((prev) => prev.filter((r) => r.id !== rental.id));
-      setDueTodayRentals((prev) => prev.filter((r) => r.id !== rental.id));
-      setActiveRentals((prev) => prev.filter((r) => r.id !== rental.id));
-    },
-  });
-
-  async function loadRentals() {
-    try {
-      setLoading(true);
-      const result = await collections.rentals().getFullList<RentalExpanded>({
-        expand: 'customer,items',
-        filter: 'returned_on = ""',
-        sort: 'expected_on',
-      });
-
-      // Categorize rentals by status
-      const overdue: RentalExpanded[] = [];
-      const dueToday: RentalExpanded[] = [];
-      const active: RentalExpanded[] = [];
-
-      result.forEach((rental) => {
-        const status = calculateRentalStatus(
-          rental.rented_on,
-          rental.returned_on,
-          rental.expected_on,
-          rental.extended_on
-        );
-
-        if (status === RentalStatus.Overdue) {
-          overdue.push(rental);
-        } else if (status === RentalStatus.DueToday) {
-          dueToday.push(rental);
-        } else {
-          active.push(rental);
-        }
-      });
-
-      setOverdueRentals(overdue);
-      setDueTodayRentals(dueToday);
-      setActiveRentals(active);
-    } catch (error) {
-      console.error('Failed to load rentals:', error);
-      toast.error('Fehler beim Laden der Ausleihen');
-    } finally {
-      setLoading(false);
-    }
-  }
+    return { overdueRentals: overdue, dueTodayRentals: dueToday, activeRentals: active };
+  }, [rentals]);
 
   function RentalItem({ rental, variant }: { rental: RentalExpanded; variant: 'overdue' | 'duetoday' | 'active' }) {
     const customerName = rental.expand?.customer
@@ -195,7 +74,7 @@ export function ActiveRentalsSection({ onRentalReturned }: ActiveRentalsSectionP
                 </Badge>
               )}
               {variant === 'duetoday' && (
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-yellow-600 text-yellow-600">
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-yellow-600 text-yellow-800">
                   Heute fällig
                 </Badge>
               )}
@@ -205,8 +84,12 @@ export function ActiveRentalsSection({ onRentalReturned }: ActiveRentalsSectionP
             </p>
           </div>
           <Button size="sm" variant="ghost" asChild className="shrink-0 h-8 w-8 p-0">
-            <Link href={`/rentals?view=${rental.id}`}>
-              <ExternalLink className="h-3 w-3" />
+            <Link
+              href={`/rentals?view=${rental.id}`}
+              aria-label={`Ausleihe öffnen: ${customerName}, ${itemsText}`}
+              title="Ausleihe öffnen"
+            >
+              <ExternalLink className="h-3 w-3" aria-hidden="true" />
             </Link>
           </Button>
         </div>
@@ -253,8 +136,8 @@ export function ActiveRentalsSection({ onRentalReturned }: ActiveRentalsSectionP
       {dueTodayRentals.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <Clock className="h-4 w-4 text-yellow-600" />
-            <h3 className="text-sm font-semibold text-yellow-600">
+            <Clock className="h-4 w-4 text-yellow-800" />
+            <h3 className="text-sm font-semibold text-yellow-800">
               Heute fällig ({dueTodayRentals.length})
             </h3>
           </div>

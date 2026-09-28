@@ -28,6 +28,7 @@ import { Pencil, Trash2, GripVertical } from 'lucide-react';
 import { collections } from '@/lib/pocketbase/client';
 import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
 import type { Note } from '@/types';
+import { nextNoteOrderIndex } from '@/lib/utils/note-order';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -54,6 +55,7 @@ function SortableNote({ note, onEdit, onDelete }: SortableNoteProps) {
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
@@ -65,22 +67,26 @@ function SortableNote({ note, onEdit, onDelete }: SortableNoteProps) {
     opacity: isDragging ? 0.5 : 1,
   };
 
+  // The grip is the drag handle for pointer and keyboard (Space/Enter, then
+  // arrow keys), so it carries both the sortable attributes and listeners.
+  // Controls stay hidden until hover, but show while anything in the note
+  // has keyboard focus.
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-    >
+    <div ref={setNodeRef} style={style}>
       <div
         className="group relative rounded-lg p-4 shadow-md hover:shadow-lg transition-all"
         style={{ backgroundColor: note.background_color }}
       >
-        <div
-          className="absolute top-2 left-2 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
+        <button
+          type="button"
+          ref={setActivatorNodeRef}
+          className="absolute top-2 left-2 cursor-grab active:cursor-grabbing rounded opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity outline-none focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+          aria-label="Notiz verschieben"
+          {...attributes}
           {...listeners}
         >
           <GripVertical className="h-4 w-4 text-muted-foreground" />
-        </div>
+        </button>
         <div className="pl-6 pr-16 min-h-[60px]">
           <div className="markdown-prose">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -88,12 +94,13 @@ function SortableNote({ note, onEdit, onDelete }: SortableNoteProps) {
             </ReactMarkdown>
           </div>
         </div>
-        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
           <Button
             size="icon"
             variant="ghost"
             onClick={() => onEdit(note)}
             className="h-7 w-7 hover:bg-black/10"
+            aria-label="Notiz bearbeiten"
           >
             <Pencil className="h-3 w-3" />
           </Button>
@@ -102,6 +109,7 @@ function SortableNote({ note, onEdit, onDelete }: SortableNoteProps) {
             variant="ghost"
             onClick={() => onDelete(note.id)}
             className="h-7 w-7 hover:bg-black/10"
+            aria-label="Notiz löschen"
           >
             <Trash2 className="h-3 w-3" />
           </Button>
@@ -164,6 +172,8 @@ export function DashboardNotes({ onRequestAddNote }: DashboardNotesProps = {}) {
     onDeleted: (note) => {
       setNotes((prev) => prev.filter((n) => n.id !== note.id));
     },
+    // Changes missed while paused or disconnected
+    onResubscribe: () => loadNotes(),
   });
 
   async function loadNotes() {
@@ -226,7 +236,7 @@ export function DashboardNotes({ onRequestAddNote }: DashboardNotesProps = {}) {
       const data = {
         content: noteContent,
         background_color: noteColor,
-        order_index: editingNote ? editingNote.order_index : notes.length,
+        order_index: editingNote ? editingNote.order_index : nextNoteOrderIndex(notes),
       };
 
       if (editingNote) {

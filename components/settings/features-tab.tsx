@@ -22,6 +22,13 @@ import {
   addImageCompressionField,
   hasImageCompressionField,
 } from "@/lib/pocketbase/settings-schema"
+import {
+  compressImageWithOutcome,
+  readImageDimensions,
+  type CompressOutcome,
+  type CompressResult,
+} from "@/lib/image/compress"
+import { clampNumberInput } from "@/lib/utils/number-input"
 
 const OUTPUT_FORMAT_OPTIONS: { value: ImageOutputFormat; label: string; description: string }[] = [
   {
@@ -197,13 +204,12 @@ export function FeaturesTab() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="ic-max-dim">Maximale Kantenlänge (px)</Label>
-              <Input
+              <ClampedNumberInput
                 id="ic-max-dim"
-                type="number"
                 min={64}
                 max={8192}
                 value={ic.max_dimension_px}
-                onChange={(e) => updateIc("max_dimension_px", Math.max(64, Math.min(8192, Number(e.target.value) || 0)))}
+                onCommit={(v) => updateIc("max_dimension_px", v)}
                 disabled={compressionDisabled}
               />
               <p className="text-xs text-muted-foreground">Längste Kante. Kleinere Bilder werden nicht vergrößert.</p>
@@ -211,12 +217,11 @@ export function FeaturesTab() {
 
             <div className="space-y-2">
               <Label htmlFor="ic-skip-kb">Mindestgröße zum Komprimieren (KB)</Label>
-              <Input
+              <ClampedNumberInput
                 id="ic-skip-kb"
-                type="number"
                 min={0}
                 value={ic.skip_if_smaller_than_kb}
-                onChange={(e) => updateIc("skip_if_smaller_than_kb", Math.max(0, Number(e.target.value) || 0))}
+                onCommit={(v) => updateIc("skip_if_smaller_than_kb", v)}
                 disabled={compressionDisabled}
               />
               <p className="text-xs text-muted-foreground">Kleinere Dateien werden unverändert hochgeladen.</p>
@@ -225,13 +230,12 @@ export function FeaturesTab() {
 
           <div className="space-y-2">
             <Label htmlFor="ic-quality">Qualität (1–100)</Label>
-            <Input
+            <ClampedNumberInput
               id="ic-quality"
-              type="number"
               min={1}
               max={100}
               value={ic.quality}
-              onChange={(e) => updateIc("quality", Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
+              onCommit={(v) => updateIc("quality", v)}
               disabled={compressionDisabled}
             />
             <p className="text-xs text-muted-foreground">
@@ -261,6 +265,8 @@ export function FeaturesTab() {
               </SelectContent>
             </Select>
           </div>
+
+          <CompressionPreview settings={ic} />
         </CardContent>
       </Card>
 
@@ -269,6 +275,156 @@ export function FeaturesTab() {
           {isSaving ? "Speichert..." : "Änderungen speichern"}
         </Button>
       </div>
+    </div>
+  )
+}
+
+type ClampedNumberInputProps = Omit<
+  React.ComponentProps<typeof Input>,
+  "type" | "value" | "onChange" | "min" | "max"
+> & {
+  value: number
+  min: number
+  max?: number
+  /** Called with the clamped value on blur or Enter */
+  onCommit: (value: number) => void
+}
+
+/**
+ * Number input that lets the user type freely and clamps only when the value
+ * is committed (blur or Enter). Clamping on every keystroke turned "1200"
+ * into 64 after the first digit.
+ */
+function ClampedNumberInput({
+  value,
+  min,
+  max = Infinity,
+  onCommit,
+  onBlur,
+  onKeyDown,
+  ...props
+}: ClampedNumberInputProps) {
+  const [draft, setDraft] = useState(String(value))
+
+  // Follow external changes to the value (e.g. settings reloaded)
+  const [shownValue, setShownValue] = useState(value)
+  if (value !== shownValue) {
+    setShownValue(value)
+    setDraft(String(value))
+  }
+
+  const commit = () => {
+    const next = clampNumberInput(draft, min, max, value)
+    setDraft(String(next))
+    if (next !== value) onCommit(next)
+  }
+
+  return (
+    <Input
+      {...props}
+      type="number"
+      min={min}
+      max={Number.isFinite(max) ? max : undefined}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={(e) => {
+        commit()
+        onBlur?.(e)
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") commit()
+        onKeyDown?.(e)
+      }}
+    />
+  )
+}
+
+type Dimensions = { width: number; height: number } | null
+
+const KEPT_ORIGINAL_NOTE: Record<Exclude<CompressOutcome, "compressed">, string> = {
+  disabled: "Komprimierung ist deaktiviert – das Original würde unverändert hochgeladen.",
+  unsupported: "Dieses Format (z. B. SVG, GIF) wird nicht komprimiert – das Original würde hochgeladen.",
+  below_threshold: "Die Datei liegt unter der Mindestgröße – das Original würde hochgeladen.",
+  larger: "Die komprimierte Datei wäre nicht kleiner – das Original würde hochgeladen.",
+  failed: "Komprimierung fehlgeschlagen (z. B. Bild zu groß für diesen Browser) – das Original würde hochgeladen.",
+}
+
+const formatKb = (bytes: number) =>
+  `${(bytes / 1024).toLocaleString("de-DE", { maximumFractionDigits: 1 })} KB`
+const formatDimensions = (d: Dimensions) => (d ? `${d.width} × ${d.height} px` : "–")
+
+/**
+ * Runs the compression helper on a local test image with the current
+ * (possibly unsaved) settings. Nothing is uploaded.
+ */
+function CompressionPreview({ settings }: { settings: ImageCompressionSettings }) {
+  const [file, setFile] = useState<File | null>(null)
+  const [preview, setPreview] = useState<{
+    original: File
+    originalDims: Dimensions
+    result: CompressResult
+    resultDims: Dimensions
+  } | null>(null)
+
+  // Re-run (debounced) whenever the test file or the settings change
+  useEffect(() => {
+    if (!file) return
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      // Sequential, not parallel: two concurrent decodes of a large photo can
+      // exhaust memory on mobile Safari.
+      const originalDims = await readImageDimensions(file)
+      const result = await compressImageWithOutcome(file, settings)
+      const resultDims =
+        result.file === file ? originalDims : await readImageDimensions(result.file)
+      if (!cancelled) setPreview({ original: file, originalDims, result, resultDims })
+    }, 300)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [file, settings])
+
+  const saved =
+    preview && preview.result.outcome === "compressed"
+      ? Math.round((1 - preview.result.file.size / preview.original.size) * 100)
+      : null
+
+  return (
+    <div className="space-y-2 border-t pt-4">
+      <Label htmlFor="ic-preview">Vorschau mit Testbild</Label>
+      <Input
+        id="ic-preview"
+        type="file"
+        accept="image/*"
+        onChange={(e) => {
+          const next = e.target.files?.[0] ?? null
+          setFile(next)
+          if (!next) setPreview(null)
+        }}
+      />
+      <p className="text-xs text-muted-foreground">
+        Wendet die aktuellen, auch ungespeicherten Einstellungen an. Es wird nichts hochgeladen.
+      </p>
+
+      {preview && (
+        <div className="space-y-1 text-sm">
+          <p>
+            <span className="text-muted-foreground">Original:</span>{" "}
+            {formatKb(preview.original.size)} · {formatDimensions(preview.originalDims)}
+          </p>
+          <p>
+            <span className="text-muted-foreground">Nach Komprimierung:</span>{" "}
+            {formatKb(preview.result.file.size)} · {formatDimensions(preview.resultDims)}
+            {saved !== null && ` (−${saved} %)`}
+          </p>
+          {preview.result.outcome !== "compressed" && (
+            <p className="text-xs text-muted-foreground">
+              {KEPT_ORIGINAL_NOTE[preview.result.outcome]}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

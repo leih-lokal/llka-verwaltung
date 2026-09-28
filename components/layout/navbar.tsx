@@ -17,11 +17,6 @@ import {
   Settings,
   FileText,
   LogOut,
-  MoreVertical,
-  User,
-  Command,
-  ArrowBigUp as Shift,
-  Option,
   Zap,
   Tag,
   ClipboardCheck,
@@ -32,7 +27,6 @@ import {
   Keyboard,
   ArrowRight,
   Menu,
-  Palette,
 } from 'lucide-react';
 import { NavLink } from './nav-link';
 import { IdentityPicker } from './identity-picker';
@@ -48,14 +42,13 @@ import { useSequentialMode } from '@/hooks/use-sequential-mode';
 import { useCommandMenu } from '@/hooks/use-command-menu';
 import { useKeyboardShortcutsReferenceContext } from '@/components/keyboard-shortcuts/keyboard-shortcuts-reference';
 import { useSettings } from '@/hooks/use-settings';
-import { collections } from '@/lib/pocketbase/client';
-import { toast } from 'sonner';
 
 interface MenuTileProps {
   icon: React.ReactNode;
   label: string;
   description: string;
   shortcut?: { keys: string[] };
+  /** Action of a button tile, or run when a link tile is clicked */
   onClick?: () => void;
   href?: string;
 }
@@ -96,26 +89,30 @@ function MenuTile({ icon, label, description, shortcut, onClick, href }: MenuTil
 
   if (href) {
     return (
-      <Link
-        href={href}
-        className="group flex flex-col p-3 rounded-lg border bg-card hover:bg-accent transition-colors cursor-pointer h-full"
-        role="menuitem"
-        aria-label={`${label}: ${description}`}
-      >
-        {content}
-      </Link>
+      <li>
+        <Link
+          href={href}
+          onClick={onClick}
+          className="group flex flex-col p-3 rounded-lg border bg-card hover:bg-accent transition-colors cursor-pointer h-full"
+          aria-label={`${label}: ${description}`}
+        >
+          {content}
+        </Link>
+      </li>
     );
   }
 
   return (
-    <button
-      onClick={onClick}
-      className="group flex flex-col p-3 rounded-lg border bg-card hover:bg-accent transition-colors cursor-pointer text-left h-full w-full"
-      role="menuitem"
-      aria-label={`${label}: ${description}`}
-    >
-      {content}
-    </button>
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        className="group flex flex-col p-3 rounded-lg border bg-card hover:bg-accent transition-colors cursor-pointer text-left h-full w-full"
+        aria-label={`${label}: ${description}`}
+      >
+        {content}
+      </button>
+    </li>
   );
 }
 
@@ -175,20 +172,18 @@ function NavbarDate() {
 }
 
 export function Navbar() {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const { setOpen } = useQuickFind();
   const { setOpen: setSequentialModeOpen } = useSequentialMode();
   const { setOpen: setCommandMenuOpen } = useCommandMenu();
   const { setOpen: setKeyboardShortcutsOpen } = useKeyboardShortcutsReferenceContext();
   const { settings, getFileUrl } = useSettings();
   const logoUrl = getFileUrl(settings.logo);
-  const userEmail = user?.email || 'admin@leihlokal.de';
 
-  // Detect OS for keyboard shortcut display
-  const [isMac, setIsMac] = useState(false);
-  useEffect(() => {
-    setIsMac(navigator.platform.toUpperCase().indexOf('MAC') >= 0);
-  }, []);
+  // The overflow menu stays open after a client-side navigation (focus
+  // stays on the clicked link), so its links close it
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const closeMenu = () => setIsMenuOpen(false);
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 h-16 border-b-2 border-primary bg-background">
@@ -236,7 +231,7 @@ export function Navbar() {
 
         {/* Overflow Menu */}
         <div className="flex ml-2 items-center">
-          <Popover>
+          <Popover open={isMenuOpen} onOpenChange={setIsMenuOpen}>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="icon" aria-label="Mehr Optionen">
                 <Menu className="h-5 w-5" />
@@ -246,7 +241,6 @@ export function Navbar() {
               align="end"
               sideOffset={8}
               className="w-[calc(100vw-2rem)] max-w-[520px] p-0"
-              role="menu"
               aria-label="Navigations-Menü"
             >
               <div className="p-4 space-y-4">
@@ -255,7 +249,7 @@ export function Navbar() {
                   <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 px-1">
                     Mehr Aktionen
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <ul role="list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     <MenuTile
                       icon={<Search className="h-4 w-4" />}
                       label="Suchen"
@@ -277,7 +271,7 @@ export function Navbar() {
                       shortcut={{ keys: ['O', 'O'] }}
                       onClick={() => setSequentialModeOpen(true)}
                     />
-                  </div>
+                  </ul>
                 </section>
 
                 {/* Tools Category */}
@@ -285,13 +279,14 @@ export function Navbar() {
                   <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 px-1">
                     Werkzeuge
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <ul role="list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     <MenuTile
                       icon={<AlertCircle className="h-4 w-4" />}
                       label="Überfällige Ausleihen"
                       description="Sieh dir schnell alle überfälligen Ausleihen an."
                       shortcut={{ keys: ['G', 'O'] }}
                       href="/overdue"
+                      onClick={closeMenu}
                     />
                     <MenuTile
                       icon={<BarChart3 className="h-4 w-4" />}
@@ -299,6 +294,7 @@ export function Navbar() {
                       description="Sieh dir an, welche Gegenstände beliebt sind, und welche nicht genutzt werden."
                       shortcut={{ keys: ['G', 'I'] }}
                       href="/items/analytics"
+                      onClick={closeMenu}
                     />
                     <MenuTile
                       icon={<ClipboardCheck className="h-4 w-4" />}
@@ -306,6 +302,7 @@ export function Navbar() {
                       description="Prüfe die Leihumschläge gegen die Informationen in der Datenbank."
                       shortcut={{ keys: ['G', 'S'] }}
                       href="/system-check"
+                      onClick={closeMenu}
                     />
                     <MenuTile
                       icon={<Tag className="h-4 w-4" />}
@@ -313,8 +310,9 @@ export function Navbar() {
                       description="Erstelle und drucke Etiketten für Gegenstände."
                       shortcut={{ keys: ['G', 'P'] }}
                       href="/label-designer"
+                      onClick={closeMenu}
                     />
-                  </div>
+                  </ul>
                 </section>
 
                 {/* System Category */}
@@ -322,13 +320,14 @@ export function Navbar() {
                   <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 px-1">
                     System
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <ul role="list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     <MenuTile
                       icon={<FileText className="h-4 w-4" />}
                       label="Logs"
                       description="Sieh dir alle Kommunikation mit dem Server an."
                       shortcut={{ keys: ['G', 'L'] }}
                       href="/logs"
+                      onClick={closeMenu}
                     />
                     <MenuTile
                       icon={<Keyboard className="h-4 w-4" />}
@@ -343,7 +342,7 @@ export function Navbar() {
                       description="Trenne LLKA-V2 vom Server."
                       onClick={logout}
                     />
-                  </div>
+                  </ul>
                 </section>
 
                 {/* Footer with settings link + build metadata */}
@@ -356,6 +355,7 @@ export function Navbar() {
                   </span>
                   <Link
                     href="/settings"
+                    onClick={closeMenu}
                     className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
                   >
                     <Settings className="h-3 w-3" />

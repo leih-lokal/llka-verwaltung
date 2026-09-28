@@ -1,6 +1,35 @@
 import { describe, it, expect } from 'vitest';
-import { generateMonthDates, getBookingSpan } from '../booking-grid';
-import type { BookingExpanded } from '@/types';
+import {
+  buildBookingGrid,
+  generateMonthDates,
+  getBookingSpan,
+  getClosedWeekdays,
+  parseBookingDate,
+} from '../booking-grid';
+import { BookingStatus } from '@/types';
+import type { BookingExpanded, Item } from '@/types';
+
+function item(id: string, copies: number): Item {
+  return { id, name: id, iid: 1, copies } as unknown as Item;
+}
+
+let nextId = 0;
+function booking(
+  itemId: string,
+  start: string,
+  end: string,
+  customer = `Kunde ${++nextId}`,
+  status = BookingStatus.Reserved
+): BookingExpanded {
+  return {
+    id: `b${++nextId}`,
+    item: itemId,
+    customer_name: customer,
+    start_date: `${start} 00:00:00.000Z`,
+    end_date: `${end} 00:00:00.000Z`,
+    status,
+  } as unknown as BookingExpanded;
+}
 
 describe('generateMonthDates', () => {
   it('returns only main month dates when overflowDays=0', () => {
@@ -61,5 +90,114 @@ describe('getBookingSpan', () => {
     expect(span).not.toBeNull();
     // Feb 24 is index 0 → startRow = 0 + 2 = 2
     expect(span!.startRow).toBe(2);
+  });
+});
+
+describe('parseBookingDate', () => {
+  it('parses PocketBase datetimes with a space separator', () => {
+    expect(parseBookingDate('2026-03-05 00:00:00.000Z').getTime()).toBe(Date.UTC(2026, 2, 5));
+    expect(parseBookingDate('2026-03-05 13:45:10.123Z').getTime()).toBe(
+      Date.UTC(2026, 2, 5, 13, 45, 10, 123)
+    );
+  });
+});
+
+describe('buildBookingGrid', () => {
+  it('keeps non-overlapping bookings of a single-copy item in one column', () => {
+    const { columns, bookingSlots } = buildBookingGrid(
+      [item('a', 1)],
+      [booking('a', '2026-03-01', '2026-03-03'), booking('a', '2026-03-04', '2026-03-06')]
+    );
+    expect(columns.map((c) => c.key)).toEqual(['a-1']);
+    expect(bookingSlots.map((s) => s.columnKey)).toEqual(['a-1', 'a-1']);
+    expect(bookingSlots.every((s) => !s.conflict)).toBe(true);
+  });
+
+  it('spills overlapping bookings of a single-copy item into a further column and flags them', () => {
+    const { columns, bookingSlots } = buildBookingGrid(
+      [item('a', 1)],
+      [booking('a', '2026-03-01', '2026-03-05'), booking('a', '2026-03-05', '2026-03-08')]
+    );
+    expect(columns.map((c) => c.key)).toEqual(['a-1', 'a-2']);
+    expect(columns.every((c) => c.totalCopies === 1 && !c.isPlusColumn)).toBe(true);
+    expect(bookingSlots.map((s) => s.columnKey)).toEqual(['a-1', 'a-2']);
+    expect(bookingSlots.every((s) => s.conflict)).toBe(true);
+  });
+
+  it('shows but does not flag an overlap with a returned booking', () => {
+    const { columns, bookingSlots } = buildBookingGrid(
+      [item('a', 1)],
+      [
+        booking('a', '2026-03-01', '2026-03-05', 'X', BookingStatus.Returned),
+        booking('a', '2026-03-03', '2026-03-08'),
+      ]
+    );
+    expect(columns).toHaveLength(2);
+    expect(bookingSlots.some((s) => s.conflict)).toBe(false);
+  });
+
+  it('flags bookings of a multi-copy item that exceed its copies', () => {
+    const { bookingSlots } = buildBookingGrid(
+      [item('m', 2)],
+      [
+        booking('m', '2026-03-01', '2026-03-10'),
+        booking('m', '2026-03-02', '2026-03-04'),
+        booking('m', '2026-03-12', '2026-03-14'),
+        booking('m', '2026-03-03', '2026-03-05'),
+      ]
+    );
+    const conflicts = bookingSlots.filter((s) => s.conflict).map((s) => s.booking.start_date.slice(0, 10));
+    expect(conflicts.sort()).toEqual(['2026-03-01', '2026-03-02', '2026-03-03']);
+  });
+
+  it('assigns multi-copy groups to lanes by calendar day', () => {
+    const { columns, bookingSlots } = buildBookingGrid(
+      [item('m', 3)],
+      [
+        booking('m', '2026-03-01', '2026-03-05', 'A'),
+        booking('m', '2026-03-01', '2026-03-05', 'A'),
+        booking('m', '2026-03-05', '2026-03-07', 'B'),
+        booking('m', '2026-03-06', '2026-03-09', 'C'),
+      ]
+    );
+    expect(columns.map((c) => c.key)).toEqual(['m-lane-1', 'm-lane-2', 'm-plus']);
+    // A's group shares a lane; B starts on A's last day so needs lane 2; C fits after A
+    expect(bookingSlots.map((s) => `${s.booking.customer_name}:${s.columnKey}`)).toEqual([
+      'A:m-lane-1',
+      'A:m-lane-1',
+      'B:m-lane-2',
+      'C:m-lane-1',
+    ]);
+  });
+});
+
+describe('getClosedWeekdays', () => {
+  const sorted = (set: Set<number>) => [...set].sort();
+
+  it('returns the weekdays without opening hours', () => {
+    expect(
+      sorted(
+        getClosedWeekdays([
+          ['mon', '10:00', '12:00'],
+          ['sat', '10:00', '14:00'],
+        ])
+      )
+    ).toEqual([0, 2, 3, 4, 5]);
+  });
+
+  it('falls back to the default hours (closed Sun, Tue, Wed) when not a list', () => {
+    expect(sorted(getClosedWeekdays(null))).toEqual([0, 2, 3]);
+    expect(sorted(getClosedWeekdays(undefined))).toEqual([0, 2, 3]);
+    expect(sorted(getClosedWeekdays({ mon: true }))).toEqual([0, 2, 3]);
+  });
+
+  it('ignores malformed entries and unknown day keys', () => {
+    expect(sorted(getClosedWeekdays([['sun', '1', '2'], 'mon', ['xyz', '1', '2']]))).toEqual([
+      1, 2, 3, 4, 5, 6,
+    ]);
+  });
+
+  it('treats an empty list as closed every day', () => {
+    expect(getClosedWeekdays([]).size).toBe(7);
   });
 });

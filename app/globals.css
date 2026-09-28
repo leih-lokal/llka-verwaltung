@@ -121,10 +121,14 @@
     @apply bg-background text-foreground;
   }
 
-  /* Remove all shadows globally */
-  *,
-  *::before,
-  *::after {
+  /* Remove all shadows globally, except inside .crt-allow-shadow (the
+     system check's CRT glow). An exception has to be carved out here: an
+     !important declaration in a layer beats every unlayered one, so no
+     override outside @layer base can bring the shadows back. :where()
+     keeps the reset at zero specificity. */
+  :where(:not(.crt-allow-shadow, .crt-allow-shadow *)),
+  :where(:not(.crt-allow-shadow, .crt-allow-shadow *))::before,
+  :where(:not(.crt-allow-shadow, .crt-allow-shadow *))::after {
     box-shadow: none !important;
   }
 
@@ -218,14 +222,61 @@
 }
 
 /* ============================================
+   Keyboard Focus Indicator
+   ============================================
+
+   Deliberately NOT inside an @layer. Two things hide focus otherwise:
+   - the `box-shadow: none !important` reset above wipes every Tailwind
+     `ring-*` utility (rings are box-shadows; an !important declaration in
+     @layer base beats every normal declaration, whatever its layer), and
+   - the ui primitives set `outline-none` / `outline-hidden` /
+     `focus-visible:outline-none`, which live in @layer utilities.
+   Normal declarations outside any layer beat normal declarations in every
+   layer regardless of specificity, so this outline wins over those
+   utilities without !important. An outline is not a box-shadow, so the
+   flat, shadow-free look stays. The offset leaves a gap of background
+   between control and indicator; without it the indicator would merge
+   with red borders/fills, since --ring equals --border and --primary.
+
+   Menu items and listbox options are excluded: they already show focus
+   with a filled `focus:bg-accent` highlight. Dialog/menu/listbox
+   containers are excluded because Radix focuses the container itself when
+   it has nothing focusable, and a ring around the whole panel only adds
+   noise. */
+:focus-visible:not(
+    :where(
+        [role="menuitem"],
+        [role="menuitemcheckbox"],
+        [role="menuitemradio"],
+        [role="option"],
+        [role="dialog"],
+        [role="alertdialog"],
+        [role="menu"],
+        [role="listbox"]
+      )
+  ) {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* The cmdk search field sits flush inside an overflow-hidden popover, which
+   would clip an outside outline; draw it inset instead. */
+[cmdk-input]:focus-visible {
+  outline-offset: -2px;
+}
+
+/* On red surfaces (e.g. the on-premises notification) the red ring colour
+   would be invisible; use white there. */
+.focus-ring-light :focus-visible {
+  outline-color: #fff;
+}
+
+/* ============================================
    CRT System Check Mode Styles
    ============================================ */
 
-/* Override global shadow removal for CRT effects */
-.crt-allow-shadow,
-.crt-allow-shadow * {
-  box-shadow: revert !important;
-}
+/* .crt-allow-shadow (on the system check page) is exempt from the global
+   shadow reset in @layer base above */
 
 /* CRT Custom Properties */
 :root {

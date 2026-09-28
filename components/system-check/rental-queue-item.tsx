@@ -10,10 +10,9 @@ import type { RentalExpanded } from '@/types';
 interface RentalQueueItemProps {
   rental: RentalExpanded;
   status: 'processed' | 'current' | 'pending';
-  isCurrent: boolean;
 }
 
-export function RentalQueueItem({ rental, status, isCurrent }: RentalQueueItemProps) {
+export function RentalQueueItem({ rental, status }: RentalQueueItemProps) {
   const customer = rental.expand?.customer;
   const itemCount = rental.expand?.items?.length || 0;
 

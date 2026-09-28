@@ -6,12 +6,14 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { PlusIcon, HeartIcon, CalendarCheckIcon, PackageIcon, HistoryIcon, MailIcon } from 'lucide-react';
+import { PlusIcon, PackageIcon, HistoryIcon, MailIcon } from 'lucide-react';
 import { SearchBar } from '@/components/search/search-bar';
 import { FilterPopover } from '@/components/search/filter-popover';
-import { SortableHeader, type SortDirection } from '@/components/table/sortable-header';
+import { SortableHeader, ariaSort, type SortDirection } from '@/components/table/sortable-header';
 import { ColumnSelector } from '@/components/table/column-selector';
 import { EmptyState } from '@/components/table/empty-state';
+import { HighlightMarker } from '@/components/table/highlight-marker';
+import { RowOpenButton } from '@/components/table/row-open-button';
 import { Button } from '@/components/ui/button';
 import { CustomerDetailSheet } from '@/components/detail-sheets/customer-detail-sheet';
 import { collections } from '@/lib/pocketbase/client';
@@ -19,10 +21,15 @@ import { useFilters } from '@/hooks/use-filters';
 import { useColumnVisibility } from '@/hooks/use-column-visibility';
 import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
 import { customersFilterConfig } from '@/lib/filters/filter-configs';
+import { buildRecordInListFilter } from '@/lib/filters/filter-utils';
 import { customersColumnConfig } from '@/lib/tables/column-configs';
 import { enrichCustomersWithStats } from '@/lib/utils/customer-stats';
 import type { Customer, CustomerWithStats } from '@/types';
+import { CUSTOMER_HIGHLIGHT_MEANINGS, getHighlightColorClasses } from '@/lib/constants/colors';
 import { cn } from '@/lib/utils';
+
+/** Columns that can carry the row's open button, by preference */
+const OPEN_BUTTON_COLUMNS = ['iid', 'name'];
 
 export default function CustomersPage() {
   const searchParams = useSearchParams();
@@ -40,6 +47,8 @@ export default function CustomersPage() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   const observerTarget = useRef<HTMLDivElement>(null);
+  // Bumped by every list request so responses of superseded ones are dropped
+  const requestIdRef = useRef(0);
   const perPage = 50;
 
   // Filter management
@@ -58,35 +67,61 @@ export default function CustomersPage() {
     config: customersColumnConfig,
   });
 
+  // Whether a customer matches the current search and filters
+  const isListed = async (id: string) => {
+    const result = await collections.customers().getList<Customer>(1, 1, {
+      filter: buildRecordInListFilter(id, filters.buildFilter(debouncedSearch)),
+      fields: 'id',
+      skipTotal: true,
+    });
+    return result.items.length > 0;
+  };
+
   // Real-time subscription for live updates
   useRealtimeSubscription<Customer>('customer', {
     onCreated: async (customer) => {
-      // Enrich with stats and add to list
-      const enriched = await enrichCustomersWithStats([customer]);
-      if (enriched.length > 0) {
-        setCustomers((prev) => {
-          // Check if customer already exists (avoid duplicates)
-          if (prev.some((c) => c.id === customer.id)) {
-            return prev;
-          }
-          // Add to beginning of list
-          return [enriched[0], ...prev];
-        });
+      try {
+        if (!(await isListed(customer.id))) return;
+        // Enrich with stats and add to list
+        const enriched = await enrichCustomersWithStats([customer]);
+        if (enriched.length > 0) {
+          setCustomers((prev) => {
+            // Check if customer already exists (avoid duplicates)
+            if (prev.some((c) => c.id === customer.id)) {
+              return prev;
+            }
+            // Add to beginning of list
+            return [enriched[0], ...prev];
+          });
+        }
+      } catch (err) {
+        console.error('Error handling created customer:', err);
       }
     },
     onUpdated: async (customer) => {
-      // Enrich with stats and update in list
-      const enriched = await enrichCustomersWithStats([customer]);
-      if (enriched.length > 0) {
-        setCustomers((prev) =>
-          prev.map((c) => (c.id === customer.id ? enriched[0] : c))
-        );
+      try {
+        // Drop it if it no longer matches the filters
+        if (!(await isListed(customer.id))) {
+          setCustomers((prev) => prev.filter((c) => c.id !== customer.id));
+          return;
+        }
+        // Enrich with stats and update in list
+        const enriched = await enrichCustomersWithStats([customer]);
+        if (enriched.length > 0) {
+          setCustomers((prev) =>
+            prev.map((c) => (c.id === customer.id ? enriched[0] : c))
+          );
+        }
+      } catch (err) {
+        console.error('Error handling updated customer:', err);
       }
     },
     onDeleted: (customer) => {
       // Remove from list
       setCustomers((prev) => prev.filter((c) => c.id !== customer.id));
     },
+    // Changes missed while paused or disconnected
+    onResubscribe: () => reloadFirstPage(),
   });
 
   // Handle URL query parameters (action=new or view=id)
@@ -123,6 +158,11 @@ export default function CustomersPage() {
   }, [searchQuery]);
 
   const fetchCustomers = useCallback(async (page: number) => {
+    // A request started after this one (new filter, sort or page) wins, even
+    // if this response arrives later
+    const requestId = ++requestIdRef.current;
+    const isStale = () => requestId !== requestIdRef.current;
+
     try {
       const isInitialLoad = page === 1;
       if (isInitialLoad) {
@@ -143,10 +183,12 @@ export default function CustomersPage() {
           skipTotal: true, // Performance optimization
         }
       );
+      if (isStale()) return;
 
       // Enrich customers with stats
       setIsLoadingStats(true);
       const enrichedCustomers = await enrichCustomersWithStats(result.items);
+      if (isStale()) return;
       setIsLoadingStats(false);
 
       if (isInitialLoad) {
@@ -159,14 +201,17 @@ export default function CustomersPage() {
       setCurrentPage(page + 1);
       setError(null);
     } catch (err) {
+      if (isStale()) return;
       console.error('Error fetching customers:', err);
       setError(
         err instanceof Error ? err.message : 'Fehler beim Laden der Kund:innen'
       );
     } finally {
-      setIsLoading(false);
-      setIsLoadingMore(false);
-      setIsLoadingStats(false);
+      if (!isStale()) {
+        setIsLoading(false);
+        setIsLoadingMore(false);
+        setIsLoadingStats(false);
+      }
     }
   }, [debouncedSearch, filters.buildFilter, sortField, perPage]);
 
@@ -176,12 +221,17 @@ export default function CustomersPage() {
   const fetchRef = useRef(fetchCustomers);
   fetchRef.current = fetchCustomers;
 
-  useEffect(() => {
+  // Start over at page 1. Also how the realtime subscription catches up.
+  const reloadFirstPage = useCallback(() => {
     setCustomers([]);
     setCurrentPage(1);
     setHasMore(true);
     fetchRef.current(1);
-  }, [debouncedSearch, filters.activeFilters, sortField]);
+  }, []);
+
+  useEffect(() => {
+    reloadFirstPage();
+  }, [debouncedSearch, filters.activeFilters, sortField, reloadFirstPage]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -239,7 +289,7 @@ export default function CustomersPage() {
   };
 
   // Handle customer save
-  const handleCustomerSave = (savedCustomer: Customer) => {
+  const handleCustomerSave = () => {
     // Refresh the list
     setCustomers([]);
     setCurrentPage(1);
@@ -253,7 +303,7 @@ export default function CustomersPage() {
     switch (columnId) {
       case 'iid':
         return (
-          <th key="iid" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="iid" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('iid'))}>
             <SortableHeader
               label="ID"
               sortDirection={getSortDirection('iid')}
@@ -264,7 +314,7 @@ export default function CustomersPage() {
         );
       case 'name':
         return (
-          <th key="name" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="name" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('name'))}>
             <SortableHeader
               label="Name"
               sortDirection={getSortDirection('name')}
@@ -275,7 +325,7 @@ export default function CustomersPage() {
         );
       case 'email':
         return (
-          <th key="email" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="email" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('email'))}>
             <SortableHeader
               label="Email"
               sortDirection={getSortDirection('email')}
@@ -286,7 +336,7 @@ export default function CustomersPage() {
         );
       case 'phone':
         return (
-          <th key="phone" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="phone" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('phone'))}>
             <SortableHeader
               label="Telefon"
               sortDirection={getSortDirection('phone')}
@@ -309,7 +359,7 @@ export default function CustomersPage() {
         );
       case 'street':
         return (
-          <th key="street" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="street" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('street'))}>
             <SortableHeader
               label="Straße"
               sortDirection={getSortDirection('street')}
@@ -320,7 +370,7 @@ export default function CustomersPage() {
         );
       case 'postal_code':
         return (
-          <th key="postal_code" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="postal_code" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('postal_code'))}>
             <SortableHeader
               label="PLZ"
               sortDirection={getSortDirection('postal_code')}
@@ -331,7 +381,7 @@ export default function CustomersPage() {
         );
       case 'city':
         return (
-          <th key="city" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="city" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('city'))}>
             <SortableHeader
               label="Stadt"
               sortDirection={getSortDirection('city')}
@@ -342,7 +392,7 @@ export default function CustomersPage() {
         );
       case 'registered_on':
         return (
-          <th key="registered_on" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="registered_on" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('registered_on'))}>
             <SortableHeader
               label="Registriert"
               sortDirection={getSortDirection('registered_on')}
@@ -353,7 +403,7 @@ export default function CustomersPage() {
         );
       case 'renewed_on':
         return (
-          <th key="renewed_on" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="renewed_on" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('renewed_on'))}>
             <SortableHeader
               label="Verlängert"
               sortDirection={getSortDirection('renewed_on')}
@@ -364,9 +414,10 @@ export default function CustomersPage() {
         );
       case 'newsletter':
           return (
-            <th key="newsletter" className={cn("px-4 py-2 text-left", dividerClass)} title="Newsletter">
+            <th key="newsletter" className={cn("px-4 py-2 text-left", dividerClass)} title="Newsletter" aria-sort={ariaSort(getSortDirection('newsletter'))}>
               <SortableHeader
                 label={<MailIcon className="size-4" />}
+                ariaLabel="Newsletter"
                 sortDirection={getSortDirection('newsletter')}
                 onSort={() => handleSort('newsletter')}
                 disabled={isLoading}
@@ -375,7 +426,7 @@ export default function CustomersPage() {
           );
       case 'remark':
         return (
-          <th key="remark" className={cn("px-4 py-2 text-left", dividerClass)}>
+          <th key="remark" className={cn("px-4 py-2 text-left", dividerClass)} aria-sort={ariaSort(getSortDirection('remark'))}>
             <SortableHeader
               label="Bemerkung"
               sortDirection={getSortDirection('remark')}
@@ -389,45 +440,40 @@ export default function CustomersPage() {
     }
   };
 
+  // The row's open button goes into the first of these columns that is shown
+  const openColumnId = OPEN_BUTTON_COLUMNS.find((id) =>
+    columnVisibility.visibleColumns.includes(id)
+  );
+
   // Render table body cell for a given column and customer
   const renderBodyCell = (columnId: string, customer: CustomerWithStats) => {
     const dividerClass = columnVisibility.verticalDividers ? 'border-l first:border-l-0 border-border/30' : '';
+    // Keyboard/screen-reader access to the row's click action
+    const openable = (content: React.ReactNode) =>
+      columnId === openColumnId ? (
+        <RowOpenButton
+          label={`Kund:in ${String(customer.iid).padStart(4, '0')} ${customer.firstname} ${customer.lastname} öffnen`}
+          onOpen={() => handleRowClick(customer)}
+        >
+          {content}
+        </RowOpenButton>
+      ) : (
+        content
+      );
 
     switch (columnId) {
       case 'iid':
         return (
           <td key="iid" className={cn("px-4 py-3 font-mono text-sm", dividerClass)}>
-            {String(customer.iid).padStart(4, '0')}
+            {openable(String(customer.iid).padStart(4, '0'))}
           </td>
         );
       case 'name':
         return (
           <td key="name" className={cn("px-4 py-3", dividerClass)}>
             <div className="flex items-center gap-2">
-              {customer.highlight_color && (
-                customer.highlight_color === 'green' ? (
-                  <span title="Teil des Teams">
-                    <HeartIcon
-                      className="size-4 fill-green-500 text-green-500 shrink-0"
-                    />
-                  </span>
-                ) : (
-                  <div
-                    className={`size-3 rounded-full shrink-0 ${
-                      customer.highlight_color === 'red' ? 'bg-red-500' :
-                      customer.highlight_color === 'yellow' ? 'bg-yellow-500' :
-                      customer.highlight_color === 'blue' ? 'bg-blue-500' :
-                      customer.highlight_color === 'purple' ? 'bg-purple-500' :
-                      customer.highlight_color === 'orange' ? 'bg-orange-500' :
-                      customer.highlight_color === 'pink' ? 'bg-pink-500' :
-                      customer.highlight_color === 'teal' ? 'bg-teal-500' :
-                      'bg-blue-500'
-                    }`}
-                    title={`Markiert: ${customer.highlight_color}`}
-                  />
-                )
-              )}
-              <span>{customer.firstname} {customer.lastname}</span>
+              <HighlightMarker color={customer.highlight_color} meanings={CUSTOMER_HIGHLIGHT_MEANINGS} />
+              {openable(<span>{customer.firstname} {customer.lastname}</span>)}
             </div>
           </td>
         );
@@ -554,8 +600,9 @@ export default function CustomersPage() {
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
           {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="h-8 w-8 animate-spin border-4 border-primary border-t-transparent" />
+            <div role="status" className="flex items-center justify-center py-8">
+              <div aria-hidden="true" className="h-8 w-8 animate-spin border-4 border-primary border-t-transparent" />
+              <span className="sr-only">Lädt…</span>
             </div>
           ) : error ? (
             <div className="text-center py-8">
@@ -582,14 +629,7 @@ export default function CustomersPage() {
                       className={`hover:bg-muted/50 transition-colors cursor-pointer ${
                         customer.highlight_color && customer.highlight_color !== 'green'
                           ? `border-b-4 ${
-                              customer.highlight_color === 'red' ? 'border-b-red-500' :
-                              customer.highlight_color === 'yellow' ? 'border-b-yellow-500' :
-                              customer.highlight_color === 'blue' ? 'border-b-blue-500' :
-                              customer.highlight_color === 'purple' ? 'border-b-purple-500' :
-                              customer.highlight_color === 'orange' ? 'border-b-orange-500' :
-                              customer.highlight_color === 'pink' ? 'border-b-pink-500' :
-                              customer.highlight_color === 'teal' ? 'border-b-teal-500' :
-                              'border-b-blue-500'
+                              getHighlightColorClasses(customer.highlight_color)?.rowBorder ?? 'border-b-blue-500'
                             }`
                           : 'border-b'
                       }`}
@@ -603,15 +643,17 @@ export default function CustomersPage() {
               {/* Infinite scroll trigger */}
               <div ref={observerTarget} className="h-4" />
 
-              {/* Loading more indicator */}
-              {isLoadingMore && (
-                <div className="flex items-center justify-center py-4">
-                  <div className="h-6 w-6 animate-spin border-4 border-primary border-t-transparent" />
-                  <span className="ml-2 text-sm text-muted-foreground">
-                    Lädt mehr...
-                  </span>
-                </div>
-              )}
+              {/* Loading more indicator (polite live region, kept mounted) */}
+              <div role="status">
+                {isLoadingMore && (
+                  <div className="flex items-center justify-center py-4">
+                    <div aria-hidden="true" className="h-6 w-6 animate-spin border-4 border-primary border-t-transparent" />
+                    <span className="ml-2 text-sm text-muted-foreground">
+                      Lädt mehr...
+                    </span>
+                  </div>
+                )}
+              </div>
 
               {/* End of results */}
               {!hasMore && customers.length > 0 && (

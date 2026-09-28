@@ -2,7 +2,8 @@
  * Filter configurations for each entity type
  */
 
-import { ItemStatus, ItemCategory, RentalStatus } from '@/types';
+import { HighlightColor, RentalStatus } from '@/types';
+import { getHighlightColorFilterOptions } from '@/lib/constants/colors';
 import {
   ITEM_STATUS_LABELS,
   RENTAL_STATUS_LABELS,
@@ -28,6 +29,15 @@ export interface FilterConfig {
 export interface EntityFilterConfig {
   /** Search fields for text search */
   searchFields: string[];
+
+  /**
+   * Fields and relation paths that hold several values: multi-select fields
+   * and paths through multi-relations (e.g. `items.name`). On relation paths
+   * PocketBase applies plain operators to ALL related records, so search and
+   * filters use the any-of forms (`?=`, `?~`). A bare multi-select resolves to
+   * its raw JSON text, so category filters compare element-wise via `:each`.
+   */
+  multiValueFields?: string[];
 
   /** Available status filters */
   statusFilters?: FilterConfig[];
@@ -85,16 +95,9 @@ export const customersFilterConfig: EntityFilterConfig = {
       label: 'Markierung',
       type: 'category',
       field: 'highlight_color',
-      options: [
-        { value: 'red', label: 'Rot' },
-        { value: 'orange', label: 'Orange' },
-        { value: 'yellow', label: 'Gelb' },
-        { value: 'green', label: 'Grün (Team-Mitglied)' },
-        { value: 'teal', label: 'Türkis' },
-        { value: 'blue', label: 'Blau' },
-        { value: 'purple', label: 'Lila' },
-        { value: 'pink', label: 'Rosa' },
-      ],
+      options: getHighlightColorFilterOptions({
+        [HighlightColor.Green]: 'Grün (Team-Mitglied)',
+      }),
     },
   ],
 };
@@ -105,6 +108,8 @@ export const customersFilterConfig: EntityFilterConfig = {
 
 export const itemsFilterConfig: EntityFilterConfig = {
   searchFields: ['name', 'brand', 'iid', 'synonyms'],
+
+  multiValueFields: ['category'],
 
   statusFilters: [
     {
@@ -132,16 +137,7 @@ export const itemsFilterConfig: EntityFilterConfig = {
       label: 'Markierung',
       type: 'category',
       field: 'highlight_color',
-      options: [
-        { value: 'red', label: 'Rot' },
-        { value: 'orange', label: 'Orange' },
-        { value: 'yellow', label: 'Gelb' },
-        { value: 'green', label: 'Grün (Team-Mitglied)' },
-        { value: 'teal', label: 'Türkis' },
-        { value: 'blue', label: 'Blau' },
-        { value: 'purple', label: 'Lila' },
-        { value: 'pink', label: 'Rosa' },
-      ],
+      options: getHighlightColorFilterOptions(),
     },
   ],
 
@@ -184,16 +180,23 @@ export const itemsFilterConfig: EntityFilterConfig = {
 export const rentalsFilterConfig: EntityFilterConfig = {
   searchFields: ['customer.firstname', 'customer.lastname', 'customer.iid', 'items.iid', 'items.name'],
 
+  multiValueFields: ['items.iid', 'items.name'],
+
   statusFilters: [
     {
       id: 'status',
       label: 'Status',
       type: 'status',
-      field: '__computed_status__', // This is computed client-side
-      options: Object.entries(RENTAL_STATUS_LABELS).map(([value, label]) => ({
-        value,
-        label,
-      })),
+      field: '__computed_status__', // Translated to date conditions in buildPocketBaseFilter
+      // "Teilweise zurück" depends on returned_items (a JSON object) compared
+      // with requested_copies per item, which has no reliable PocketBase filter
+      // equivalent, so it isn't offered as a filter.
+      options: Object.entries(RENTAL_STATUS_LABELS)
+        .filter(([value]) => value !== RentalStatus.PartiallyReturned)
+        .map(([value, label]) => ({
+          value,
+          label,
+        })),
     },
   ],
 
@@ -258,11 +261,13 @@ export const rentalsFilterConfig: EntityFilterConfig = {
 export const reservationsFilterConfig: EntityFilterConfig = {
   searchFields: ['customer_name', 'customer_iid', 'otp', 'items.iid', 'items.name'],
 
+  multiValueFields: ['items.iid', 'items.name'],
+
   statusFilters: [
     {
       id: 'done',
       label: 'Status',
-      type: 'status',
+      type: 'boolean',
       field: 'done',
       options: [
         { value: 'false', label: 'Offen' },
@@ -347,23 +352,3 @@ export const logsFilterConfig: EntityFilterConfig = {
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
-
-/**
- * Get filter config for entity type
- */
-export function getFilterConfig(
-  entity: 'customers' | 'items' | 'rentals' | 'reservations' | 'logs'
-): EntityFilterConfig {
-  switch (entity) {
-    case 'customers':
-      return customersFilterConfig;
-    case 'items':
-      return itemsFilterConfig;
-    case 'rentals':
-      return rentalsFilterConfig;
-    case 'reservations':
-      return reservationsFilterConfig;
-    case 'logs':
-      return logsFilterConfig;
-  }
-}

@@ -5,15 +5,15 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { FileText, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { SearchBar } from "@/components/search/search-bar";
 import { FilterPopover } from "@/components/search/filter-popover";
 import {
   SortableHeader,
+  ariaSort,
   type SortDirection,
 } from "@/components/table/sortable-header";
 import { ColumnSelector } from "@/components/table/column-selector";
-import { HelpButton } from "@/components/table/help-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { pb } from "@/lib/pocketbase/client";
@@ -68,6 +68,8 @@ export default function LogsPage() {
   const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set());
 
   const observerTarget = useRef<HTMLDivElement>(null);
+  // Bumped by every list request so responses of superseded ones are dropped
+  const requestIdRef = useRef(0);
   const perPage = 50;
 
   // Load pretty view preference from localStorage
@@ -151,15 +153,13 @@ export default function LogsPage() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Reset pagination when search, filters, or sort change
-  useEffect(() => {
-    setLogs([]);
-    setCurrentPage(1);
-    setHasMore(true);
-  }, [debouncedSearch, filters.activeFilters, sortField]);
-
   const fetchLogs = useCallback(
     async (page: number) => {
+      // A request started after this one (new filter, sort or page) wins,
+      // even if this response arrives later
+      const requestId = ++requestIdRef.current;
+      const isStale = () => requestId !== requestIdRef.current;
+
       try {
         const isInitialLoad = page === 1;
         if (isInitialLoad) {
@@ -184,8 +184,6 @@ export default function LogsPage() {
           params.set("filter", filter);
         }
 
-        console.log("Fetching logs page", page, "with filter:", filter);
-
         const result = (await pb.send(`/api/logs?${params.toString()}`, {
           method: "GET",
         })) as {
@@ -195,13 +193,7 @@ export default function LogsPage() {
           totalItems: number;
           totalPages: number;
         };
-
-        console.log(
-          "Received",
-          result.items.length,
-          "logs. Total items:",
-          result.totalItems,
-        );
+        if (isStale()) return;
 
         // Normalize log entries
         const normalizedLogs = result.items.map(normalizeLogEntry);
@@ -216,22 +208,32 @@ export default function LogsPage() {
         setCurrentPage(page + 1);
         setError(null);
       } catch (err) {
+        if (isStale()) return;
         console.error("Error fetching logs:", err);
         setError(
           err instanceof Error ? err.message : "Fehler beim Laden der Logs",
         );
       } finally {
-        setIsLoading(false);
-        setIsLoadingMore(false);
+        if (!isStale()) {
+          setIsLoading(false);
+          setIsLoadingMore(false);
+        }
       }
     },
     [debouncedSearch, filters.buildFilter, sortField, perPage],
   );
 
-  // Initial load and reload on search/filter/sort change
+  // See rentals/page.tsx for the rationale behind this pattern: one effect
+  // keyed on the real inputs + a fetchRef that always holds the latest
+  // fetchLogs, so the observer below never calls a stale closure.
+  const fetchRef = useRef(fetchLogs);
+  fetchRef.current = fetchLogs;
+
   useEffect(() => {
-    fetchLogs(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setLogs([]);
+    setCurrentPage(1);
+    setHasMore(true);
+    fetchRef.current(1);
   }, [debouncedSearch, filters.activeFilters, sortField]);
 
   // Intersection Observer for infinite scroll
@@ -244,7 +246,7 @@ export default function LogsPage() {
           !isLoading &&
           !isLoadingMore
         ) {
-          fetchLogs(currentPage);
+          fetchRef.current(currentPage);
         }
       },
       { threshold: 0.1 },
@@ -255,7 +257,6 @@ export default function LogsPage() {
     }
 
     return () => observer.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, hasMore, isLoading, isLoadingMore]);
 
   // Handle column sort
@@ -462,8 +463,9 @@ export default function LogsPage() {
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="h-8 w-8 animate-spin border-4 border-primary border-t-transparent" />
+          <div role="status" className="flex items-center justify-center py-8">
+            <div aria-hidden="true" className="h-8 w-8 animate-spin border-4 border-primary border-t-transparent" />
+            <span className="sr-only">Lädt…</span>
           </div>
         ) : error ? (
           <div className="text-center py-8">
@@ -486,7 +488,11 @@ export default function LogsPage() {
               <thead>
                 <tr className="border-b-2 border-primary">
                   {visibleColumns.map((columnId) => (
-                    <th key={columnId} className="px-4 py-3 text-left">
+                    <th
+                      key={columnId}
+                      className="px-4 py-3 text-left"
+                      aria-sort={ariaSort(getSortDirection(columnId))}
+                    >
                       {renderHeaderCell(columnId)}
                     </th>
                   ))}
@@ -508,13 +514,15 @@ export default function LogsPage() {
               </tbody>
             </table>
 
-            {/* Loading More Indicator */}
-            {isLoadingMore && (
-              <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                <span>Weitere Logs werden geladen...</span>
-              </div>
-            )}
+            {/* Loading More Indicator (polite live region, kept mounted) */}
+            <div role="status">
+              {isLoadingMore && (
+                <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground">
+                  <div aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  <span>Weitere Logs werden geladen...</span>
+                </div>
+              )}
+            </div>
 
             {/* Infinite Scroll Trigger */}
             <div ref={observerTarget} className="h-4" />

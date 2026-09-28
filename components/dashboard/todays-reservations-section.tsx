@@ -10,17 +10,14 @@ import { Badge } from "@/components/ui/badge";
 import {
   CheckCircle2,
   ExternalLink,
-  ArrowRight,
   ArrowsUpFromLine,
 } from "lucide-react";
-import { collections } from "@/lib/pocketbase/client";
+import { collections, pb } from "@/lib/pocketbase/client";
 import { useRealtimeSubscription } from "@/hooks/use-realtime-subscription";
-import { formatDateTime } from "@/lib/utils/formatting";
 import type { Reservation, ReservationExpanded } from "@/types";
 import { toast } from "sonner";
 import Link from "next/link";
 import { parseISO, startOfDay, endOfDay } from "date-fns";
-import { generateReservationPrintContent } from "@/components/print/reservation-print-content";
 
 interface TodaysReservationsSectionProps {
   onReservationCompleted?: () => void;
@@ -102,6 +99,8 @@ export function TodaysReservationsSection({
     onDeleted: (reservation) => {
       setReservations((prev) => prev.filter((r) => r.id !== reservation.id));
     },
+    // Changes missed while paused or disconnected
+    onResubscribe: () => loadReservations(),
   });
 
   async function loadReservations() {
@@ -117,7 +116,10 @@ export function TodaysReservationsSection({
         .reservations()
         .getFullList<ReservationExpanded>({
           expand: "items",
-          filter: `done = false && pickup >= "${startOfToday.toISOString()}" && pickup <= "${endOfToday.toISOString()}"`,
+          filter: pb.filter("done = false && pickup >= {:start} && pickup <= {:end}", {
+            start: startOfToday,
+            end: endOfToday,
+          }),
           sort: "customer_name",
         });
 
@@ -147,6 +149,11 @@ export function TodaysReservationsSection({
       params.set("item_ids", itemIids);
     }
 
+    // Pickup determines the default return date (see getDefaultExpectedDate)
+    if (reservation.pickup) {
+      params.set("pickup", reservation.pickup);
+    }
+
     router.push(`/rentals?${params.toString()}`);
   }
 
@@ -164,16 +171,6 @@ export function TodaysReservationsSection({
       toast.error("Fehler beim Aktualisieren der Reservierung");
     } finally {
       setCompletingId(null);
-    }
-  }
-
-  function handlePrint() {
-    const htmlContent = generateReservationPrintContent(reservations);
-    const printWindow = window.open('', '', 'width=800,height=600');
-    if (printWindow) {
-      printWindow.document.write(htmlContent);
-      printWindow.document.close();
-      printWindow.print();
     }
   }
 

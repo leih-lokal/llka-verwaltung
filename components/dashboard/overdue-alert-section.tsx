@@ -4,93 +4,17 @@
  */
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, ExternalLink } from 'lucide-react';
-import { collections } from '@/lib/pocketbase/client';
-import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
-import type { Rental, RentalExpanded, OverdueBreakdown } from '@/types';
+import { useUnreturnedRentals } from '@/hooks/use-unreturned-rentals';
 import { calculateOverdueBreakdown } from '@/lib/utils/dashboard-metrics';
-import { toast } from 'sonner';
+import { OVERDUE_LEVEL_DAYS } from '@/lib/utils/overdue';
 import Link from 'next/link';
 
 export function OverdueAlertSection() {
-  const [rentals, setRentals] = useState<RentalExpanded[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [breakdown, setBreakdown] = useState<OverdueBreakdown>({
-    severity1to3Days: 0,
-    severity4to7Days: 0,
-    severity8PlusDays: 0,
-    total: 0,
-  });
-
-  useEffect(() => {
-    loadRentals();
-  }, []);
-
-  // Real-time subscription for live updates
-  useRealtimeSubscription<Rental>('rental', {
-    onCreated: async (rental) => {
-      // Only fetch if not returned
-      if (!rental.returned_on) {
-        try {
-          const expandedRental = await collections
-            .rentals()
-            .getOne<RentalExpanded>(rental.id, { expand: 'customer,items' });
-          setRentals((prev) => {
-            if (prev.some((r) => r.id === rental.id)) return prev;
-            return [...prev, expandedRental];
-          });
-        } catch (err) {
-          console.error('Error fetching expanded rental:', err);
-        }
-      }
-    },
-    onUpdated: async (rental) => {
-      if (!rental.returned_on) {
-        try {
-          const expandedRental = await collections
-            .rentals()
-            .getOne<RentalExpanded>(rental.id, { expand: 'customer,items' });
-          setRentals((prev) =>
-            prev.map((r) => (r.id === rental.id ? expandedRental : r))
-          );
-        } catch (err) {
-          console.error('Error fetching expanded rental:', err);
-        }
-      } else {
-        // Remove from list if returned
-        setRentals((prev) => prev.filter((r) => r.id !== rental.id));
-      }
-    },
-    onDeleted: (rental) => {
-      setRentals((prev) => prev.filter((r) => r.id !== rental.id));
-    },
-  });
-
-  // Recalculate breakdown whenever rentals change
-  useEffect(() => {
-    setBreakdown(calculateOverdueBreakdown(rentals));
-  }, [rentals]);
-
-  async function loadRentals() {
-    try {
-      setLoading(true);
-
-      // Get all active rentals (not returned)
-      const result = await collections.rentals().getFullList<RentalExpanded>({
-        expand: 'customer,items',
-        filter: 'returned_on = ""',
-      });
-
-      setRentals(result);
-    } catch (error) {
-      console.error('Failed to load rentals:', error);
-      toast.error('Fehler beim Laden der Ausleihen');
-    } finally {
-      setLoading(false);
-    }
-  }
+  const { rentals, loading } = useUnreturnedRentals();
+  const breakdown = useMemo(() => calculateOverdueBreakdown(rentals), [rentals]);
 
   if (loading) {
     return <p className="text-sm text-muted-foreground">Lädt...</p>;
@@ -147,28 +71,28 @@ export function OverdueAlertSection() {
 
       {/* Severity breakdown grid */}
       <div className="grid grid-cols-3 gap-2">
-        {/* 1-3 days (orange) */}
+        {/* Overdue (orange) */}
         <div className="bg-orange-50 border border-orange-200 rounded p-3 text-center">
           <div className="text-xl font-bold text-orange-700">
-            {breakdown.severity1to3Days}
+            {breakdown.overdue}
           </div>
-          <div className="text-xs text-orange-600 mt-1">1-3 Tage</div>
+          <div className="text-xs text-orange-600 mt-1">{OVERDUE_LEVEL_DAYS.overdue}</div>
         </div>
 
-        {/* 4-7 days (red) */}
+        {/* Critical (red) */}
         <div className="bg-red-50 border border-red-200 rounded p-3 text-center">
           <div className="text-xl font-bold text-red-700">
-            {breakdown.severity4to7Days}
+            {breakdown.critical}
           </div>
-          <div className="text-xs text-red-600 mt-1">4-7 Tage</div>
+          <div className="text-xs text-red-600 mt-1">{OVERDUE_LEVEL_DAYS.critical}</div>
         </div>
 
-        {/* 8+ days (dark red) */}
+        {/* Severely critical (dark red) */}
         <div className="bg-red-100 border border-red-400 rounded p-3 text-center">
           <div className="text-xl font-bold text-red-800">
-            {breakdown.severity8PlusDays}
+            {breakdown.severely_critical}
           </div>
-          <div className="text-xs text-red-700 mt-1">8+ Tage</div>
+          <div className="text-xs text-red-700 mt-1">{OVERDUE_LEVEL_DAYS.severely_critical}</div>
         </div>
       </div>
 

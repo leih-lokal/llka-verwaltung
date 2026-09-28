@@ -3,6 +3,21 @@
  * Content is written in markdown format
  */
 
+import {
+  CUSTOMER_HIGHLIGHT_MEANINGS,
+  HIGHLIGHT_COLORS,
+  HIGHLIGHT_COLOR_LABELS,
+  ITEM_HIGHLIGHT_MEANINGS,
+} from './colors';
+import type { HighlightColor } from '@/types';
+
+/** Markdown list of the colours that have a meaning */
+function highlightMeaningList(meanings: Partial<Record<HighlightColor, string>>): string {
+  return HIGHLIGHT_COLORS.filter((color) => meanings[color])
+    .map((color) => `- **${HIGHLIGHT_COLOR_LABELS[color]}**: ${meanings[color]}`)
+    .join('\n');
+}
+
 export const DOCUMENTATION = {
   
   customerForm: `
@@ -43,10 +58,7 @@ Ob der Nutzer den Newsletter erhalten möchte.
 ### Markierungsfarbe
 Visuelle Hervorhebung in der Nutzerliste. Diese Farben sollten eine einheitliche Bedeutung innerhalb der Tabelle haben. Aktuell wird es folgendermaßen verwendet:
 
-- ROT: Aktiver Problemnutzer. Keine Ausleihen möglich.
-- GELB: Fehlende Informationen wie Telefonnummer oder Ausweis.
-- GRÜN: Teil des Teams.
-- BLAU: Noch nicht zum Newsletter hinzugefügt.
+${highlightMeaningList(CUSTOMER_HIGHLIGHT_MEANINGS)}
 
 ### Bemerkung
 Interne Notizen zum Kunden. Diese werden zusammen mit der Farbe oben angezeigt.
@@ -248,14 +260,7 @@ Anzahl der Teile.
 ### Markierungsfarbe
 Visuelle Hervorhebung in der Artikelliste.
 
-- **Rot**: Problematische Artikel (häufig defekt, Verlustrisiko)
-- **Orange**: Auslaufende Artikel
-- **Gelb**: Artikel mit besonderen Hinweisen
-- **Grün**: Besonders beliebte Artikel, VIP-Artikel
-- **Blau**: Neuanschaffungen, wertvolle Artikel
-- **Türkis**: Team-Favoriten
-- **Rosa**: Saisonale Artikel
-- **Lila**: Artikel für spezielle Veranstaltungen
+${highlightMeaningList(ITEM_HIGHLIGHT_MEANINGS)}
 `,
 } as const;
 

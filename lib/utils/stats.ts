@@ -63,27 +63,3 @@ export function transformStatsForChart(stats: StatsResponse): ChartDataPoint[] {
     totalItems: stats.total_items[monthKey] || 0,
   }));
 }
-
-/**
- * Gets the latest values from stats for display
- */
-export function getLatestStatsValues(stats: StatsResponse) {
-  const chartData = transformStatsForChart(stats);
-
-  if (chartData.length === 0) {
-    return {
-      activeCustomers: 0,
-      rentals: 0,
-      newCustomers: 0,
-      totalItems: 0,
-    };
-  }
-
-  const latest = chartData[chartData.length - 1];
-  return {
-    activeCustomers: latest.activeCustomers,
-    rentals: latest.rentals,
-    newCustomers: latest.newCustomers,
-    totalItems: latest.totalItems,
-  };
-}

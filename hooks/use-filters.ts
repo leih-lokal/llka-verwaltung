@@ -5,10 +5,54 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import type { ActiveFilter } from '@/lib/filters/filter-utils';
-import { buildPocketBaseFilter, generateFilterId } from '@/lib/filters/filter-utils';
-import type { EntityFilterConfig } from '@/lib/filters/filter-configs';
+import type { ActiveFilter, DatePreset } from '@/lib/filters/filter-utils';
+import {
+  buildPocketBaseFilter,
+  DATE_PRESET_LABELS,
+  generateFilterId,
+} from '@/lib/filters/filter-utils';
+import type { EntityFilterConfig, FilterConfig } from '@/lib/filters/filter-configs';
 import { pb } from '@/lib/pocketbase/client';
+
+/** Types whose filters are picked from a config's options (and may change there) */
+const OPTION_FILTER_TYPES: ReadonlyArray<ActiveFilter['type']> = ['status', 'category', 'boolean'];
+
+/**
+ * Bring filters persisted by older versions up to date:
+ * - quick date chips ("Heute", …) were stored as fixed dates, so they kept
+ *   filtering the day they were created; turn them back into presets
+ * - option filters whose type changed in the config (reservations "done":
+ *   status → boolean) take the config's type
+ * - option filters whose option was removed (rental status "Teilweise
+ *   zurück") are dropped instead of showing a chip that filters nothing
+ */
+function migrateStoredFilters(stored: ActiveFilter[], config: EntityFilterConfig): ActiveFilter[] {
+  const optionConfigs = new Map<string, FilterConfig>();
+  [config.statusFilters, config.categoryFilters].forEach((group) =>
+    group?.forEach((c) => optionConfigs.set(c.field, c))
+  );
+  const presetByLabel = new Map(
+    (Object.entries(DATE_PRESET_LABELS) as [DatePreset, string][]).map(([preset, label]) => [label, preset])
+  );
+
+  const migrated = stored.flatMap((filter) => {
+    let next = filter;
+    if (filter.type === 'date' && Array.isArray(filter.value)) {
+      // Quick filter labels are "<field label>: <preset label>"
+      const preset = presetByLabel.get(filter.label.slice(filter.label.lastIndexOf(': ') + 2));
+      if (preset) next = { ...filter, value: preset };
+    }
+    const optionConfig = optionConfigs.get(filter.field);
+    if (optionConfig && OPTION_FILTER_TYPES.includes(filter.type)) {
+      if (!optionConfig.options?.some((o) => o.value === String(filter.value))) return [];
+      if (optionConfig.type !== filter.type) next = { ...next, type: optionConfig.type };
+    }
+    return [next === filter ? filter : { ...next, id: generateFilterId(next) }];
+  });
+
+  // Several old "Heute" chips of the same field now collapse into one
+  return migrated.filter((filter, index) => migrated.findIndex((f) => f.id === filter.id) === index);
+}
 
 export interface UseFiltersOptions {
   /** Entity type for localStorage key */
@@ -24,6 +68,31 @@ export interface UseFiltersOptions {
   defaultFilters?: Omit<ActiveFilter, 'id'>[];
 }
 
+/**
+ * iid range condition for wildcard searches (37** → 3700–3799). Ranges keep
+ * the filter short however many digits are open. On a multi-relation the two
+ * bounds may be met by different related records, so small ranges are
+ * enumerated exactly instead. Returns null for ranges beyond safe integers,
+ * which no iid can fall into.
+ */
+function buildIidRangeCondition(
+  field: string,
+  min: number,
+  max: number,
+  isMultiValue: boolean
+): string | null {
+  if (!Number.isSafeInteger(max)) return null;
+  // min/max are integers derived from matched digits — safe to inline.
+  if (!isMultiValue) {
+    return `(${field} >= ${min} && ${field} <= ${max})`;
+  }
+  if (max - min < 10) {
+    const values = Array.from({ length: max - min + 1 }, (_, i) => `${field} ?= ${min + i}`);
+    return `(${values.join(' || ')})`;
+  }
+  return `(${field} ?>= ${min} && ${field} ?<= ${max})`;
+}
+
 export function useFilters({ entity, config, persist = true, defaultFilters }: UseFiltersOptions) {
   // Storage key for this entity
   const storageKey = `filters_${entity}`;
@@ -36,7 +105,7 @@ export function useFilters({ entity, config, persist = true, defaultFilters }: U
       const stored = localStorage.getItem(storageKey);
 
       if (stored) {
-        return JSON.parse(stored) as ActiveFilter[];
+        return migrateStoredFilters(JSON.parse(stored) as ActiveFilter[], config);
       } else if (defaultFilters && defaultFilters.length > 0) {
         return defaultFilters.map(f => ({ ...f, id: generateFilterId(f) }));
       }
@@ -112,12 +181,21 @@ export function useFilters({ entity, config, persist = true, defaultFilters }: U
       }
 
       // Build base filter from active filters
-      let filterString = buildPocketBaseFilter(filtersToUse, searchQuery);
+      const multiValueFields = config.multiValueFields ?? [];
+      let filterString = buildPocketBaseFilter(filtersToUse, searchQuery, { multiValueFields });
 
       // Replace __SEARCH__ placeholder with actual search fields
       if (searchQuery && searchQuery.trim()) {
-        const searchTerm = searchQuery.toLowerCase();
+        // Not lowercased: LIKE ignores ASCII case anyway and lowercasing breaks "Öztürk"
+        const searchTerm = searchQuery;
         const searchConditions: string[] = [];
+
+        // Multi-relation paths (items.name) need the any-of operators: a plain
+        // `~` or `=` would require every related record to match.
+        const isMultiValue = (field: string) => multiValueFields.includes(field);
+        const isIidField = (field: string) => field === 'iid' || field.endsWith('.iid');
+        const contains = (field: string, value: string) =>
+          pb.filter(`${field} ${isMultiValue(field) ? '?~' : '~'} {:q}`, { q: value });
 
         // Check if search term is a wildcard IID pattern (e.g., 37**, 7**, 2***)
         // Each * represents a single digit position
@@ -131,34 +209,16 @@ export function useFilters({ entity, config, persist = true, defaultFilters }: U
         if (wildcardMatch) {
           // Wildcard IID search: e.g., 37** matches 3700-3799, 7** matches 700-799
           const prefix = wildcardMatch[1];
-          const wildcardCount = wildcardMatch[2].length;
-          const multiplier = Math.pow(10, wildcardCount);
+          const multiplier = Math.pow(10, wildcardMatch[2].length);
           const minValue = parseInt(prefix, 10) * multiplier;
           const maxValue = minValue + multiplier - 1;
 
           config.searchFields.forEach((field) => {
-            if (field === 'iid' || field.endsWith('.iid')) {
-              const isArrayField = field.includes('.');
-
-              if (isArrayField) {
-                // For array fields, generate individual ?= checks for each value in range.
-                const rangeSize = maxValue - minValue + 1;
-                if (rangeSize <= 100) {
-                  const values = Array.from({ length: rangeSize }, (_, i) => minValue + i);
-                  // minValue/maxValue are numbers derived from matched digits — safe.
-                  const conditions = values.map(v => `${field} ?= ${v}`).join(' || ');
-                  searchConditions.push(`(${conditions})`);
-                } else {
-                  // Range too large, fall back to text search on the field name.
-                  const fieldParts = field.split('.');
-                  const nameField = `${fieldParts[0]}.name`;
-                  searchConditions.push(pb.filter(`${nameField} ~ {:q}`, { q: prefix }));
-                }
-              } else {
-                searchConditions.push(`(${field} >= ${minValue} && ${field} <= ${maxValue})`);
-              }
+            if (isIidField(field)) {
+              const range = buildIidRangeCondition(field, minValue, maxValue, isMultiValue(field));
+              if (range) searchConditions.push(range);
             } else {
-              searchConditions.push(pb.filter(`${field} ~ {:q}`, { q: prefix }));
+              searchConditions.push(contains(field, prefix));
             }
           });
         } else if (numericMatch) {
@@ -166,29 +226,29 @@ export function useFilters({ entity, config, persist = true, defaultFilters }: U
           const numericValue = parseInt(numericMatch[1], 10); // already regex-validated as digits
 
           config.searchFields.forEach((field) => {
-            if (field === 'iid' || field.endsWith('.iid')) {
-              const op = field.includes('.') ? '?=' : '=';
+            if (isIidField(field)) {
+              const op = isMultiValue(field) ? '?=' : '=';
               searchConditions.push(`${field} ${op} ${numericValue}`);
             } else {
-              searchConditions.push(pb.filter(`${field} ~ {:q}`, { q: searchTerm }));
+              searchConditions.push(contains(field, searchTerm));
             }
           });
         } else {
           // Non-numeric search: use text search for all fields.
           config.searchFields.forEach((field) => {
-            searchConditions.push(pb.filter(`${field} ~ {:q}`, { q: searchTerm }));
+            searchConditions.push(contains(field, searchTerm));
           });
         }
 
-        filterString = filterString.replace(
-          `__SEARCH__:"${searchTerm}"`,
-          `(${searchConditions.join(' || ')})`
-        );
+        // Function replacement: a string replacement would expand `$&`-style patterns in
+        // the (escaped) search text and re-insert the raw, unescaped placeholder.
+        const searchFilter = `(${searchConditions.join(' || ')})`;
+        filterString = filterString.replace(`__SEARCH__:"${searchTerm}"`, () => searchFilter);
       }
 
       return filterString;
     },
-    [activeFilters, config.searchFields, entity]
+    [activeFilters, config.searchFields, config.multiValueFields, entity]
   );
 
   /**

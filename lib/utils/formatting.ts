@@ -2,13 +2,45 @@
  * Formatting utilities for dates, currency, etc.
  */
 
-import { format, formatDistance, differenceInDays, parseISO } from 'date-fns';
+import { format, differenceInCalendarDays, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { parsePhoneNumberFromString, type CountryCode, type PhoneNumber } from 'libphonenumber-js/min';
 import { RentalStatus, type Rental } from '@/types';
 import { getRentalReturnStatus } from './partial-returns';
 
 const DEFAULT_PHONE_COUNTRY: CountryCode = 'DE';
+
+/**
+ * Time zone the library operates in. Rental status compares date-only fields
+ * (expected_on, returned_on) as calendar days in this zone, so the result
+ * doesn't depend on the browser's time zone.
+ */
+export const BUSINESS_TIME_ZONE = 'Europe/Berlin';
+
+const businessDayFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: BUSINESS_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+/**
+ * Calendar day (YYYY-MM-DD) of a date value in BUSINESS_TIME_ZONE.
+ * PocketBase stores date-only values as UTC midnight ("2026-04-15 00:00:00.000Z",
+ * what dateToLocalString() writes); older records carry local midnight in UTC
+ * ("2026-04-14 22:00:00.000Z"). Both map to 2026-04-15. Plain "YYYY-MM-DD"
+ * strings are returned as-is. Returns '' for empty or unparseable input.
+ */
+export function toBusinessDay(value: string | Date | null | undefined): string {
+  if (!value) return '';
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const date = typeof value === 'string' ? parseISO(value) : value;
+  if (isNaN(date.getTime())) return '';
+  const parts = Object.fromEntries(
+    businessDayFormatter.formatToParts(date).map((p) => [p.type, p.value])
+  );
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
 
 function parsePhone(phone: string, country: CountryCode): PhoneNumber | undefined {
   const trimmed = phone?.trim();
@@ -38,21 +70,6 @@ export function formatDateTime(date: string | Date): string {
 }
 
 /**
- * Format relative time (e.g., "vor 2 Tagen")
- */
-export function formatRelativeTime(date: string | Date): string {
-  try {
-    const dateObj = typeof date === 'string' ? parseISO(date) : date;
-    return formatDistance(dateObj, new Date(), {
-      addSuffix: true,
-      locale: de,
-    });
-  } catch {
-    return '';
-  }
-}
-
-/**
  * Format currency to EUR
  */
 export function formatCurrency(amount: number): string {
@@ -64,67 +81,14 @@ export function formatCurrency(amount: number): string {
 
 /**
  * Calculate rental status based on dates and partial returns
- * Overload for full rental object (preferred)
  */
-export function calculateRentalStatus(rental: Rental): RentalStatus;
-/**
- * Calculate rental status based on dates only (legacy)
- */
-export function calculateRentalStatus(
-  rented_on: string,
-  returned_on: string | null | undefined,
-  expected_on: string,
-  extended_on?: string | null
-): RentalStatus;
-/**
- * Implementation
- */
-export function calculateRentalStatus(
-  rentalOrRentedOn: Rental | string,
-  returned_on?: string | null,
-  expected_on?: string,
-  extended_on?: string | null
-): RentalStatus {
-  // Determine if we got a Rental object or individual fields
-  let rental: Rental | null = null;
-  let rentedOn: string;
-  let returnedOn: string | null | undefined;
-  let expectedOn: string;
-  let extendedOn: string | null | undefined;
-
-  if (typeof rentalOrRentedOn === 'object') {
-    // New signature: full rental object
-    rental = rentalOrRentedOn;
-    rentedOn = rental.rented_on;
-    returnedOn = rental.returned_on;
-    expectedOn = rental.expected_on;
-    extendedOn = rental.extended_on;
-  } else {
-    // Legacy signature: individual fields
-    rentedOn = rentalOrRentedOn;
-    returnedOn = returned_on;
-    expectedOn = expected_on!;
-    extendedOn = extended_on;
-  }
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0); // Reset to start of day
-
-  // Check for partial returns first (only if we have the full rental object)
-  if (rental && !returnedOn) {
-    const returnStatus = getRentalReturnStatus(rental);
-    if (returnStatus.isPartiallyReturned) {
-      return RentalStatus.PartiallyReturned;
-    }
-  }
+export function calculateRentalStatus(rental: Rental): RentalStatus {
+  const { returned_on: returnedOn, expected_on: expectedOn } = rental;
+  const today = toBusinessDay(new Date());
 
   // Already returned
   if (returnedOn) {
-    const returnDate = parseISO(returnedOn);
-    returnDate.setHours(0, 0, 0, 0);
-
-    // Check if returned today
-    if (returnDate.getTime() === today.getTime()) {
+    if (toBusinessDay(returnedOn) === today) {
       return RentalStatus.ReturnedToday;
     }
     return RentalStatus.Returned;
@@ -133,24 +97,23 @@ export function calculateRentalStatus(
   // Use expected_on as the due date
   // Note: extended_on now represents when the extension was made, not the new deadline
   // The new deadline is stored in expected_on (which gets updated when extending)
-  if (!expectedOn) {
-    return RentalStatus.Active;
-  }
+  const dueDay = toBusinessDay(expectedOn);
 
-  const dueDate = parseISO(expectedOn);
-  dueDate.setHours(0, 0, 0, 0);
-
-  const daysUntilDue = differenceInDays(dueDate, today);
-
-  if (daysUntilDue < 0) {
+  // YYYY-MM-DD strings compare chronologically
+  if (dueDay && dueDay < today) {
     return RentalStatus.Overdue;
   }
 
-  if (daysUntilDue === 0) {
+  if (dueDay && dueDay === today) {
     return RentalStatus.DueToday;
   }
 
-  return RentalStatus.Active;
+  // Partial returns replace "active" only: an overdue or due-today rental
+  // stays overdue / due today even if some items are back, so overdue lists
+  // and counters keep it.
+  return getRentalReturnStatus(rental).isPartiallyReturned
+    ? RentalStatus.PartiallyReturned
+    : RentalStatus.Active;
 }
 
 /**
@@ -158,22 +121,23 @@ export function calculateRentalStatus(
  */
 export function calculateDaysOverdue(
   returned_on: string | null | undefined,
-  expected_on: string,
-  extended_on?: string | null
+  expected_on: string
 ): number {
   // If already returned, no overdue
   if (returned_on) {
     return 0;
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
   // Use expected_on as the due date (extended_on is now just a timestamp)
-  const dueDate = parseISO(expected_on);
-  dueDate.setHours(0, 0, 0, 0);
+  const dueDay = toBusinessDay(expected_on);
+  if (!dueDay) {
+    return 0;
+  }
 
-  return differenceInDays(today, dueDate);
+  return differenceInCalendarDays(
+    localStringToDate(toBusinessDay(new Date())),
+    localStringToDate(dueDay)
+  );
 }
 
 /**
@@ -217,13 +181,6 @@ export function truncate(text: string, maxLength: number): string {
     return text;
   }
   return text.slice(0, maxLength - 3) + '...';
-}
-
-/**
- * Get initials from name
- */
-export function getInitials(firstname: string, lastname: string): string {
-  return `${firstname.charAt(0)}${lastname.charAt(0)}`.toUpperCase();
 }
 
 /**

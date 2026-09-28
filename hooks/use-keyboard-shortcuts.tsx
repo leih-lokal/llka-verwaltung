@@ -9,20 +9,25 @@ import {
   createContext,
   useContext,
   useEffect,
-  useState,
   useCallback,
+  useMemo,
   useRef,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
-  SHORTCUT_REGISTRY,
   type ShortcutContext,
   getShortcutsForKey,
 } from '@/lib/keyboard-shortcuts/shortcut-registry';
 import { KeyboardShortcutToast } from '@/components/keyboard-shortcuts/keyboard-shortcut-toast';
-import { isInputFocused } from '@/lib/keyboard-shortcuts/input-detection';
+import { shouldIgnoreShortcutKey } from '@/lib/keyboard-shortcuts/input-detection';
+import {
+  areSingleKeyShortcutsEnabled,
+  setSingleKeyShortcutsEnabled,
+  subscribeSingleKeyShortcuts,
+} from '@/lib/keyboard-shortcuts/preferences';
 
 type SequenceState =
   | { status: 'idle' }
@@ -49,9 +54,9 @@ const DOUBLE_SHIFT_TIMEOUT = 300; // 300ms for double Shift detection
 
 export function KeyboardShortcutsProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const [sequenceState, setSequenceState] = useState<SequenceState>({
-    status: 'idle',
-  });
+  // A ref, not state: nothing renders from it, and state would re-attach the
+  // keydown listener on every step (whose cleanup cleared the reset timer).
+  const sequenceRef = useRef<SequenceState>({ status: 'idle' });
   const lastShiftPressRef = useRef<number>(0);
 
   // Modal state setters (populated by bridge component)
@@ -76,21 +81,23 @@ export function KeyboardShortcutsProvider({ children }: { children: ReactNode })
 
   // Reset sequence state
   const resetSequence = useCallback(() => {
+    const sequenceState = sequenceRef.current;
     if (sequenceState.status === 'waiting') {
       toast.dismiss(sequenceState.toastId);
     }
-    setSequenceState({ status: 'idle' });
+    sequenceRef.current = { status: 'idle' };
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
-  }, [sequenceState]);
+  }, []);
 
   // Keyboard event handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if input is focused
-      if (isInputFocused()) {
+      // Ignore when turned off, while typing, inside dialogs/sheets and in
+      // widgets with their own key handling (type-ahead, grid navigation)
+      if (!areSingleKeyShortcutsEnabled() || shouldIgnoreShortcutKey(e)) {
         return;
       }
 
@@ -100,6 +107,7 @@ export function KeyboardShortcutsProvider({ children }: { children: ReactNode })
       }
 
       const key = e.key.toLowerCase();
+      const sequenceState = sequenceRef.current;
 
       // Handle Escape to cancel sequence
       if (key === 'escape' && sequenceState.status === 'waiting') {
@@ -152,12 +160,12 @@ export function KeyboardShortcutsProvider({ children }: { children: ReactNode })
           );
 
           // Update state
-          setSequenceState({
+          sequenceRef.current = {
             status: 'waiting',
             firstKey: key,
             timestamp: Date.now(),
             toastId,
-          });
+          };
 
           // Set timeout to reset
           timeoutRef.current = setTimeout(() => {
@@ -199,7 +207,7 @@ export function KeyboardShortcutsProvider({ children }: { children: ReactNode })
           }
 
           // Reset state
-          setSequenceState({ status: 'idle' });
+          sequenceRef.current = { status: 'idle' };
           if (timeoutRef.current) {
             clearTimeout(timeoutRef.current);
             timeoutRef.current = null;
@@ -225,22 +233,26 @@ export function KeyboardShortcutsProvider({ children }: { children: ReactNode })
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [sequenceState, getShortcutContext, resetSequence]);
+  }, [getShortcutContext, resetSequence]);
 
-  const value: KeyboardShortcutsContextValue = {
-    registerCommandMenu: (setter) => {
-      commandMenuOpenRef.current = setter;
-    },
-    registerQuickFind: (setter) => {
-      quickFindOpenRef.current = setter;
-    },
-    registerSequentialMode: (setter) => {
-      sequentialModeOpenRef.current = setter;
-    },
-    registerIdentityPicker: (setter) => {
-      identityPickerOpenRef.current = setter;
-    },
-  };
+  // Register functions only write refs, so the value never needs to change
+  const value = useMemo<KeyboardShortcutsContextValue>(
+    () => ({
+      registerCommandMenu: (setter) => {
+        commandMenuOpenRef.current = setter;
+      },
+      registerQuickFind: (setter) => {
+        quickFindOpenRef.current = setter;
+      },
+      registerSequentialMode: (setter) => {
+        sequentialModeOpenRef.current = setter;
+      },
+      registerIdentityPicker: (setter) => {
+        identityPickerOpenRef.current = setter;
+      },
+    }),
+    []
+  );
 
   return (
     <KeyboardShortcutsContext.Provider value={value}>
@@ -257,4 +269,17 @@ export function useKeyboardShortcuts() {
     );
   }
   return context;
+}
+
+/**
+ * Single-key shortcut preference (WCAG 2.1.4), as [enabled, setEnabled].
+ * Server snapshot is "enabled" so hydration matches the default.
+ */
+export function useSingleKeyShortcutsEnabled(): [boolean, (enabled: boolean) => void] {
+  const enabled = useSyncExternalStore(
+    subscribeSingleKeyShortcuts,
+    areSingleKeyShortcutsEnabled,
+    () => true
+  );
+  return [enabled, setSingleKeyShortcutsEnabled];
 }

@@ -5,8 +5,8 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { collections } from '@/lib/pocketbase/client';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { collections, pb } from '@/lib/pocketbase/client';
 import type { BookingExpanded, Item } from '@/types';
 import {
   generateMonthDates,
@@ -62,7 +62,14 @@ export function useBookingGrid(): UseBookingGridReturn {
     [items, bookings]
   );
 
+  // Id of the latest fetch. Fast month navigation can let an older response
+  // arrive last; only the latest one may update state.
+  const latestRequestRef = useRef(0);
+
   const fetchData = useCallback(async () => {
+    const requestId = ++latestRequestRef.current;
+    const isStale = () => requestId !== latestRequestRef.current;
+
     setIsLoading(true);
     try {
       const pad = (n: number) => String(n).padStart(2, '0');
@@ -81,15 +88,20 @@ export function useBookingGrid(): UseBookingGridReturn {
           sort: 'iid',
         }),
         collections.bookings().getFullList<BookingExpanded>({
-          filter: `start_date<='${lastDayStr}' && end_date>='${firstDayStr}'`,
+          filter: pb.filter('start_date <= {:last} && end_date >= {:first}', {
+            last: lastDayStr,
+            first: firstDayStr,
+          }),
           sort: 'start_date',
           expand: 'item,customer',
         }),
       ]);
 
+      if (isStale()) return;
       setItems(itemsResult);
       setBookings(bookingsResult);
     } catch (err) {
+      if (isStale()) return;
       // Detect missing collection (404 or "not found" from PocketBase)
       if (
         err &&
@@ -102,7 +114,7 @@ export function useBookingGrid(): UseBookingGridReturn {
         console.error('Error fetching booking grid data:', err);
       }
     } finally {
-      setIsLoading(false);
+      if (!isStale()) setIsLoading(false);
     }
   }, [year, month]);
 
