@@ -1291,6 +1291,20 @@ export function RentalDetailSheet({
                                   {item.model && <span>Modell: {item.model}</span>}
                                 </div>
                               </div>
+                              {/* Thumbnail so staff can check they picked the right item */}
+                              <div className="w-10 h-10 shrink-0 overflow-hidden border border-border bg-muted">
+                                {item.images && item.images.length > 0 && (
+                                  <img
+                                    src={pb.files.getURL(item, item.images[0], { thumb: '40x40f' })}
+                                    alt=""
+                                    className="w-full h-full object-cover"
+                                    loading="lazy"
+                                    decoding="async"
+                                    width={40}
+                                    height={40}
+                                  />
+                                )}
+                              </div>
                               <Button
                                 type="button"
                                 variant="ghost"
