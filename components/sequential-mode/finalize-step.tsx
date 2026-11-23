@@ -181,8 +181,12 @@ export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
     }
   };
 
+  // Like the items step: without a Kürzel there is no create button and
+  // Enter does nothing; the focused empty field shows what is missing
+  const hasEmployee = localEmployee.trim() !== '';
+
   createRentalRef.current = () => {
-    if (!isCreating) void handleCreateRental();
+    if (!isCreating && hasEmployee) void handleCreateRental();
   };
 
   // Format date for display
@@ -270,7 +274,7 @@ export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
         {/* Employee/Identity */}
         <div>
           <Label htmlFor="employee" className="text-lg font-semibold mb-4 block">
-            Mitarbeiter-Kürzel:
+            Mitarbeiter-Kürzel *
           </Label>
           <div className="space-y-2">
             <Input
@@ -282,11 +286,7 @@ export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
               className="h-14 text-xl"
               autoComplete="off"
             />
-            {!localEmployee.trim() ? (
-              <p className="text-sm text-amber-600">
-                Ohne Kürzel kann die Ausleihe nicht erstellt werden
-              </p>
-            ) : !currentIdentity && (
+            {!currentIdentity && (
               <p className="text-sm text-muted-foreground">
                 Das Kürzel wird nur für diese Ausleihe verwendet
               </p>
@@ -299,25 +299,28 @@ export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
           </div>
         </div>
 
-        {/* Create Button: below the settings it confirms */}
-        <Button
-          onClick={handleCreateRental}
-          disabled={isCreating}
-          size="lg"
-          className="w-full h-16 text-2xl font-semibold"
-        >
-          {isCreating ? (
-            <>
-              <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-              Erstelle Ausleihe...
-            </>
-          ) : (
-            <>
-              <CheckCircle2 className="mr-2 h-6 w-6" />
-              Ausleihe erstellen
-            </>
-          )}
-        </Button>
+        {/* Create Button: below the settings it confirms, shown once a
+            Kürzel is entered (like "Weiter" in the items step) */}
+        {hasEmployee && (
+          <Button
+            onClick={handleCreateRental}
+            disabled={isCreating}
+            size="lg"
+            className="w-full h-16 text-2xl font-semibold"
+          >
+            {isCreating ? (
+              <>
+                <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+                Erstelle Ausleihe...
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="mr-2 h-6 w-6" />
+                Ausleihe erstellen
+              </>
+            )}
+          </Button>
+        )}
       </div>
 
       <div className="w-80 shrink-0 border-l pl-6">
