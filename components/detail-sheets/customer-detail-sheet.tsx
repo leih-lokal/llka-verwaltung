@@ -18,7 +18,7 @@ import {
   SheetTitle,
   SheetFooter,
 } from '@/components/ui/sheet';
-import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   Dialog,
   DialogContent,
@@ -72,7 +72,11 @@ const customerSchema = z.object({
   city: z.string().optional(),
   registered_on: z.string(),
   renewed_on: z.string().optional(),
-  newsletter: z.boolean(),
+  // null = not chosen yet (new customers): staff must actively pick Ja or Nein
+  newsletter: z
+    .boolean()
+    .nullable()
+    .refine((val) => val !== null, { message: 'Bitte Ja oder Nein wählen' }),
   remark: z.string().optional(),
   highlight_color: z.enum(['red', 'orange', 'yellow', 'green', 'teal', 'blue', 'purple', 'pink', '']).optional(),
 });
@@ -133,13 +137,14 @@ export function CustomerDetailSheet({
       city: '',
       registered_on: dateToLocalString(new Date()),
       renewed_on: '',
-      newsletter: false,
+      newsletter: null,
       remark: '',
       highlight_color: '',
     },
   });
 
   const { formState: { isDirty } } = form;
+  const newsletterValue = form.watch('newsletter');
 
   // Load customer data when the sheet opens or the customer changes. Gated on
   // (and re-run by) `open`: after creating a customer the parent passes null
@@ -183,7 +188,7 @@ export function CustomerDetailSheet({
       city: customer?.city || '',
       registered_on: dateToLocalString(new Date()),
       renewed_on: '',
-      newsletter: false,
+      newsletter: null,
       remark: '',
       highlight_color: '',
     };
@@ -270,7 +275,7 @@ export function CustomerDetailSheet({
         city: data.city ?? '',
         registered_on: data.registered_on,
         renewed_on: data.renewed_on ?? '',
-        newsletter: data.newsletter,
+        newsletter: data.newsletter === true,
         remark: data.remark ?? '',
         highlight_color: data.highlight_color ? (data.highlight_color as HighlightColor) : '',
       };
@@ -727,15 +732,30 @@ export function CustomerDetailSheet({
                     </div>
 
                     <div>
-                      <Label htmlFor="newsletter" className="text-sm font-medium">Newsletter</Label>
-                      <div className="flex items-center gap-2 mt-2">
-                        <Checkbox
-                          id="newsletter"
-                          checked={form.watch('newsletter')}
-                          onCheckedChange={(checked) => form.setValue('newsletter', checked as boolean)}
-                        />
-                        <span className="text-sm text-muted-foreground">Newsletter abonniert</span>
-                      </div>
+                      <Label id="customer-newsletter-label" className="text-sm font-medium">Newsletter *</Label>
+                      <RadioGroup
+                        value={newsletterValue === null ? '' : newsletterValue ? 'yes' : 'no'}
+                        onValueChange={(next) =>
+                          form.setValue('newsletter', next === 'yes', { shouldDirty: true, shouldValidate: true })
+                        }
+                        aria-labelledby="customer-newsletter-label"
+                        {...errorProps('newsletter')}
+                        className="flex gap-6 mt-2"
+                      >
+                        <div className="flex items-center gap-2">
+                          <RadioGroupItem value="yes" id="newsletter-yes" />
+                          <Label htmlFor="newsletter-yes" className="font-normal">Ja</Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <RadioGroupItem value="no" id="newsletter-no" />
+                          <Label htmlFor="newsletter-no" className="font-normal">Nein</Label>
+                        </div>
+                      </RadioGroup>
+                      {form.formState.errors.newsletter && (
+                        <p id={errorId('newsletter')} className="text-sm text-destructive mt-1">
+                          {form.formState.errors.newsletter.message}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </section>
