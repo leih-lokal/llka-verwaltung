@@ -145,8 +145,10 @@ export function SequentialModeModal() {
           <ProgressIndicator currentStep={step} />
         </DialogHeader>
 
-        {/* Step Content */}
-        <div className="flex-1 overflow-hidden">
+        {/* Step Content: scrolls when a step is taller than the dialog
+            (e.g. "Ausleihe erstellen" on laptop screens) instead of
+            cutting it off */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
           {step === 1 && <CustomerStep />}
           {step === 2 && <ItemsStep />}
           {step === 3 && <FinalizeStep onSuccess={() => {}} />}

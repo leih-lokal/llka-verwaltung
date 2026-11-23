@@ -57,6 +57,27 @@ export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
     }
   }, [currentIdentity, employee]);
 
+  // Enter creates the rental, as the "↵ Weiter" hint promises. Skipped
+  // while a button or the date picker has focus, so Enter still activates
+  // the focused control instead.
+  const createRentalRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || e.repeat || e.defaultPrevented) return;
+      const active = document.activeElement;
+      if (
+        active?.tagName === 'BUTTON' ||
+        active?.closest('[data-slot="popover-content"]')
+      ) {
+        return;
+      }
+      e.preventDefault();
+      createRentalRef.current();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Quick picks are highlighted by calendar day: the default and the
   // picked dates carry a time of day, so comparing timestamps fails
   const [today] = useState(() => new Date());
@@ -160,6 +181,10 @@ export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
     }
   };
 
+  createRentalRef.current = () => {
+    if (!isCreating) void handleCreateRental();
+  };
+
   // Format date for display
   const formatDateDisplay = (date: Date): string => {
     return date.toLocaleDateString('de-DE', {
@@ -170,8 +195,11 @@ export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 space-y-8">
+    // Two columns like the items step (same divider position): the settings
+    // and the create button on the left, the summary as side information in
+    // the same w-80 panel on the right, so the step needs less height
+    <div className="flex gap-6">
+      <div className="flex-1 min-w-0 space-y-8">
         {/* Date Selection */}
         <div>
           <Label className="text-lg font-semibold mb-4 block">Zurückerwartet am:</Label>
@@ -254,7 +282,11 @@ export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
               className="h-14 text-xl"
               autoComplete="off"
             />
-            {!currentIdentity && (
+            {!localEmployee.trim() ? (
+              <p className="text-sm text-amber-600">
+                Ohne Kürzel kann die Ausleihe nicht erstellt werden
+              </p>
+            ) : !currentIdentity && (
               <p className="text-sm text-muted-foreground">
                 Das Kürzel wird nur für diese Ausleihe verwendet
               </p>
@@ -267,6 +299,28 @@ export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
           </div>
         </div>
 
+        {/* Create Button: below the settings it confirms */}
+        <Button
+          onClick={handleCreateRental}
+          disabled={isCreating}
+          size="lg"
+          className="w-full h-16 text-2xl font-semibold"
+        >
+          {isCreating ? (
+            <>
+              <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+              Erstelle Ausleihe...
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="mr-2 h-6 w-6" />
+              Ausleihe erstellen
+            </>
+          )}
+        </Button>
+      </div>
+
+      <div className="w-80 shrink-0 border-l pl-6">
         {/* Summary info */}
         <div className="p-4 rounded-lg bg-muted/50 space-y-2">
           <div className="flex justify-between">
@@ -292,27 +346,6 @@ export function FinalizeStep({ onSuccess }: { onSuccess: () => void }) {
         </div>
       </div>
 
-      {/* Create Button */}
-      <div className="mt-8 pt-6 border-t">
-        <Button
-          onClick={handleCreateRental}
-          disabled={isCreating || !localEmployee.trim()}
-          size="lg"
-          className="w-full h-16 text-2xl font-semibold"
-        >
-          {isCreating ? (
-            <>
-              <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-              Erstelle Ausleihe...
-            </>
-          ) : (
-            <>
-              <CheckCircle2 className="mr-2 h-6 w-6" />
-              Ausleihe erstellen
-            </>
-          )}
-        </Button>
-      </div>
     </div>
   );
 }
