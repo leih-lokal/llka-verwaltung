@@ -881,6 +881,20 @@ export function ReservationDetailSheet({
                                             : "opacity-0",
                                         )}
                                       />
+                                      {/* Thumbnail so staff can tell similar items apart */}
+                                      <div className="mr-2 w-10 h-10 shrink-0 overflow-hidden border border-border bg-muted">
+                                        {item.images && item.images.length > 0 && (
+                                          <img
+                                            src={pb.files.getURL(item, item.images[0], { thumb: "40x40f" })}
+                                            alt=""
+                                            className="w-full h-full object-cover"
+                                            loading="lazy"
+                                            decoding="async"
+                                            width={40}
+                                            height={40}
+                                          />
+                                        )}
+                                      </div>
                                       <FormattedId id={item.iid} size="md" className="mr-2" />
                                       <span className="flex-1 group-aria-selected:text-white">
                                         {item.name}
@@ -927,6 +941,20 @@ export function ReservationDetailSheet({
                                   {formatCurrency(item.deposit)}
                                 </span>
                               </div>
+                            </div>
+                            {/* Thumbnail so staff can check they picked the right item */}
+                            <div className="w-10 h-10 shrink-0 overflow-hidden border border-border bg-muted">
+                              {item.images && item.images.length > 0 && (
+                                <img
+                                  src={pb.files.getURL(item, item.images[0], { thumb: "40x40f" })}
+                                  alt=""
+                                  className="w-full h-full object-cover"
+                                  loading="lazy"
+                                  decoding="async"
+                                  width={40}
+                                  height={40}
+                                />
+                              )}
                             </div>
                             <Button
                               type="button"
